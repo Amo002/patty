@@ -12,9 +12,12 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -51,7 +54,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return match (true) {
+            // A response someone built on purpose (abort_if with a response, a redirect) is already final.
+            if ($e instanceof HttpResponseException) {
+                return $e->getResponse();
+            }
+
+            $response = match (true) {
                 $e instanceof DomainException => ApiResponse::error($e->getMessage(), $e->errorCode(), $e->status(), $e->errors()),
                 $e instanceof ValidationException => ApiResponse::error('The given data was invalid.', 'validation_failed', 422, $e->errors()),
                 $e instanceof AuthenticationException => ApiResponse::error('Unauthorized.', 'unauthorized', 401),
@@ -59,8 +67,28 @@ return Application::configure(basePath: dirname(__DIR__))
                 $e instanceof NotFoundHttpException => ApiResponse::error('Resource not found.', 'not_found', 404),
                 $e instanceof MethodNotAllowedHttpException => ApiResponse::error('Method not allowed.', 'method_not_allowed', 405),
                 $e instanceof ThrottleRequestsException => ApiResponse::error('Too many requests.', 'too_many_requests', 429),
+                // Any other HTTP exception (413, 419, 503...) keeps its own status. Laravel does not report these, so
+                // turning them into 500 would leave a false error with nothing in the log.
+                $e instanceof HttpExceptionInterface => ApiResponse::error(
+                    Response::$statusTexts[$e->getStatusCode()] ?? 'Request failed.',
+                    match ($e->getStatusCode()) {
+                        403 => 'forbidden',
+                        413 => 'payload_too_large',
+                        419 => 'page_expired',
+                        503 => 'service_unavailable',
+                        default => 'http_error',
+                    },
+                    $e->getStatusCode(),
+                ),
                 // S8: never echo the exception text, trace or SQL. The log has it, keyed by request id.
                 default => ApiResponse::error('Something went wrong on our side.', 'server_error', 500),
             };
+
+            // Keep Retry-After, X-RateLimit-* (429) and Allow (405) so clients can act on them.
+            if ($e instanceof HttpExceptionInterface) {
+                $response->withHeaders($e->getHeaders());
+            }
+
+            return $response;
         });
     })->create();
