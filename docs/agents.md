@@ -24,6 +24,10 @@ Tiers in use, lowest to highest: Sonnet 5.5 < Opus 5.5. Fable 5.1 is not used lo
 
 Why the reviewer is higher: a reviewer weaker than the builder approves what it cannot fully follow. Review is where confident wrong answers get caught, so it gets the strongest model.
 
+## Concurrency limit (D-040)
+
+At most **3 agents at once: 2 builders and 1 reviewer.** Builders work in separate git worktrees on separate ticket branches, paired so they never edit the same files. Extra tickets wait. Review fixes go back to the same builder rather than to a new agent. The limit exists because the project runs on a Claude Pro plan.
+
 ## Extra rule for stock arithmetic (L tickets)
 
 The stock arithmetic and outstanding-quantity logic are never merged on an agent's word. With Opus as the top tier (D-039), L tickets get three checks: the Opus reviewer with `/code-review` at level `high`, the orchestrator reading the diff, and Mohamad's hand-check of the worked example. Before Mohamad's review, the orchestrator walks him through the logic with a worked example in the ticket (numbers in, numbers out), and he checks the numbers by hand.
