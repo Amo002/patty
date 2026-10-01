@@ -133,7 +133,7 @@ it('rejects quantities that are zero, decimal or not numbers, naming line and in
     expect($response->json('errors'))->toHaveKey('recipe.1.quantity')
         ->and($response->json('errors')['recipe.1.quantity'][0])->toStartWith('Line 2 (Beef): quantity ');
     expect(MenuItem::count())->toBe(0);
-})->with([true, false, '1.5', 1.5, 'abc', '1e3', -1, 0, null, []]);
+})->with([true, false, '1.5', 1.5, 'abc', '1e3', -1, 0, null, 'empty array' => [[]]]);
 
 it('says "at least 1" for a zero quantity', function () {
     $i = menuIngredients();
@@ -178,7 +178,7 @@ it('rejects a duplicate name in a different case on create and on rename', funct
 
     $create = $this->postJson('/api/v1/menu-items', ['name' => 'CLASSIC burger'])->assertStatus(422);
     expect($create->json())->assertNoIntegerIds();
-    expect($create->json('errors')['name'][0])->toBe('A menu item called CLASSIC burger already exists.');
+    expect($create->json('errors')['name'][0])->toBe('A menu item with this name already exists.');
 
     $rename = $this->patchJson("/api/v1/menu-items/{$other->ulid}", ['name' => 'classic burger'])->assertStatus(422);
     expect($rename->json())->assertNoIntegerIds();
