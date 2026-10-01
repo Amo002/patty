@@ -115,7 +115,8 @@ it('rejects a duplicate on replace even when the ULID differs only by case', fun
     ]])->assertStatus(422);
 
     expect($response->json())->assertNoIntegerIds();
-    expect($response->json('errors'))->toHaveKey('lines.1.ingredient_id');
+    // The distinct message, not just the key: without lowercasing, the uppercase copy would fail `exists` on the same key.
+    expect($response->json('errors')['lines.1.ingredient_id'])->toBe(['Line 2 (Beef): ingredient is listed more than once.']);
     // The failed replace must leave the old recipe alone.
     expect($item->recipeLines()->count())->toBe(3);
 });
@@ -140,11 +141,13 @@ it('rejects quantities that are zero, decimal or not numbers, naming line and in
 it('says "at least 1" for a zero quantity', function () {
     $i = menuIngredients();
 
-    $this->postJson('/api/v1/menu-items', [
+    $response = $this->postJson('/api/v1/menu-items', [
         'name' => 'Test Burger',
         'recipe' => [['ingredient_id' => $i['beef']->ulid, 'quantity' => 0]],
-    ])->assertStatus(422)
-        ->assertJsonPath('errors', fn ($e) => $e['recipe.0.quantity'][0] === 'Line 1 (Beef): quantity must be at least 1.');
+    ])->assertStatus(422);
+
+    expect($response->json())->assertNoIntegerIds();
+    expect($response->json('errors')['recipe.0.quantity'])->toBe(['Line 1 (Beef): quantity must be at least 1.']);
 });
 
 it('rejects an unknown or numeric ingredient_id', function (mixed $ingredientId) {
@@ -209,10 +212,10 @@ it('renames an item, allows re-sending its own name, and ignores a PATCH without
     expect($renamed->json())->assertNoIntegerIds();
 
     // The unique rule ignores the item itself, so changing only the case is allowed.
-    $this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => 'CLASSIC BURGER XL'])->assertOk();
+    expect($this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => 'CLASSIC BURGER XL'])->assertOk()->json())->assertNoIntegerIds();
     expect($item->fresh()->name)->toBe('CLASSIC BURGER XL');
 
-    $this->patchJson("/api/v1/menu-items/{$item->ulid}", [])->assertOk()->assertJsonPath('data.name', 'CLASSIC BURGER XL');
+    expect($this->patchJson("/api/v1/menu-items/{$item->ulid}", [])->assertOk()->assertJsonPath('data.name', 'CLASSIC BURGER XL')->json())->assertNoIntegerIds();
 
     // The rename went through LogsActivity with the dirty field only.
     $entry = Activity::where('event', 'updated')->latest('id')->firstOrFail();
@@ -256,10 +259,11 @@ it('records old and new lines in the recipe.replaced audit entry with the reques
     $i = menuIngredients();
     $item = classicBurger($i);
 
-    $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => [
+    $response = $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => [
         ['ingredient_id' => $i['beef']->ulid, 'quantity' => 180],
         ['ingredient_id' => $i['bun']->ulid, 'quantity' => 1],
     ]], ['X-Patty-Channel' => 'ui'])->assertOk();
+    expect($response->json())->assertNoIntegerIds();
 
     $entry = Activity::where('event', 'recipe.replaced')->firstOrFail();
 
@@ -280,7 +284,7 @@ it('records old and new lines in the recipe.replaced audit entry with the reques
 it('writes the recipe.replaced entry on create with an empty old list (F3)', function () {
     $i = menuIngredients();
 
-    $this->postJson('/api/v1/menu-items', classicBurgerPayload($i))->assertCreated();
+    expect($this->postJson('/api/v1/menu-items', classicBurgerPayload($i))->assertCreated()->json())->assertNoIntegerIds();
 
     $entry = Activity::where('event', 'recipe.replaced')->firstOrFail();
     expect($entry->properties['old'])->toBe([])
@@ -297,10 +301,11 @@ it('replaces a recipe atomically: a failing audit write leaves the old lines int
     Activity::creating(fn () => throw new RuntimeException('audit write failed'));
 
     try {
-        $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => [
+        $response = $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => [
             ['ingredient_id' => $i['beef']->ulid, 'quantity' => 180],
             ['ingredient_id' => $i['bun']->ulid, 'quantity' => 1],
         ]])->assertStatus(500);
+        expect($response->json())->assertNoIntegerIds();
     } finally {
         Activity::flushEventListeners();
     }
@@ -314,10 +319,12 @@ it('refuses an empty or missing lines array on replace and keeps the old recipe'
     $i = menuIngredients();
     $item = classicBurger($i);
 
-    $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => []])
+    $empty = $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => []])
         ->assertStatus(422)->assertJsonValidationErrorFor('lines', 'errors');
-    $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", [])
+    $missing = $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", [])
         ->assertStatus(422)->assertJsonValidationErrorFor('lines', 'errors');
+    expect($empty->json())->assertNoIntegerIds();
+    expect($missing->json())->assertNoIntegerIds();
 
     expect($item->recipeLines()->count())->toBe(3);
 });
@@ -345,7 +352,7 @@ it('loads recipes for the whole list in a fixed number of queries', function () 
     $countQueries = function () {
         DB::flushQueryLog();
         DB::enableQueryLog();
-        $this->getJson('/api/v1/menu-items?per_page=100')->assertOk();
+        expect($this->getJson('/api/v1/menu-items?per_page=100')->assertOk()->json())->assertNoIntegerIds();
 
         return count(DB::getQueryLog());
     };
@@ -366,9 +373,9 @@ it('returns 404 for a numeric id in the URL on every item route', function () {
     $i = menuIngredients();
     $lines = ['lines' => [['ingredient_id' => $i['beef']->ulid, 'quantity' => 5]]];
 
-    $this->getJson("/api/v1/menu-items/{$item->id}")->assertNotFound()->assertJsonPath('code', 'not_found');
-    $this->patchJson("/api/v1/menu-items/{$item->id}", ['name' => 'New Name'])->assertNotFound();
-    $this->putJson("/api/v1/menu-items/{$item->id}/recipe", $lines)->assertNotFound();
+    expect($this->getJson("/api/v1/menu-items/{$item->id}")->assertNotFound()->assertJsonPath('code', 'not_found')->json())->assertNoIntegerIds();
+    expect($this->patchJson("/api/v1/menu-items/{$item->id}", ['name' => 'New Name'])->assertNotFound()->json())->assertNoIntegerIds();
+    expect($this->putJson("/api/v1/menu-items/{$item->id}/recipe", $lines)->assertNotFound()->json())->assertNoIntegerIds();
 });
 
 it('reports is_sellable false for an item with no recipe lines', function () {
