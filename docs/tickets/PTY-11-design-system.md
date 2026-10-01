@@ -10,9 +10,9 @@
 | Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer with Claude in Chrome |
 | Branch | `PTY-11-design-system` |
 | Release | v0.4.0 |
-| Depends on | **Phase 2b design approved** (progress.md) |
+| Depends on | Design approved 2026-10-01 (PTY-23) |
 
-> The tokens and components here are provisional until phase 2b. The approved design system replaces them.
+> Implements the **approved** design system: tokens and components exactly as in design.md (D-041) and the design canvas, plus the brand from D-042.
 
 ## Goal
 
@@ -38,3 +38,11 @@ Feature pages (PTY-12).
 - [ ] `public/js/units.js`, the single place for unit display and input conversion, implementing every row of the ui.md conversion table. String-based decimal parsing, no float multiplication.
 - [ ] A `<x-quantity-input>` Blade component: number field plus a g/kg or ml/L switch, sending integer base units, with the precision error before submit.
 - [ ] Image component: shows `image_url` (lazy-loaded, fixed aspect ratio, so no layout shift) with a Hugeicons fallback.
+
+## Additions from D-041 and D-042 (approved design)
+
+- [ ] `public/css/app.css` implements every token in design.md for light and dark: `prefers-color-scheme` plus a `data-theme` attribute set by the identity-chip toggle and remembered in localStorage (wrapped in try/catch).
+- [ ] Inter variable `woff2` (OFL) downloaded once into `public/fonts/` with its `OFL.txt`; `@font-face` with `font-display: swap`.
+- [ ] Layout includes the favicon links: `/brand/favicon.svg`, plus the PNG fallbacks from `scripts/build-brand-pngs.php` (PHP GD, same geometry as the SVG).
+- [ ] Session loader as in design.md (Brand): shown on the first load of a session, 900 ms max, never blocking, reduced-motion aware. Busy buttons use the stacking motion.
+- [ ] Sidebar shows `logo.svg` (light) or the mono mark with the wordmark in `--text` (dark).

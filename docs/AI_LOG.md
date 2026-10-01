@@ -159,3 +159,21 @@ He also asked for:
 **Situation:** the plan assumed Fable 5.1 as orchestrator and top reviewer. Mohamad has no Fable credits, so Opus 5.5 becomes the top tier.
 
 **AI decision, explained to the owner:** keep "the reviewer is one tier above the builder" by moving every builder to Sonnet 5.5 and every reviewer to Opus 5.5, rather than letting Opus review its own tier. The heavy tickets get extra checks instead: `/code-review high`, the orchestrator reading the diff, and the owner's hand-check of the worked examples. Recorded as D-039. All tickets, the board and agents.md were updated.
+
+## 2026-10-01: Phase 2b design, approval, and restarting the build
+
+**Prompt (summary):** "design phase first, talk before building". Mohamad chose a calm pro look, indigo, light and dark, Inter and purposeful motion, then asked mid-way for a logo "with motion design that loads first", reused as the favicon.
+
+**What the AI did:**
+- Designed the logo as hand-written SVG: a burger of four stacked layers, tied to the ledger idea ("entries only ever stack").
+- Made a 3-layer favicon for 16 px that adapts to dark tabs.
+- Built a CSS-only loader animation, plus a busy-button variant of the same motion.
+- Built the design system once with a theme switch, so light and dark cannot drift.
+
+**What the AI got wrong or had to correct:**
+- **The first wave-1 builders lost all work** when the previous session ended: they had committed nothing. The restart briefs now say "commit early and often".
+- **An invented number on a design board** ("3 below half a week" on a KPI tile, a metric the system does not compute) was caught before publishing and replaced with a real one ("From 4 suppliers").
+- **Housekeeping went to the wrong branch:** a `.gitignore` edit was appended on the wrong branch after a failed folder removal. It was reverted and redone.
+- **Mohamad then set a rule** that the AI had been bending: one ticket = one PR, with no mixed changes. The `.gitignore` and rule changes were moved out of the design PR into their own ticket (PTY-24).
+
+**Decisions:** D-041, D-042, D-043; Q-012 closed (UI split into PTY-12, PTY-18 and PTY-19; PTY-17 deferred).

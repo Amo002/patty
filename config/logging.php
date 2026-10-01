@@ -54,8 +54,50 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'channels' => explode(',', (string) env('LOG_STACK', 'errors')),
             'ignore_exceptions' => false,
+        ],
+
+        // D-022: laravel.log holds errors only, so a line in it always means something broke.
+        'errors' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => 'error',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        // D-022: one channel per business flow, so "what happened in purchasing at 14:02" is one file.
+        'stock' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/stock.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        'purchasing' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/purchasing.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        'pos' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/pos.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        'catalog' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/catalog.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
         ],
 
         'single' => [

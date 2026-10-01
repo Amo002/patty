@@ -13,6 +13,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The Journal step diffs against the base branch, which needs full history.
+          fetch-depth: 0
+
+      - name: Journal (D-033, D-040)
+        if: github.event_name == 'pull_request'
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          if echo "$changed" | grep -qE '^(app|routes|database|resources)/'; then
+            if ! echo "$changed" | grep -qE '^docs/(progress\.md|tickets/PTY-[^/]*\.md)$'; then
+              echo "Code changed but neither docs/progress.md nor a docs/tickets/PTY-*.md file did."
+              exit 1
+            fi
+          fi
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -22,6 +36,9 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Dependency audit (S14)
+        run: composer audit
 
       - name: Prepare environment
         run: |

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .bun { fill: #18181B } .patty { fill: #4F46E5 }
+    @media (prefers-color-scheme: dark) { .bun { fill: #E4E4E7 } .patty { fill: #818CF8 } }
+  </style>
+  <path class="bun" d="M4 16a12 10 0 0 1 24 0v1a1.5 1.5 0 0 1-1.5 1.5h-21A1.5 1.5 0 0 1 4 17z"/>
+  <rect class="patty" x="3" y="20.5" width="26" height="5" rx="2.5"/>
+  <rect class="bun" x="5" y="27.5" width="22" height="3.5" rx="1.75"/>
+</svg>
