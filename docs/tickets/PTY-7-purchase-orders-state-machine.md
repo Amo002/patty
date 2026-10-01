@@ -110,3 +110,30 @@ Deviations and notes:
 - `DocumentNumber` is an instance service, so it is injected into `PurchaseOrderService`.
 - A status change writes two activity rows: the trait `updated` (what changed) and the named event (what happened). E29 (PTY-10) may want to filter on `event`.
 - Delete and send-without-lines throw `InvalidTransition` through `forAction()`, with a message naming the action.
+
+## Reviewer findings
+
+Reviewer: Opus 5.5. Pint passes; 142 tests pass. 30 mutations run against the PO tests; 26 caught. Survivors: M6 (lockForUpdate, which compiles to nothing on SQLite, so it cannot be tested), M8a/M8b (`allowed_actions` for received), M18 (the `notice` log), M20 (`bail`, harmless). There are no High findings: the map is defined once, `transitionTo` is the only code that writes `status`, and every guard is mutation-tested.
+
+| # | Severity | File:line | Finding | Resolution |
+|---|---|---|---|---|
+| 1 | Medium | app/Models/PurchaseOrder.php:122-147 | `progress_percent` is too clever for a display number, and it is not exact either. Adding one unit per line to fix 1/3 + 2/3 over-reports other cases: lines 1/999983 and 999978/999979 average just under 50% (exact floor 49), but the code says 50. Replace it with the one-sentence rule "each line's percent rounded down, then the average rounded down": `intdiv(min(received, ordered) * 100, ordered)` per line, then `intdiv(sum, count)`. Drop `PROGRESS_SCALE`. Change the "exact fifty from thirds" case to expect 49, and record in api.md and the docblock that 1/3 + 2/3 shows 49 (it never over-reports and never shows 100 before every line is fully received). | open |
+| 2 | Medium | tests/Feature/Purchasing/PurchaseOrdersTest.php:120 | `allowed_actions` for a received order (`["receive","short_close"]`) is never asserted. Removing `short_close` or adding `send` survives (M8a, M8b), and this is the only status where the UI shows the short-close button. Assert it on the received order before closing. | open |
+| 3 | Low | app/Models/PurchaseOrder.php:89 | The AC "Rejected transitions are logged at `notice`" has no test. Deleting the `notice` call survives (M18). Add a `Log::shouldReceive`/channel spy assertion on one rejected send. | open |
+| 4 | Low | app/Services/PurchaseOrderService.php:87 | flows.md F6 says `purchase_order.lines_updated` records the **old and new** lines. Only the new lines are recorded. Read the current lines (names and quantities, no ids) before deleting them and add them as `old_lines`. | open |
+| 5 | Low | app/Services/PurchaseOrderService.php:17-19, 177-181 | The docblocks say "row lock", but `lockForUpdate` compiles to an empty string on SQLite (`SQLiteGrammar::compileLock`). On SQLite the guarantee comes from the single-writer database lock: a concurrent second writer fails with "database is locked". That is a 500 rather than a 409, but it can never cause a double transition. The lock only matters on MySQL or Postgres. Say so, as `DocumentNumber` already does, because Mohamad will be asked. | open |
+| 6 | Low | tests/Feature/Purchasing/PurchaseOrdersTest.php:120 | D-013 and F11 say short-close moves no stock, but the test does not assert it. Add `expect(StockMovement::count())->toBe(0)` (or an on-hand check) after the close. | open |
+| 7 | Low | PurchaseOrderController.php:60-64, 114-120; PurchaseOrderService.php:187-194 | The same eager-load array (supplier, lines withSum `received_sum`, lines.ingredient) is written three times, and `->tap($this->withDetails(...))` is harder to read than it needs to be. Keep one definition (for example `PurchaseOrder::DETAILS` used by `with()`/`load()`), so PTY-8 cannot load a fourth, slightly different copy. | open |
+| 8 | Nit | app/Services/PurchaseOrderService.php:44 | `next('PO')` uses a literal. Use `DocumentNumber::PURCHASE_ORDER`. | open |
+| 9 | Nit | app/Http/Resources/V1/PurchaseOrderResource.php:11 | The docblock points to `PurchaseOrderController::with()`, which does not exist (the method is `withDetails`). | open |
+| 10 | Nit | tests/Feature/Purchasing/PurchaseOrdersTest.php:71, 286 | Two test names do not match their bodies. "cannot be created as sent" sets `closed`. "accepts the largest quantity and rejects one above it" only tests the accept (the reject is in the G3 dataset). Rename both. | open |
+| 11 | Nit | ticket, Builder notes | `replaceLines` (the ticket says `updateLines`) is not listed under deviations. Accepted, because it matches E19 "Replace lines" and `ReplacePurchaseOrderLinesRequest`, but record it there. | open |
+
+Deviation rulings:
+- (1) Removing `status`, `sent_at`, `closed_at` and `short_closed` from fillable is accepted. M14 pins it.
+- (2) The fixed-point maths is rejected: see finding 1.
+- (3) Injecting `DocumentNumber` is accepted.
+- (4) Two activity rows per transition is accepted. D-021 puts `LogsActivity` on PurchaseOrder, and F7 expects "plus the field change". The noise is a filtering concern for E29 (PTY-10).
+- (5) `integer:strict` plus `bail` is accepted. Strict is what rejects `true`, which M19 pins. Note for the UI tickets: send numbers, not strings (`"10"` gives 422). The `bail` is defensive only, because without it the case still gives 422 (M20).
+- (6) `InvalidTransition::between()` and `forAction()` are accepted. They are small, named, and their messages match api.md and F7.
+- (7) `replaceLines` is accepted: see finding 11.
