@@ -83,6 +83,6 @@ These are acceptance criteria for every UI page (PTY-12) and are checked in QA-7
 3. **Smart defaults.** The delivery form is prefilled with each line's outstanding quantity and shows the limit ("up to 1,050 g").
 4. **Errors in kitchen language.** Field errors use the ingredient name and unit ("Beef: 1,100 g is above the 1,050 g limit") and sit next to the field. State conflicts (409) appear as a notice and refresh the view, because the data on screen is out of date.
 5. **Guiding empty states.** Every empty list says what to do next, with the action button ("No suppliers yet. Add one to start ordering.").
-6. **Readable numbers.** Thousands separators. Large gram and ml values get a muted hint (`12,500 g` with `12.5 kg` beside it, display only). Negative values in danger colour with the word "Negative".
+6. **Readable numbers and units.** Thousands separators. Grams and ml display as kg and L from 1,000 upward, with the exact base value on hover. Quantity inputs for g and ml have a unit switch (g/kg, ml/L) and always send integer base units (D-038; rules in ui.md). Pieces never convert. Negative values in danger colour with the word "Negative".
 7. **Visible freshness.** Live views auto-refresh, values that changed highlight briefly, and "Updated N s ago" is always shown.
 8. **Kitchen-ready.** Usable on a tablet (820 px), tap targets at least 44 px, keyboard navigable with a visible focus ring, WCAG AA contrast, reduced motion respected.

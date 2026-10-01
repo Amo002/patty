@@ -340,3 +340,15 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** reviewers and the live session need to start from zero ("build it from scratch in front of us") or from a rich state ("show me a partially received order"), on demand, in seconds.
 - **Decided by:** Mohamad (Q-016).
 - **Date:** 2026-10-01
+
+## D-038 Store base units; the UI shows and accepts kg and L
+- **Chosen:**
+  - **Storage, API and every calculation** stay in integer base units: `g`, `ml`, `piece` (D-015). The API never accepts or returns kg or L, and a decimal is a 422.
+  - **The UI converts in one module, `public/js/units.js`:**
+    - **Display:** values of 1,000 g or more show as kg, and 1,000 ml or more as L, with up to 3 decimals and trailing zeros trimmed. The exact base value shows on hover. Pieces are never converted.
+    - **Input:** quantity fields for g and ml have a unit switch (g/kg, ml/L) and convert to integer base units before sending, using string-based decimal parsing, never floating-point multiplication. More than 3 decimals in kg or L is refused before sending.
+    - **Server errors** are re-expressed in the unit the user typed in.
+- **Rejected:** storing kg or L, or decimals, in the database (floats in stock, D-015); per-ingredient purchase units such as cases or drums (still out of scope, a next step).
+- **Why:** the kitchen thinks "2.4 kg of beef", and the ledger must think "2400". Keeping the conversion at the edge means the arithmetic that has to be right never sees a decimal. The server re-validates everything, so a UI bug cannot corrupt stock.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01

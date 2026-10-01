@@ -50,7 +50,29 @@ URLs use ULIDs, never database ids (D-031).
 | U6 | **Confirmations** with plain summaries before: send PO, record delivery, short-close, delete draft, reset demo. | design.md rule 2 |
 | U7 | **Errors:** 422 inline next to the field; 409 as a notice plus an automatic refresh; 401, 429 and 500 as a notice with the request id. | D-019 |
 | U8 | **Time** shown in the viewer's machine timezone (`Intl.DateTimeFormat`), with relative time ("5 min ago") where useful and the exact time on hover. | D-030 |
-| U9 | **Numbers:** thousands separators, unit beside the number, kg/L hint for large g/ml values, negative shown in danger colour with the word "Negative". | design.md rule 6 |
+| U9 | **Numbers and units:** thousands separators; g and ml scale to kg and L at 1,000 and above (exact base value on hover); quantity inputs have a g/kg or ml/L switch and send integer base units; pieces never convert; negative shown in danger colour with the word "Negative". Rules in the table below. | D-038 |
 | U10 | **Guided "Try it" card** (Dashboard): five steps linking to screens, ticking themselves off from real data. Dismissible. | D-027 |
 | U11 | Every request sends `X-Patty-Channel: ui` (the POS Simulator sends `pos`), so the audit trail knows where actions came from. | D-021 |
 | U12 | API data is rendered with `x-text` or `textContent` only. **Never `x-html` or `innerHTML`.** | security.md |
+
+## Unit conversion rules (public/js/units.js, D-038)
+
+Storage and API are always integer base units. These rules exist only in the UI.
+
+| Case | Input or value | Result |
+|---|---|---|
+| Display, small | 750 g | `750 g` |
+| Display, scaled | 2400 g | `2.4 kg` (hover: `2,400 g`) |
+| Display, scaled | 52000 g | `52 kg` |
+| Display, precise | 1005 g | `1.005 kg` |
+| Display, negative | -20 g | `-20 g` |
+| Display, negative scaled | -1500 ml | `-1.5 L` |
+| Display, pieces | 2400 piece | `2,400 pcs` (never scaled) |
+| Input kg | `2.4` with kg | sends `2400` |
+| Input kg | `1.005` with kg | sends `1005` (string parsing, not float multiplication) |
+| Input kg, too precise | `1.0005` with kg | refused before sending: "Enter at most 3 decimals in kg" |
+| Input g | `2.5` with g | refused before sending: "Grams must be a whole number" |
+| Input L | `0.75` with L | sends `750` |
+| Error re-expressed | server: 1100 g above 1050 g limit, user typed kg | "Beef: 1.1 kg is above the 1.05 kg limit" |
+
+Defaults for the input switch: PO lines and deliveries start in kg and L; recipe lines start in g and ml.
