@@ -6,10 +6,10 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 
 | Status | Tickets |
 |---|---|
-| Done | PTY-1 |
+| Done | PTY-1, PTY-2, PTY-16, PTY-23, PTY-24 |
 | Awaiting Mohamad | PTY-2 |
 | In Review | (none) |
-| In Progress | PTY-3, PTY-16 (wave 1) |
+| In Progress | PTY-3 (PR #9); wave 2 next: PTY-4, PTY-6 |
 | To Do | PTY-3 to PTY-17, PTY-21, PTY-22 |
 
 ## By phase
