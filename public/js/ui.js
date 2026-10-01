@@ -271,6 +271,13 @@
             self.error = '';
             self.text = value === null || value === undefined ? '' : units.toInputText(value, self.mode);
           });
+          // x-modelable may deliver the parent's starting value after init(), so check once more when the tree is ready.
+          this.$nextTick(function () {
+            if (self.base !== null && self.base !== undefined && self.text === '') {
+              self.lastBase = self.base;
+              self.text = units.toInputText(self.base, self.mode);
+            }
+          });
         },
 
         label: function (mode) {
