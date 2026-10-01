@@ -2,7 +2,31 @@
 
 Jira-style. Project **Patty**, key **PTY**.
 
-## The flow
+## Phases
+
+The project runs in phases, each with a gate. The journal of every phase (goal, how it went, decisions, lessons) is in [progress.md](progress.md).
+
+```
+0 Discovery & planning -> 1 Specification -> 2a Backend design -> 2b Frontend design
+                                                     |                     |
+                                                     v                     v
+                                              3a Build backend      3b Build frontend
+                                                     \                     /
+                             4 Review & testing (continuous, plus a final pass)
+                                                     |
+                                   5 Security -> 6 Release & submission -> 7 Interview prep
+```
+
+| Gate | Rule |
+|---|---|
+| Into 3a | Backend design docs merged (api.md, validation.md, flows.md, data.md) |
+| Into 3b | Mohamad's written approval of the frontend design in progress.md |
+| Into 6 | Every PTY-21 security finding fixed or accepted with a reason |
+| Any PR | Updates progress.md (enforced by CI from PTY-16) |
+
+Phases 2b and 3a can run at the same time. Every ticket names its phase.
+
+## The flow (per ticket)
 
 ```
 Ticket (docs/tickets/PTY-N-slug.md, status To Do)
