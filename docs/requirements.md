@@ -1,0 +1,124 @@
+# Requirements
+
+Each requirement has acceptance criteria (AC). A ticket is done only when the ACs it covers are proven by a test or by the manual QA checklist in [testing.md](testing.md).
+
+Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a question is closed, its recommended answer is assumed.
+
+## Functional
+
+### FR-1 Ingredients and suppliers
+
+- AC1. A manager can create an ingredient with a name and a unit from a fixed list: `g`, `ml`, `piece`.
+- AC2. Ingredient names are unique (case-insensitive). A duplicate returns 422 with a message naming the field.
+- AC3. A manager can list ingredients, each showing its current on-hand quantity (see FR-6).
+- AC4. A manager can create a supplier with a name (unique) and optional contact email and phone.
+- AC5. A manager can list suppliers.
+- AC6. An ingredient's unit cannot be changed once any stock movement exists for it (409 `unit_locked`). Changing it would silently reinterpret history.
+- AC7. Each ingredient can override the default delivery tolerances: over % and under % (basis points, 0 to 10,000) and an absolute over-cap in its unit. Empty means "use the default for this unit" (D-035).
+
+### FR-2 Recipes
+
+- AC1. A manager can create a menu item with a unique name.
+- AC2. A manager can set its recipe: one or more lines of (ingredient, quantity > 0, an integer in the ingredient's unit).
+- AC3. An ingredient appears at most once per recipe.
+- AC4. A recipe can be edited. Edits affect future sales only, and past movements are never rewritten (Q-007).
+- AC5. A menu item with no recipe lines cannot be sold (422 `menu_item_not_sellable`).
+
+### FR-3 Purchase orders
+
+- AC1. A manager can create a purchase order for a supplier with one or more lines of (ingredient, quantity ordered > 0). It starts in `draft`.
+- AC2. An ingredient appears at most once per order.
+- AC3. Lines can be added, changed or removed only while the order is `draft`.
+- AC4. Allowed transitions are defined in exactly one place in the code:
+  - `draft -> sent` (manager action);
+  - `sent -> received` (first delivery recorded);
+  - `received -> closed` (automatic when nothing is outstanding, or manual short-close per Q-004).
+- AC5. Every other transition is rejected with 409 `invalid_transition` and a message naming the current and the attempted state. This includes `draft -> received`, `draft -> closed`, `sent -> draft`, anything out of `closed`, and repeating the same state.
+- AC6. A `draft` order with no lines cannot be sent (409).
+- AC7. Editing lines of an order that is not `draft` is rejected (409 `order_not_editable`).
+
+### FR-4 Receiving deliveries
+
+- AC1. A manager can record a delivery against an order that is `sent` or `received`, with one or more lines of (order line, quantity received > 0).
+- AC2. Recording a delivery against a `draft` or `closed` order is rejected (409 `cannot_receive`).
+- AC3. For every delivery line, stock of that ingredient rises by exactly the quantity received.
+- AC4. Per line, all derived, never stored (D-035):
+  - received = sum(delivered);
+  - max_receivable = ordered + min(intdiv(ordered x over_bps, 10000), over_cap if set);
+  - min_to_complete = ordered - intdiv(ordered x under_bps, 10000);
+  - complete = received >= min_to_complete;
+  - outstanding = complete ? 0 : ordered - received;
+  - under-delivered = complete and received < ordered ? ordered - received : 0;
+  - over-received = max(0, received - ordered).
+- AC5. A delivery is rejected (422 `over_delivery`), and nothing from it is saved, if it would take any line above its `max_receivable`. Stock rises by the full quantity received, excess included.
+- AC6. The first delivery moves the order from `sent` to `received`.
+- AC7. When every line is complete (received >= min_to_complete), the order moves to `closed` in the same transaction.
+- AC8. A delivery is all-or-nothing: if any line fails validation, no stock moves.
+- AC9. A manager can short-close a `received` order with quantity still outstanding. It is marked short-closed, the missing quantity shows as not delivered, and stock is untouched (Q-004).
+- AC10. Two simultaneous deliveries on the same order cannot both pass the tolerance check. The order row is locked for the duration of the transaction.
+- AC11. `received_at` cannot be in the future or earlier than the order's `sent_at` (422).
+- AC12. Tolerances are snapshotted onto each PO line when it is created or edited in draft. Changing an ingredient later never changes an existing line (D-035).
+
+### FR-5 Sales from the POS
+
+- AC1. `POST /api/v1/sales` accepts `{ menu_item_id, quantity, pos_reference? }`.
+- AC2. Stock of each recipe ingredient falls by `recipe quantity x sale quantity`. Example: 2 Classic Burgers lower beef by 300 g, bun by 2 and cheese by 40 g.
+- AC3. A sale that takes an ingredient below zero is accepted and recorded, and the ingredient shows as negative (Q-001).
+- AC4. If `pos_reference` is sent and was already recorded, the original sale is returned with 200 and stock does not move again (Q-005).
+- AC5. Unknown menu item or quantity < 1 returns 422 `validation_failed`.
+- AC6. A sale is all-or-nothing across its ingredients.
+- AC7. Two simultaneous requests with the same `pos_reference` still produce one sale. The unique index is the final guard.
+- AC8. The sale endpoint is rate-limited (120 per minute) and answers 429 `too_many_requests` beyond that.
+- AC9. If `pos_reference` was already used with a different menu item or quantity, the sale is rejected (409 `idempotency_conflict`) and nothing is recorded (D-029).
+- AC10. If `POS_API_KEY` is configured, a sale without a matching `X-POS-Key` is rejected (401). With no key configured the endpoint is open (D-028).
+
+### FR-6 Visibility
+
+- AC1. A stock view lists every ingredient with on-hand = sum of its stock movements, shown in its unit.
+- AC2. Negative on-hand is visibly flagged.
+- AC3. An open-orders view lists every order in `sent` or `received`, with each line's ordered, received and outstanding quantities.
+- AC4. Both views reflect a delivery or sale immediately. They refresh on their own while open, show when they were last updated, and are never served from a browser or server cache.
+- AC5. A stock history view per ingredient lists the movements that make up its balance (reason, delta, reference, time).
+- AC6. Next to on-hand, the stock view shows **Incoming**: the sum of outstanding quantities for that ingredient on open orders (D-020).
+- AC7. An activity view lists audit entries, globally and per purchase order: what happened, when, through which channel (D-021).
+
+### FR-7 Demo experience (supports the "no login" decision)
+
+- AC1. The header identifies the user as "Restaurant manager" and explains that there is no login by design.
+- AC2. A first-visit banner introduces the demo and the guided tour. It is dismissible, and the dismissal is remembered.
+- AC3. The dashboard has a guided "Try it" card with five steps that tick themselves off from real data.
+- AC4. In the local environment the manager can **clear** all data, **seed** demo data into an empty system (409 if not empty), or **reset** (clear then seed), from the UI with confirmation or by API or artisan. Outside local these endpoints do not exist (404) (D-037).
+- AC5. A fresh install shows realistic data with photos (D-036) in every state:
+  - POs closed by full receipt, closed within under-tolerance, closed with over-receipt, short-closed, partially received, sent and draft;
+  - three days of sales;
+  - one negative ingredient.
+
+  The seed is created through the real services and is deterministic.
+
+## Non-functional
+
+- NFR-1 Correctness. Quantities are integers in the ingredient's unit. No floats anywhere in stock arithmetic.
+- NFR-2 Integrity. `stock_movements` is append-only, enforced by the code (only `StockLedger` writes) **and** by database triggers that reject update and delete. Every stock change happens in a database transaction together with the event that caused it.
+- NFR-3 Responses. Every API response uses one envelope (D-019):
+  - success: `{ success: true, message, data, meta? }`;
+  - failure: `{ success: false, message, code, errors }`.
+
+  Status codes:
+  - 200 read or action, 201 created;
+  - 404 not found, 405 method not allowed;
+  - 409 when the resource's state forbids the action;
+  - 422 when the input is wrong;
+  - 429 rate-limited;
+  - 500 with a generic message and no trace.
+
+  The UI shows field errors inline and other errors as a notice.
+- NFR-3a Audit. Every change to catalogue data and every purchase-order, delivery and sale event is recorded in the audit trail, with channel, request id and IP, inside the same transaction (D-021).
+- NFR-3b Logging. `laravel.log` holds errors only. Business events are logged per domain (`stock`, `purchasing`, `pos`, `catalog`) with the request id on every line (D-022).
+- NFR-3c HTTP hardening. Security headers on every response. `Cache-Control: no-store` on API and pages (D-024).
+- NFR-4 Runnable. A clean clone runs with `composer setup && php artisan serve`. Tests run with `php artisan test`.
+- NFR-5 UI. Every feature above is reachable from the web UI without touching the API. It is usable with the keyboard, and motion respects `prefers-reduced-motion`.
+- NFR-6 API. Versioned under `/api/v1`, JSON only, documented by the Postman collection.
+- NFR-7 Identifiers. No integer database id appears in any URL, request or response. Records are addressed by ULID. Purchase orders, deliveries and sales carry human document numbers (`PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`) for display (D-031).
+- NFR-8 Versioning. The API is versioned in the path (`/api/v1`), with a written policy for additive and breaking changes, and an `X-API-Version` header (D-031).
+- NFR-9 Pagination. Every collection endpoint is paginated with `meta.pagination`. The UI shows skeletons while loading and lazy-loads further pages (D-032).
+- NFR-10 Time. Stored in UTC. Shown in the viewer's machine timezone (D-030).
