@@ -6,8 +6,8 @@
 | Phase | 4 Review and testing |
 | Status | To Do |
 | Weight | M |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 |
 | Branch | `PTY-17-browser-tests` |
 | Release | v1.0.0 |
 | Depends on | PTY-12 |

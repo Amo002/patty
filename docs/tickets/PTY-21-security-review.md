@@ -6,7 +6,7 @@
 | Phase | 5 Security |
 | Status | To Do |
 | Weight | M |
-| Builder | Mohamad with Claude on Fable 5.1 (his own credits) |
+| Builder | Mohamad with Claude on Opus 5.5 (Fable 5.1 optional, if credits become available) |
 | Reviewer | Mohamad |
 | Branch | `PTY-21-security-review` |
 | Release | v1.0.0 |
@@ -24,7 +24,7 @@ An independent, high-capability security pass over the finished code, with every
 
 ## Acceptance criteria
 
-- [ ] `/security-review` run on Fable against `develop`, with security.md supplied as context
+- [ ] `/security-review` run on Opus 5.5 (or Fable 5.1 if credits are available) against `develop`, with security.md supplied as context
 - [ ] Optional: `/code-review ultra` run (Mohamad triggers it)
 - [ ] Every finding in the table below triaged
 - [ ] Every "fix" has its own `PTY-21:` commit and, where meaningful, a regression test

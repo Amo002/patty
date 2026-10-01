@@ -6,8 +6,8 @@
 | Phase | 3b Build frontend |
 | Status | To Do |
 | Weight | M |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 (code) + Fable 5.1 design reviewer with Claude in Chrome |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer with Claude in Chrome |
 | Branch | `PTY-11-design-system` |
 | Release | v0.4.0 |
 | Depends on | **Phase 2b design approved** (progress.md) |

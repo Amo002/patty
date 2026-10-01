@@ -24,7 +24,7 @@ The first file to open every session. It tracks the project phase by phase: what
 | 3a | Build: backend | PTY-3, PTY-16, PTY-4 to PTY-10 | All merged, CI green, v0.3.0 tagged | Not started |
 | 3b | Build: frontend | PTY-11, UI tickets (split decided in 2b), PTY-22 | All merged, QA checklists pass, v0.4.0 tagged | Blocked by 2b |
 | 4 | Review and testing | Per-ticket code and design review, plus a final full pass | Every ticket's review section complete; QA-1 to QA-8 pass | Continuous |
-| 5 | Security | PTY-21: `/security-review` on Fable (Mohamad's credits), triage, fixes | Every finding fixed or accepted with a reason | Not started |
+| 5 | Security | PTY-21: `/security-review` on Opus 5.5 (Fable optional), triage, fixes | Every finding fixed or accepted with a reason | Not started |
 | 6 | Release and submission | Postman, Docker, README, clean-clone check, v1.0.0, reply email | Submitted | Not started |
 | 7 | Interview preparation | Walkthrough script; drills for likely live extensions | Rehearsed once end to end | Not started |
 

@@ -6,8 +6,8 @@
 | Phase | 3b Build frontend |
 | Status | To Do |
 | Weight | M |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 (code) + design reviewer |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer |
 | Branch | `PTY-22-demo-experience` |
 | Release | v0.4.0 |
 | Depends on | PTY-10, PTY-12, phase 2b design approved |
