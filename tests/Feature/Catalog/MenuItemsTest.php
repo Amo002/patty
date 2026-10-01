@@ -5,6 +5,8 @@ use App\Models\Ingredient;
 use App\Models\MenuItem;
 use App\Models\RecipeLine;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\TestHandler;
 use Spatie\Activitylog\Models\Activity;
 
 /*
@@ -215,6 +217,21 @@ it('renames an item, allows re-sending its own name, and ignores a PATCH without
     // The rename went through LogsActivity with the dirty field only.
     $entry = Activity::where('event', 'updated')->latest('id')->firstOrFail();
     expect($entry->attribute_changes->toArray())->toBe(['attributes' => ['name' => 'CLASSIC BURGER XL'], 'old' => ['name' => 'Classic Burger XL']]);
+});
+
+it('logs a rename only when the name changes, and counts a case-only change as a rename', function () {
+    config(['logging.channels.catalog' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    $item = MenuItem::factory()->create(['name' => 'Classic Burger']);
+    $messages = fn () => array_map(fn ($r) => $r->message, Log::channel('catalog')->getLogger()->getHandlers()[0]->getRecords());
+
+    $same = $this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => 'Classic Burger'])->assertOk();
+    expect($same->json())->assertNoIntegerIds();
+    expect($messages())->toBe([]);
+
+    $case = $this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => 'classic burger'])->assertOk();
+    expect($case->json())->assertNoIntegerIds();
+    expect($messages())->toBe(['Menu item renamed']);
+    expect($item->fresh()->name)->toBe('classic burger');
 });
 
 it('replaces the recipe and removes the old lines', function () {

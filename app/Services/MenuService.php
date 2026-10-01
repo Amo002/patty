@@ -46,7 +46,7 @@ class MenuService
      *
      * Both writes and the audit entry share one transaction, so a failure leaves
      * neither a nameless half-created item nor a trail entry for a recipe that
-     * was never saved. A null or empty $lines creates an item that cannot be
+     * was never saved. A null $lines creates an item that cannot be
      * sold yet (`is_sellable: false`).
      *
      * @param  array<int, array{ingredient: Ingredient, quantity: int}>|null  $lines
@@ -56,8 +56,10 @@ class MenuService
         $item = DB::transaction(function () use ($name, $lines) {
             $item = MenuItem::create(['name' => $name]);
 
-            if ($lines !== null && $lines !== []) {
-                $this->writeRecipe($item, $lines);
+            // E12 rejects an empty recipe (min:1), so null is the only "no recipe" case.
+            // A new item has no old lines to read or delete.
+            if ($lines !== null) {
+                $this->insertLinesAndAudit($item, $lines, []);
             }
 
             return $item;
@@ -73,6 +75,11 @@ class MenuService
      */
     public function rename(MenuItem $item, string $name): MenuItem
     {
+        // Compared case-sensitively: a case-only change ("burger" to "Burger") is a real rename.
+        if ($item->name === $name) {
+            return $this->withRecipe($item);
+        }
+
         $oldName = $item->name;
 
         DB::transaction(fn () => $item->update(['name' => $name]));
@@ -94,7 +101,15 @@ class MenuService
      */
     public function replaceRecipe(MenuItem $item, array $lines): MenuItem
     {
-        DB::transaction(fn () => $this->writeRecipe($item, $lines));
+        DB::transaction(function () use ($item, $lines) {
+            $old = $item->recipeLines()->with('ingredient')->orderBy('id')->get()
+                ->map(fn ($line) => $this->describe($line->ingredient, $line->quantity))
+                ->all();
+
+            $item->recipeLines()->delete();
+
+            $this->insertLinesAndAudit($item, $lines, $old);
+        });
 
         Log::channel('catalog')->info('Recipe replaced', ['menu_item' => $item->ulid, 'lines' => count($lines)]);
 
@@ -102,19 +117,14 @@ class MenuService
     }
 
     /**
-     * The delete-insert-audit step shared by create (F3) and replace (F4).
+     * The insert-and-audit step shared by create (F3) and replace (F4).
      * Must run inside a transaction.
      *
      * @param  array<int, array{ingredient: Ingredient, quantity: int}>  $lines
+     * @param  array<int, array{ingredient: string, ingredient_id: string, quantity: int}>  $old  the lines just deleted, [] on create
      */
-    private function writeRecipe(MenuItem $item, array $lines): void
+    private function insertLinesAndAudit(MenuItem $item, array $lines, array $old): void
     {
-        $old = $item->recipeLines()->with('ingredient')->orderBy('id')->get()
-            ->map(fn ($line) => $this->describe($line->ingredient, $line->quantity))
-            ->all();
-
-        $item->recipeLines()->delete();
-
         foreach ($lines as $line) {
             $item->recipeLines()->create([
                 'ingredient_id' => $line['ingredient']->id,
