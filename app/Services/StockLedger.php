@@ -68,14 +68,18 @@ class StockLedger
             'reference' => $reference->ulid ?? $reference->getKey(),
         ];
 
-        Log::channel('stock')->info('Stock movement recorded', $context);
-
         // Read after the insert, inside the same transaction, so it includes this movement.
         $onHand = $this->onHand($ingredient);
 
-        if ($onHand < 0) {
-            Log::channel('stock')->warning('Stock is below zero', $context + ['on_hand' => $onHand]);
-        }
+        // Logged only once the caller's transaction commits: a rollback removes the movement, and the
+        // log must not claim a movement that no longer exists. Runs immediately outside a transaction.
+        DB::afterCommit(function () use ($context, $onHand) {
+            Log::channel('stock')->info('Stock movement recorded', $context);
+
+            if ($onHand < 0) {
+                Log::channel('stock')->warning('Stock is below zero', $context + ['on_hand' => $onHand]);
+            }
+        });
 
         return $movement;
     }

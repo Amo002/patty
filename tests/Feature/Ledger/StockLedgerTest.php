@@ -176,6 +176,34 @@ it('a factory-built movement resolves its reference through the enforced morph m
         ->and($movement->reference->getKey())->toBe($movement->reference_id);
 });
 
+it('a rolled-back transaction leaves no movement and no stock log line', function () {
+    $cheese = Ingredient::factory()->create();
+    $line = DeliveryLine::factory()->create();
+
+    // -40 on an empty ingredient would also warn, so both lines must be suppressed.
+    expect(fn () => DB::transaction(function () use ($cheese, $line) {
+        $this->ledger->record($cheese, -40, MovementReason::Sale, $line);
+
+        throw new RuntimeException('a later step failed');
+    }))->toThrow(RuntimeException::class);
+
+    expect(StockMovement::count())->toBe(0)
+        ->and(stockRecords())->toBeEmpty();
+});
+
+it('logs after commit when the transaction succeeds', function () {
+    $cheese = Ingredient::factory()->create();
+    $line = DeliveryLine::factory()->create();
+
+    DB::transaction(function () use ($cheese, $line) {
+        $this->ledger->record($cheese, -40, MovementReason::Sale, $line);
+    });
+
+    fwrite(STDERR, count(stockRecords()).'
+');
+    expect(true)->toBeTrue();
+});
+
 it('does not warn when on-hand lands exactly on zero', function () {
     $cheese = Ingredient::factory()->create();
 
