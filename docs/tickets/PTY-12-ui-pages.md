@@ -3,13 +3,16 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 3b Build frontend |
 | Status | To Do |
 | Weight | M |
 | Builder | Opus 5.5 |
 | Reviewer | Fable 5.1 (code) + Fable 5.1 design reviewer with Claude in Chrome |
 | Branch | `PTY-12-ui-pages` |
 | Release | v0.4.0 |
-| Depends on | PTY-10, PTY-11 |
+| Depends on | PTY-10, PTY-11, **phase 2b design approved** |
+
+> **Provisional.** The final screen specs, and whether this ticket is split into several (Q-012), are decided in phase 2b after Mohamad approves the designs. Behaviour rules U1 to U12 in [ui.md](../ui.md) already apply (skeletons, lazy loading, states, confirmations, errors, time, numbers, no `x-html`).
 
 ## Goal
 

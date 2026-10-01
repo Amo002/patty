@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 3a Build backend |
 | Status | To Do |
 | Weight | S |
 | Builder | Sonnet 5.5 |
@@ -34,3 +35,27 @@ FR-2 AC1 to AC4. Q-007.
 - [ ] Quantity 0 or a decimal gives 422
 - [ ] Replacing the recipe removes the old lines
 - [ ] Replacing the recipe stores old and new lines in the `recipe.replaced` audit entry
+
+## Contract
+
+[api.md](../api.md) E11 to E15. [validation.md](../validation.md) Menu items. E12 accepts an optional `recipe`; a menu item without one has `is_sellable: false`.
+
+## Flows
+
+F3, F4.
+
+## Test data
+
+Classic Burger: Beef 150, Bun 1, Cheese 20. Replacing it with Beef 180, Bun 1 removes cheese, and the audit entry holds the old 3 lines and the new 2 lines.
+
+## Additional acceptance criteria
+
+- [ ] Recipe line ingredients are referenced by ULID (G4).
+- [ ] The list is paginated with recipes eager-loaded (no N+1).
+- [ ] `assertNoIntegerIds()` in every test.
+
+## Done means
+
+1. Create Classic Burger with its recipe through E12. The response lists 3 lines with units.
+2. PUT a recipe with a duplicate ingredient. 422 names the line.
+3. `GET /api/v1/activity?subject_type=menu_item&subject_id=<ulid>` shows `recipe.replaced` (once PTY-10 lands).

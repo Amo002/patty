@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Task |
+| Phase | 1 Specification + 2a Backend design |
 | Status | Awaiting Mohamad |
 | Weight | S |
 | Builder | Opus 5.5 (orchestrator) |

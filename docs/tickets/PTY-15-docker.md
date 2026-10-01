@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Task |
+| Phase | 6 Release and submission |
 | Status | To Do |
 | Weight | S |
 | Builder | Sonnet 5.5 |

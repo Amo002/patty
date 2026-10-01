@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 3a Build backend |
 | Status | To Do |
 | Weight | L |
 | Builder | Opus 5.5 |
@@ -48,3 +49,24 @@ Movements for beef: +1000, -150, -150, +400, -300. On-hand = 800.
 ## Out of scope
 
 Deliveries and sales (they call the ledger in PTY-8 and PTY-9).
+
+## Contract
+
+No endpoints. Read by E2, E6, E27 and E28 later.
+
+## Flows
+
+The `StockLedger::record` step in F8, F9 and F13 to F15.
+
+## Test data
+
+- Ingredient beef (g) from the factory.
+- Movements written through `StockLedger::record` with stand-in references (a delivery line and a sale from factories): +1000, -150, -150, +400, -300.
+- Expected on-hand 800.
+- For the negative warning: cheese 30, then -40, which logs a warning with on-hand -10.
+
+## Done means
+
+1. `php artisan test --filter=StockLedger` is green.
+2. In tinker, record +100 and -250 on an ingredient. `onHand()` returns -150, and `storage/logs/stock-*.log` shows a warning.
+3. Try `$movement->update([...])` in tinker. It throws `ImmutableMovement`.

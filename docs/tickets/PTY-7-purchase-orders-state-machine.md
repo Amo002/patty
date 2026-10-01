@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 3a Build backend |
 | Status | To Do |
 | Weight | L |
 | Builder | Opus 5.5 |
@@ -54,3 +55,30 @@ FR-3 AC1 to AC6. data.md invariant 5. T4, T6.
 ## Out of scope
 
 Deliveries (PTY-8), which drive sent to received and the automatic close.
+
+## Contract
+
+[api.md](../api.md) E16 to E22. [validation.md](../validation.md) Purchase orders.
+- E16 supports `?status=draft|sent|received|closed|open`.
+- Every PO carries `number` (`PO-YYYY-NNNN`, from `DocumentNumber::next('PO')` in the create transaction), `allowed_actions` and `progress_percent` (average of per-line completion, D-030).
+
+## Flows
+
+F5, F6, F7, F11, F12.
+
+## Test data
+
+- Supplier "Al-Mashreq Meats"; ingredients Beef and Bun.
+- PO lines: Beef 1000, Bun 10.
+- The transition dataset covers all 16 (from, to) pairs of the 4 states.
+
+## Additional acceptance criteria
+
+- [ ] All lists are paginated. Every reference is a ULID. `assertNoIntegerIds()` in every test.
+- [ ] Deleting a draft does not reuse its document number.
+
+## Done means
+
+1. Create a PO through E17. The response has `number: "PO-2026-0001"` and `allowed_actions: ["edit_lines","send","delete"]`.
+2. Send it, then send again. The second call gives 409 `invalid_transition`, and the message names both states.
+3. PUT lines on the sent PO gives 409 `order_not_editable`.

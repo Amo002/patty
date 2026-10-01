@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 3a Build backend |
 | Status | To Do |
 | Weight | L |
 | Builder | Opus 5.5 |
@@ -54,3 +55,28 @@ PO: beef 1000 g, bun 10. Tolerance 5%, so max receivable is beef 1050 g and bun 
 - [ ] Short-close of a received order marks it short-closed and moves no stock (Q-004)
 - [ ] A line from another order gives 422
 - [ ] A rejected delivery (over 5%) leaves no audit row and no movement (atomicity includes the audit trail)
+
+## Contract
+
+[api.md](../api.md) E23, E24. [validation.md](../validation.md) Deliveries. A delivery number is taken with `DocumentNumber::next('GRN')`. `received_at` must not be in the future or before `sent_at` (422).
+
+## Flows
+
+F8, F9, F10, F11 (incoming effect). Rows written must match flows.md exactly.
+
+## Test data
+
+The worked example above, plus the "A day at Patty" deliveries (flows.md) for the interleaved test in PTY-10.
+
+## Additional acceptance criteria
+
+- [ ] `received_at` before `sent_at` gives 422. In the future, 422.
+- [ ] Delivery lines reference PO lines by ULID, and the ULID must belong to the route PO.
+- [ ] The response includes the updated PO, so the UI needs no second request.
+- [ ] `assertNoIntegerIds()` in every test.
+
+## Done means
+
+1. Send a PO for Beef 1000 and receive 600. The PO shows "Partially received" with outstanding 400, and `GET /stock` shows beef +600.
+2. Receive 500. 422 `over_delivery`, and the message says 1,100 g is above the 1,050 g limit.
+3. Receive 430. The PO is closed with over-received 30.

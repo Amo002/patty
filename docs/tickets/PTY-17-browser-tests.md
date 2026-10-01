@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Story |
+| Phase | 4 Review and testing |
 | Status | To Do |
 | Weight | M |
 | Builder | Opus 5.5 |
@@ -11,7 +12,7 @@
 | Release | v1.0.0 |
 | Depends on | PTY-12 |
 
-**Stretch.** First to cut if time runs short (see progress.md). D-026.
+**Stretch.** First to cut if time runs short (see progress.md). D-026. Final scope (which flows, which viewports) is confirmed in phase 2b alongside the UI ticket split (Q-012).
 
 ## Goal
 

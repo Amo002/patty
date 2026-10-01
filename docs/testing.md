@@ -25,7 +25,7 @@ Log lines are not tested, since asserting log text would be filler. The single e
 | T5 | Delivery against a draft or closed order is rejected, and stock does not move | Operation guards | PTY-8 |
 | T6 | Editing lines of a sent order is rejected | Operation guards | PTY-7 |
 | T7 | A sale below zero is accepted and the ingredient shows negative | Q-001 decision | PTY-9 |
-| T8 | Interleaved deliveries and sales give an exact on-hand, equal to a hand-computed total | Ledger design | PTY-10 |
+| T8 | "A day at Patty" (flows.md): every step of the worked day asserts on-hand and incoming; final beef 180, bun 21, cheese 120 | Ledger design | PTY-10 |
 | T9 | Over-delivery within 5% is accepted (stock rises by the full amount); beyond it is rejected and nothing from that delivery is saved; limit rounds down | Q-002, atomicity | PTY-8 |
 | T10 | A repeated `pos_reference` does not move stock twice | Q-005 idempotency | PTY-9 |
 | T11 | Open orders list shows correct outstanding per line after partial deliveries | Visibility | PTY-10 |
@@ -38,6 +38,11 @@ Log lines are not tested, since asserting log text would be filler. The single e
 | T18 | Audit entries carry the channel. A rejected delivery leaves no audit row. Recipe replace stores old and new lines. | Audit (D-021) | PTY-16, PTY-6, PTY-8 |
 | T19 | Raw SQL update or delete on `stock_movements` is aborted by the database | DB guard (D-024) | PTY-3 |
 | T20 | POS endpoint answers 429 beyond the rate limit | HTTP layer (D-024) | PTY-9 |
+| T21 | Validation datasets: one per FormRequest, every row of validation.md, including the G3 quantity dataset (`"1.5"`, `"abc"`, `"1e3"`, -1, 0, null, true) | Input layer | PTY-5 to PTY-9, PTY-16 |
+| T22 | POS key: open when unset; 401 when set and the header is missing or wrong; 201 with the right key | D-028 | PTY-16, PTY-9 |
+| T23 | Idempotency conflict: same reference with a different payload gives 409; sales and stock unchanged | D-029 | PTY-9 |
+| T24 | Demo reset is 404 outside the local env, and re-seeds in local | D-027, S13 | PTY-22 |
+| T25 | No integer id in any response (`assertNoIntegerIds()` in every feature test); a numeric id in a URL gives 404; document numbers are sequential per type and year | D-031, S9 | PTY-3, PTY-16, all |
 
 ## Manual QA checklist (owner runs per ticket)
 
@@ -85,3 +90,11 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 - [ ] At 820 px width everything is usable. Tab through a page and focus is always visible. With reduced motion on, nothing animates.
 - [ ] The dashboard shows Incoming next to On hand. After a partial delivery, incoming falls and on hand rises by the same amount.
 - [ ] The PO detail Activity panel shows created, sent and delivery recorded, each with its channel.
+
+### QA-8 First visit (no-login experience)
+- [ ] Fresh `composer setup`. Opening `/` shows the intro banner, the "Restaurant manager" chip and the Try-it card. Skeletons appear briefly, then real data.
+- [ ] The seeded data shows a closed, a partially received, a sent and a draft PO, and Cheese as Negative.
+- [ ] Each of the five Try-it steps ticks after doing it.
+- [ ] "Reset demo data" asks for confirmation, then restores the seeded state.
+- [ ] No URL anywhere contains a plain number id. Purchase orders show `PO-2026-....` numbers.
+- [ ] Switch the PC's timezone. Times in the UI follow it after reload.

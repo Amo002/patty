@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | Type | Task |
+| Phase | 0 Discovery and planning |
 | Status | Done |
 | Weight | S |
 | Builder | Opus 5.5 (orchestrator, before the agent workflow existed) |
