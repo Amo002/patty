@@ -168,6 +168,14 @@ it('a movement that takes on-hand below zero is recorded and logs a warning (D-0
         ->and($warnings[0]->context['ingredient_name'])->toBe('Cheese');
 });
 
+it('a factory-built movement resolves its reference through the enforced morph map', function () {
+    $movement = StockMovement::factory()->create()->fresh();
+
+    expect($movement->reference_type)->toBe('sale')
+        ->and($movement->reference)->toBeInstanceOf(Sale::class)
+        ->and($movement->reference->getKey())->toBe($movement->reference_id);
+});
+
 it('does not warn when on-hand lands exactly on zero', function () {
     $cheese = Ingredient::factory()->create();
 
