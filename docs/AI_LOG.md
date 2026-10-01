@@ -52,3 +52,33 @@ Setup: Claude Code (CLI) as orchestrator, with builder and reviewer sub-agents p
 **Ambiguity caught:** a short answer ("go with A") could have been read as Q-004 option A (no manual close), the opposite of what was intended elsewhere. The AI asked instead of assuming. Q-004 was confirmed as B (short-close).
 
 **Changes made:** requirements FR-4 AC4/AC5/AC9, data.md derived values and invariant 4, the PTY-8 worked example and tests (T9a to T9c), testing.md, decisions D-010 to D-016.
+
+## 2026-10-01: Architecture round 2 (async, finance, envelope, audit, logging, protection)
+
+**Prompt (summary):** Mohamad asked whether we need events, queues or a scheduler, and about the "financial side" ("isn't it an ERP, it needs all the pillars?"). He also asked for an API response trait with `success` / `data` / `errors` and correct status codes, an audit log, per-model log channels, a professional comment standard, layers of protection, user satisfaction, tools, a UI kit, and automated browser tests.
+
+**What the AI got wrong:**
+- **It misread a word.** It could not parse "fenteich sides" and offered "frontend" or "fetching". Mohamad meant "financial". It asked rather than guessed, so nothing was built on the wrong reading.
+- **It nearly attributed reasoning to Mohamad again.** The earlier D-011 correction made this a standing rule: decisions record who decided, and rationale the owner did not give is labelled as the AI's draft.
+- **A tooling slip.** A one-off edit script called `python`, which on this machine is the Windows Store stub and waits forever. The command was stopped, nothing had changed, and the edits were redone with the editor.
+
+**Where the AI pushed back, and the outcome:**
+- **Finance:** it argued against building costing, because the brief is quantities only, correctness beats size, and costing adds edge cases such as the cost of negative stock. Mohamad agreed: no money (D-018). The ERP thinking goes into `architecture.md` section 8 instead.
+- **Events, queues, scheduler:** recommended none, with the trigger for each written down (D-017). Accepted.
+- **Audit:** recommended its own explicit table. Mohamad chose spatie/laravel-activitylog. Adopted (D-021), with D-005 clarified so model events may observe but never change state.
+- **Logging:** recommended per-domain channels over per-model. Accepted (D-022).
+- **Protection:**
+  - adopted: database triggers on the ledger, a rate limit, security headers (D-024);
+  - deferred by Mohamad: Larastan, optimistic locking.
+- **UI kit:** recommended none. Mohamad chose Hugeicons for icons. The AI checked the license (MIT) and the format (JS data, not SVG) before committing to it, and planned a one-off conversion so no npm is needed (D-025).
+- **Browser tests:** added as an opt-in stretch suite that cannot break a reviewer's `php artisan test` (D-026).
+
+**What the alignment check found:** walking the brief's own problem statement against the design showed a real gap. "Stop running out" was not served, because the manager could see stock but not what was already on order. Fixed with a derived Incoming column (D-020), with no new table. Reorder levels stay out on purpose, as a likely live-extension request.
+
+**Changes made:**
+- new `architecture.md` and `docs/README.md`;
+- decisions D-017 to D-026;
+- updated requirements (409 versus 422, envelope, audit, logging, Incoming);
+- new tickets PTY-16 and PTY-17, plus updates to PTY-3 to PTY-14;
+- tests T15 to T20 and QA-7;
+- the comment standard in `CLAUDE.md`.
