@@ -7,8 +7,11 @@ use App\Models\DeliveryLine;
 use App\Models\Ingredient;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Services\PurchaseOrderService;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\TestHandler;
 use Spatie\Activitylog\Models\Activity;
 
 const PO_URL = '/api/v1/purchase-orders';
@@ -68,7 +71,7 @@ it('creates a draft with a number, allowed actions and the tolerance snapshot', 
         ->and($beefLine['quantity_received'])->toBe(0);
 });
 
-it('cannot be created as sent through mass assignment', function () {
+it('ignores a status passed through mass assignment and stays a draft', function () {
     $order = PurchaseOrder::create(['number' => 'PO-X-1', 'supplier_id' => Supplier::factory()->create()->id, 'status' => 'closed']);
 
     expect($order->refresh()->status)->toBe(PurchaseOrderStatus::Draft);
@@ -87,6 +90,19 @@ it('sends a draft, and sending again is rejected naming both states', function (
     expect($again->json('code'))->toBe('invalid_transition')
         ->and($again->json('message'))->toContain('from sent to sent');
     expect($again->json())->assertNoIntegerIds();
+});
+
+it('logs a rejected transition at notice on the purchasing channel', function () {
+    config(['logging.channels.purchasing' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    $id = createPo();
+    $this->postJson(PO_URL."/$id/send")->assertOk();
+    $this->postJson(PO_URL."/$id/send")->assertStatus(409);
+
+    $notices = collect(Log::channel('purchasing')->getLogger()->getHandlers()[0]->getRecords())
+        ->filter(fn ($record) => $record->level->name === 'Notice');
+
+    expect($notices)->toHaveCount(1)
+        ->and($notices->first()->message)->toContain('from sent to sent');
 });
 
 it('refuses to send an order that has no lines', function () {
@@ -120,6 +136,10 @@ it('rejects a short-close on a draft, a sent and a closed order', function () {
 it('short-closes a received order and records the audit event', function () {
     $order = receivedOrder();
 
+    $before = $this->getJson(PO_URL.'/'.$order->ulid)->assertOk();
+    expect($before->json('data.allowed_actions'))->toBe(['receive', 'short_close'])
+        ->and($before->json('data.status_label'))->toBe('Partially received');
+
     $response = $this->postJson(PO_URL.'/'.$order->ulid.'/close')->assertOk();
     expect($response->json())->assertNoIntegerIds();
     expect($response->json('data.status'))->toBe('closed')
@@ -131,6 +151,9 @@ it('short-closes a received order and records the audit event', function () {
     expect($event)->not->toBeNull()
         ->and($event->subject_id)->toBe($order->id)
         ->and($event->description)->toContain($order->number);
+
+    // D-013, F11: closing by hand moves no stock.
+    expect(StockMovement::query()->count())->toBe(0);
 });
 
 it('keeps integer ids out of every audit event of a purchase order', function () {
@@ -283,7 +306,7 @@ it('rejects every non-integer or out-of-range quantity on create and on replace 
     'above the maximum' => [1000001],
 ]);
 
-it('accepts the largest quantity and rejects one above it', function () {
+it('accepts a quantity of exactly 1,000,000 (one above is rejected in the quantity dataset)', function () {
     $payload = poPayload();
     $payload['lines'] = [['ingredient_id' => beef()->ulid, 'quantity_ordered' => 1000000]];
 
