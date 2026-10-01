@@ -28,7 +28,9 @@ class RequestContext
         app()->instance(self::REQUEST_ID_BINDING, $requestId);
         app()->instance(self::CHANNEL_BINDING, $channel);
 
-        Log::withContext(['request_id' => $requestId, 'channel' => $channel]);
+        // shareContext, not withContext: withContext only reaches the default logger, and the
+        // stock/purchasing/pos/catalog channels are where business lines are written (D-022).
+        Log::shareContext(['request_id' => $requestId, 'channel' => $channel]);
 
         $response = $next($request);
         $response->headers->set('X-Request-Id', $requestId);
@@ -44,7 +46,7 @@ class RequestContext
     {
         $sent = (string) $request->header('X-Request-Id', '');
 
-        return preg_match('/^[A-Za-z0-9._-]{1,64}$/', $sent) === 1 ? $sent : (string) Str::uuid();
+        return preg_match('/^[A-Za-z0-9._-]{1,64}\z/', $sent) === 1 ? $sent : (string) Str::uuid();
     }
 
     /**
