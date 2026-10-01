@@ -27,6 +27,8 @@ php artisan test
 
 | Doc | What |
 |---|---|
+| [docs/README.md](docs/README.md) | Start here: reading order for all docs |
+| [docs/architecture.md](docs/architecture.md) | The big picture: layers, flows, protection, how it joins an ERP |
 | [docs/brief.md](docs/brief.md) | The problem and what success looks like |
 | [docs/requirements.md](docs/requirements.md) | Functional and non-functional requirements with acceptance criteria |
 | [docs/scope.md](docs/scope.md) | What is in, and what is deliberately out |

@@ -5,9 +5,12 @@ Inventory and purchasing service for a single-branch burger restaurant. Laravel 
 ## Read before working
 
 1. `docs/progress.md`: where work stopped, what is next
-2. The ticket you are working on: `docs/tickets/PTY-N-*.md`
-3. `docs/requirements.md`, `docs/data.md`, `docs/scope.md`
-4. `docs/workflow.md`, `docs/agents.md`, `docs/tools.md`: how we work and what you may not touch
+2. `docs/architecture.md`: the big picture (layers, flows, protection)
+3. The ticket you are working on: `docs/tickets/PTY-N-*.md`
+4. `docs/requirements.md`, `docs/data.md`, `docs/scope.md`
+5. `docs/workflow.md`, `docs/agents.md`, `docs/tools.md`: how we work and what you may not touch
+
+The full index is in `docs/README.md`.
 
 ## Hard rules
 
