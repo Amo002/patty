@@ -16,8 +16,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -47,6 +47,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A lost unique race is expected, not a fault: report it once, at warning level, with full detail (D-022
+        // keeps laravel.log errors-only in meaning, so an error line there always means something broke).
+        $exceptions->level(UniqueConstraintViolationException::class, LogLevel::WARNING);
 
         // D-019: the one place where an exception becomes an HTTP response for the API.
         // Returning null for non-API requests leaves web pages on Laravel's default rendering.
@@ -93,15 +97,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 // S8: never echo the exception text, trace or SQL. The log has it, keyed by request id.
                 default => ApiResponse::error('Something went wrong on our side.', 'server_error', 500),
             };
-
-            // A lost race is expected, not a fault, so the log gets a warning (no SQL). The exception itself is still
-            // reported by Laravel, which keeps the full detail for debugging.
-            if ($e instanceof UniqueConstraintViolationException) {
-                Log::warning('Unique constraint violation returned as 409 conflict.', [
-                    'method' => $request->method(),
-                    'path' => $request->path(),
-                ]);
-            }
 
             // Keep Retry-After, X-RateLimit-* (429) and Allow (405) so clients can act on them.
             if ($e instanceof HttpExceptionInterface) {

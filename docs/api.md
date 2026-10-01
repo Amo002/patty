@@ -41,6 +41,8 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 429 | `too_many_requests` | Rate limit on sales exceeded |
 | 500 | `server_error` | Unexpected. Generic message, never details. |
 
+Any write guarded by a unique index can return 409 `conflict` if a concurrent request created the same record first (PTY-26).
+
 ## Versioning policy
 
 - The version is in the path (`/api/v1`). Routes: `routes/api/v1.php`. Controllers, requests and resources live under a `V1` namespace. Services and the domain are shared, not versioned.

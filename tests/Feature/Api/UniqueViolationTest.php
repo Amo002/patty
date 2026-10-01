@@ -3,8 +3,10 @@
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Monolog\Handler\TestHandler;
 
 /*
 | PTY-26 / G6 / D-024: Rule::unique is the friendly check and the NOCASE unique
@@ -47,7 +49,8 @@ it('PTY-26a: a duplicate that slips past validation returns 409 conflict, not 50
 it('PTY-26b: the response never leaks SQL or the constraint name', function () {
     $this->postJson('/api/v1/__unique/items', ['name' => 'Beef']);
 
-    $body = $this->postJson('/api/v1/__unique/items', ['name' => 'BEEF'])->getContent();
+    $response = $this->postJson('/api/v1/__unique/items', ['name' => 'BEEF'])->assertStatus(409);
+    $body = $response->getContent();
 
     expect($body)
         ->not->toContain('SQLSTATE')
@@ -63,4 +66,16 @@ it('PTY-26c: the violation is still reported so the detail reaches the log', fun
     $this->postJson('/api/v1/__unique/items', ['name' => 'beef'])->assertStatus(409);
 
     Exceptions::assertReported(UniqueConstraintViolationException::class);
+});
+
+it('PTY-26d: the lost race is logged once, at warning level', function () {
+    config(['logging.channels.probe' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    config(['logging.default' => 'probe']);
+    $this->postJson('/api/v1/__unique/items', ['name' => 'Beef']);
+
+    $this->postJson('/api/v1/__unique/items', ['name' => 'beef'])->assertStatus(409);
+
+    $records = Log::channel('probe')->getLogger()->getHandlers()[0]->getRecords();
+    expect($records)->toHaveCount(1)
+        ->and($records[0]->level->getName())->toBe('WARNING');
 });
