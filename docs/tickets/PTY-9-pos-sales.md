@@ -6,8 +6,8 @@
 | Phase | 3a Build backend |
 | Status | To Do |
 | Weight | L |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 |
 | Branch | `PTY-9-pos-sales` |
 | Release | v0.3.0 |
 | Depends on | PTY-6, Q-001, Q-005 |

@@ -153,3 +153,9 @@ He also asked for:
 **Owner rationale recorded:** D-011's "why" is now Mohamad's own, follow SAP and D365 practice, replacing the AI draft flagged earlier.
 
 **A slip:** a security threat (S17) was appended after S16's position by a scripted edit and had to be reordered. Small, but it is why every scripted edit is read back.
+
+## 2026-10-01: No Fable credits, model ladder re-planned
+
+**Situation:** the plan assumed Fable 5.1 as orchestrator and top reviewer. Mohamad has no Fable credits, so Opus 5.5 becomes the top tier.
+
+**AI decision, explained to the owner:** keep "the reviewer is one tier above the builder" by moving every builder to Sonnet 5.5 and every reviewer to Opus 5.5, rather than letting Opus review its own tier. The heavy tickets get extra checks instead: `/code-review high`, the orchestrator reading the diff, and the owner's hand-check of the worked examples. Recorded as D-039. All tickets, the board and agents.md were updated.

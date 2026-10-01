@@ -30,32 +30,32 @@ No tickets. Design artifacts are produced and approved here (progress.md). The U
 ### 3a Build backend
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|---|
-| 1 | [PTY-3](PTY-3-schema-and-models.md) | Schema, models, identifiers, factories | M | Opus / Fable | v0.2.0 |
-| 2 | [PTY-16](PTY-16-api-foundation.md) | API foundation: versioning, envelope, errors, pagination, audit, logging, HTTP hardening, CI | M | Opus / Fable | v0.2.0 |
-| 3 | [PTY-4](PTY-4-stock-ledger.md) | Stock ledger | L | Opus / Fable | v0.2.0 |
+| 1 | [PTY-3](PTY-3-schema-and-models.md) | Schema, models, identifiers, factories | M | Sonnet / Opus | v0.2.0 |
+| 2 | [PTY-16](PTY-16-api-foundation.md) | API foundation: versioning, envelope, errors, pagination, audit, logging, HTTP hardening, CI | M | Sonnet / Opus | v0.2.0 |
+| 3 | [PTY-4](PTY-4-stock-ledger.md) | Stock ledger | L | Sonnet / Opus | v0.2.0 |
 | 4 | [PTY-5](PTY-5-ingredients-suppliers-api.md) | Ingredients and suppliers API | S | Sonnet / Opus | v0.2.0 |
 | 5 | [PTY-6](PTY-6-menu-and-recipes-api.md) | Menu items and recipes API | S | Sonnet / Opus | v0.2.0 |
-| 6 | [PTY-7](PTY-7-purchase-orders-state-machine.md) | Purchase orders and state machine | L | Opus / Fable | v0.3.0 |
-| 7 | [PTY-8](PTY-8-receiving-deliveries.md) | Receiving deliveries | L | Opus / Fable | v0.3.0 |
-| 8 | [PTY-9](PTY-9-pos-sales.md) | POS sales endpoint | L | Opus / Fable | v0.3.0 |
-| 9 | [PTY-10](PTY-10-visibility-endpoints.md) | Visibility endpoints | M | Opus / Fable | v0.3.0 |
+| 6 | [PTY-7](PTY-7-purchase-orders-state-machine.md) | Purchase orders and state machine | L | Sonnet / Opus | v0.3.0 |
+| 7 | [PTY-8](PTY-8-receiving-deliveries.md) | Receiving deliveries | L | Sonnet / Opus | v0.3.0 |
+| 8 | [PTY-9](PTY-9-pos-sales.md) | POS sales endpoint | L | Sonnet / Opus | v0.3.0 |
+| 9 | [PTY-10](PTY-10-visibility-endpoints.md) | Visibility endpoints | M | Sonnet / Opus | v0.3.0 |
 
 ### 3b Build frontend (blocked until 2b is approved)
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|---|
-| 1 | [PTY-11](PTY-11-design-system.md) | Design system and app shell | M | Opus / Fable + design reviewer | v0.4.0 |
-| 2 | [PTY-12](PTY-12-ui-pages.md) | UI pages (may be split in 2b) | M | Opus / Fable + design reviewer | v0.4.0 |
-| 3 | [PTY-22](PTY-22-demo-experience.md) | Demo experience: identity, banner, Try-it, reset, realistic seed | M | Opus / Fable + design reviewer | v0.4.0 |
+| 1 | [PTY-11](PTY-11-design-system.md) | Design system and app shell | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 2 | [PTY-12](PTY-12-ui-pages.md) | UI pages (may be split in 2b) | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 3 | [PTY-22](PTY-22-demo-experience.md) | Demo experience: identity, banner, Try-it, reset, realistic seed | M | Sonnet / Opus + design reviewer | v0.4.0 |
 
 ### 4 Review and testing (continuous)
 | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|
-| [PTY-17](PTY-17-browser-tests.md) | Browser tests (stretch, first to cut) | M | Opus / Fable | v1.0.0 |
+| [PTY-17](PTY-17-browser-tests.md) | Browser tests (stretch, first to cut) | M | Sonnet / Opus | v1.0.0 |
 
 ### 5 Security
 | Ticket | Title | Wt | Who | Release |
 |---|---|---|---|---|
-| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Mohamad with Fable | v1.0.0 |
+| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Mohamad: Opus locally, Fable on the web | v1.0.0 |
 
 ### 6 Release and submission
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |

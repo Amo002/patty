@@ -352,3 +352,14 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** the kitchen thinks "2.4 kg of beef", and the ledger must think "2400". Keeping the conversion at the edge means the arithmetic that has to be right never sees a decimal. The server re-validates everything, so a UI bug cannot corrupt stock.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01
+
+## D-039 Opus 5.5 is the top local model tier; Fable only in Claude Code on the web
+- **Chosen:**
+  - Orchestrator: Opus 5.5.
+  - Every ticket: built by **Sonnet 5.5**, reviewed by **Opus 5.5** (with `/code-review`).
+  - Design reviewer: Opus 5.5 with Claude in Chrome.
+  - Security review (PTY-21): Opus 5.5 `/security-review` locally. **Fable 5.1 is used only through Claude Code on the web** (the cloud version), once Mohamad connects the repository there. That is where the final independent security pass runs.
+- **Rejected:** Opus building and Opus reviewing L tickets (a same-tier reviewer shares the builder's blind spots); Haiku as a builder (too weak for tickets this consequential).
+- **Why:** no Fable credits are available. Keeping the rule "the reviewer is always one tier above the builder" matters more than having the strongest builder. For the stock arithmetic (L tickets) the extra safety net is three checks: the Opus review at `high`, the orchestrator reading the diff, and Mohamad's hand-check of every worked example.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01

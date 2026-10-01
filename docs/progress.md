@@ -6,9 +6,9 @@ The first file to open every session. It tracks the project phase by phase: what
 
 | | |
 |---|---|
-| Phase | **2a Backend design** |
-| Active ticket | PTY-2 (docs), PR #2, awaiting Mohamad |
-| Waiting on Mohamad | Read and merge PR #2 |
+| Phase | **2a Backend design: done.** Next: 2b and 3a in parallel. |
+| Active ticket | PTY-2 follow-up (D-039 model ladder), PR #3 |
+| Waiting on Mohamad | Merge PR #3, then the v0.1.0 release PR |
 | Next | Release v0.1.0, then phase 2b (frontend design) alongside phase 3a (PTY-3, PTY-16, ...) |
 | Deadline | Submit Sunday 4 October, target 11:00 Amman (hard limit 12:00) |
 | Cut order if late | PTY-17 browser tests, PTY-15 Docker, Try-it self-ticking, Postman scenario, Activity page UI |
@@ -19,12 +19,12 @@ The first file to open every session. It tracks the project phase by phase: what
 |---|---|---|---|---|
 | 0 | Discovery and planning | Understand the brief; choose stack and process | Plan approved by Mohamad | Done (2026-10-01) |
 | 1 | Specification | What to build and not build; every unclear point answered | Requirements, scope, questions closed | Done (2026-10-01) |
-| 2a | Backend design | How it works: architecture, data, API contract, validation, flows, threat model | Docs merged (PR #2) | **In progress** |
+| 2a | Backend design | How it works: architecture, data, API contract, validation, flows, threat model | Docs merged (PR #2) | Done (2026-10-01) |
 | 2b | Frontend design | How it looks and feels: design system and every screen in every state | Mohamad's written approval below | Not started |
 | 3a | Build: backend | PTY-3, PTY-16, PTY-4 to PTY-10 | All merged, CI green, v0.3.0 tagged | Not started |
 | 3b | Build: frontend | PTY-11, UI tickets (split decided in 2b), PTY-22 | All merged, QA checklists pass, v0.4.0 tagged | Blocked by 2b |
 | 4 | Review and testing | Per-ticket code and design review, plus a final full pass | Every ticket's review section complete; QA-1 to QA-8 pass | Continuous |
-| 5 | Security | PTY-21: `/security-review` on Fable (Mohamad's credits), triage, fixes | Every finding fixed or accepted with a reason | Not started |
+| 5 | Security | PTY-21: `/security-review` on Opus 5.5 locally, then Fable 5.1 in Claude Code on the web; triage, fixes | Every finding fixed or accepted with a reason | Not started |
 | 6 | Release and submission | Postman, Docker, README, clean-clone check, v1.0.0, reply email | Submitted | Not started |
 | 7 | Interview preparation | Walkthrough script; drills for likely live extensions | Rehearsed once end to end | Not started |
 
@@ -57,7 +57,7 @@ The first file to open every session. It tracks the project phase by phase: what
 
 **Lessons:** a short answer ("go with A") can be ambiguous across questions, so ask rather than map it. Never write the owner's reasons for him.
 
-## Phase 2a: Backend design (in progress, started 2026-10-01)
+## Phase 2a: Backend design (done, 2026-10-01)
 
 **Goal:** settle how every part works before code. Questions settled now are cheaper than discoveries mid-build.
 
@@ -108,7 +108,7 @@ The first file to open every session. It tracks the project phase by phase: what
 
 **Lessons:** state the honest gaps when asked (validation was not complete). Ask before mapping a confusing answer (the UI split). Verify scripted edits by reading them back.
 
-**Exit:** PR #2 merged.
+**Exit:** PR #2 merged by Mohamad (2026-10-01 19:10 UTC). The model-ladder change (D-039: no Fable credits locally; Sonnet builds, Opus reviews; Fable only in Claude Code on the web for the security pass) landed on the branch after the merge and follows in PR #3.
 
 ## Phase 2b: Frontend design (not started)
 

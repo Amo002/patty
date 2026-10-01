@@ -6,8 +6,8 @@
 | Phase | 3a Build backend |
 | Status | To Do |
 | Weight | M |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 |
 | Branch | `PTY-10-visibility-endpoints` |
 | Release | v0.3.0 |
 | Depends on | PTY-8, PTY-9 |

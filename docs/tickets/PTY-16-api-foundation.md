@@ -6,8 +6,8 @@
 | Phase | 3a Build backend |
 | Status | To Do |
 | Weight | M |
-| Builder | Opus 5.5 |
-| Reviewer | Fable 5.1 (+ `/security-review`) |
+| Builder | Sonnet 5.5 |
+| Reviewer | Opus 5.5 (+ `/security-review`) |
 | Branch | `PTY-16-api-foundation` |
 | Release | v0.2.0 |
 | Depends on | PTY-3 |
