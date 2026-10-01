@@ -54,6 +54,20 @@ it('hides internal keys on every addressable model', function (string $model) {
     'sale' => [Sale::class],
 ]);
 
+it('resolves an uppercase ULID to the same record', function () {
+    $ingredient = Ingredient::factory()->create();
+
+    $found = $ingredient->resolveRouteBinding(strtoupper($ingredient->ulid));
+
+    expect($found?->is($ingredient))->toBeTrue();
+});
+
+it('stores a caller-supplied ULID in lowercase', function () {
+    $ingredient = Ingredient::factory()->create(['ulid' => '01ARZ3NDEKTSV4RRFFQ69G5FAV']);
+
+    expect($ingredient->fresh()->ulid)->toBe('01arz3ndektsv4rrffq69g5fav');
+});
+
 it('resolves a model by its ulid and not by its integer id', function () {
     $ingredient = Ingredient::factory()->create();
 

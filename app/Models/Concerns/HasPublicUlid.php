@@ -15,7 +15,28 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
  */
 trait HasPublicUlid
 {
-    use HasUlids;
+    use HasUlids {
+        resolveRouteBindingQuery as private resolveUlidBindingQuery;
+    }
+
+    /**
+     * Stored ULIDs are always lowercase (HasUlids generates them that way), but
+     * Str::isUlid and the `ulid` validation rule also accept uppercase. Lowercase
+     * the incoming value so an uppercase ULID finds the same record instead of
+     * passing validation and then missing.
+     */
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        return $this->resolveUlidBindingQuery($query, is_string($value) ? strtolower($value) : $value, $field);
+    }
+
+    /**
+     * Keep stored ULIDs lowercase even when a caller (a factory, a seeder) supplies one.
+     */
+    public function setUlidAttribute(string $value): void
+    {
+        $this->attributes['ulid'] = strtolower($value);
+    }
 
     /**
      * @return array<int, string>
