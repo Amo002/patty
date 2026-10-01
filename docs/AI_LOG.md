@@ -45,7 +45,7 @@ Setup: Claude Code (CLI) as orchestrator, with builder and reviewer sub-agents p
 
 **What the AI proposed:** seven questions with options and a recommendation each (Q-001 to Q-007).
 
-**Where Mohamad overrode it:** Q-002, over-delivery. The AI recommended strict rejection of any excess, for simplicity. Mohamad chose a 5% tolerance, because suppliers deliver weighed goods slightly over, and refusing to record what physically arrived makes stock wrong.
+**Where Mohamad overrode it:** Q-002, over-delivery. The AI recommended strict rejection of any excess, for simplicity. Mohamad chose a 5% tolerance. (The AI first wrote a rationale here as if it were his. It was not, so it was corrected to a draft he must confirm in D-011.)
 
 **Follow-up the AI raised:** the tolerance needs a rounding rule for small counts. 5% of 10 buns is 10.5. It proposed rounding down in integer math (`intdiv(ordered * 105, 100)`), so a 10-bun line allows exactly 10 and no float ever enters stock arithmetic. Accepted.
 

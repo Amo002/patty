@@ -68,7 +68,7 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 ## D-011 Over-delivery tolerated up to 5% per line (Q-002)
 - **Chosen:** a line may receive in total up to `intdiv(ordered x (100 + 5), 100)`, using integer math and rounding down. Stock rises by the full amount received. Outstanding floors at 0, and the excess shows as over-received. Beyond the limit, the whole delivery is rejected (422). Tolerance in `config/patty.php`.
 - **Rejected:** strict rejection of any excess (the orchestrator's recommendation, which is simpler but ignores how suppliers actually deliver by weight); unlimited excess (a typo inflates stock).
-- **Why:** suppliers routinely deliver slightly over on weighed goods, and refusing to record what physically arrived makes stock wrong. A cap still catches typos. Rounding down keeps the limit an integer and never lets a small-count line (10 buns) go over at all.
+- **Why (AI draft, Mohamad to confirm in his own words):** suppliers routinely deliver slightly over on weighed goods, and refusing to record what physically arrived makes stock wrong. A cap still catches typos. Rounding down keeps the limit an integer and never lets a small-count line (10 buns) go over at all.
 - **Decided by:** Mohamad, overriding the recommendation.
 - **Date:** 2026-10-01
 
