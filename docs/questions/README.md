@@ -23,3 +23,4 @@ Until a question is closed, its **Recommendation** is the working assumption.
 | [Q-013](Q-013-exposing-ids.md) | Database ids in URLs and API | closed | PTY-3, PTY-16 |
 | [Q-014](Q-014-tolerance-model.md) | Tolerance model (over, under, cap) | closed | PTY-3, PTY-7, PTY-8 |
 | [Q-015](Q-015-seed-images.md) | Seed images | closed | PTY-22 |
+| [Q-016](Q-016-demo-data-api.md) | Demo data clear, seed and reset | closed | PTY-22 |

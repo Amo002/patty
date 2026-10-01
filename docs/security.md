@@ -28,8 +28,8 @@ Patty is a single-branch back-office tool. The brief says no authentication. We 
 | S13 | Demo clear, seed or reset reachable in a real deployment | E30 to E32 | Routes registered only when `APP_ENV=local`; artisan commands confirm before running | T24 | PTY-22 |
 | S14 | Vulnerable dependencies | composer | `composer audit` in CI on every PR | CI | PTY-16 |
 | S15 | Secrets committed | git | `.env` ignored; `.env.example` holds no secrets; the POS key is empty by default | review | all |
-| S17 | Third-party images: licence, privacy, availability | seed photos | Only photos whose licence page was checked; credited in CREDITS.md; no people or brands; served from our own `public/`, never hot-linked | review of CREDITS.md | PTY-22 |
 | S16 | Log injection or PII in logs | logs | Structured context arrays, no free-form user strings in messages, no personal data stored at all | review | all |
+| S17 | Third-party images: licence, privacy, availability | seed photos | Only photos whose licence page was checked; credited in CREDITS.md; no people or brands; served from our own `public/`, never hot-linked | review of CREDITS.md | PTY-22 |
 
 ## Phase 5: security review (PTY-21)
 

@@ -87,8 +87,13 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC1. The header identifies the user as "Restaurant manager" and explains that there is no login by design.
 - AC2. A first-visit banner introduces the demo and the guided tour. It is dismissible, and the dismissal is remembered.
 - AC3. The dashboard has a guided "Try it" card with five steps that tick themselves off from real data.
-- AC4. In the local environment the manager can reset the demo data (with confirmation). Outside local the endpoint does not exist (404).
-- AC5. A fresh install shows realistic data in every state: closed, partially received, sent and draft POs, two days of sales, and one negative ingredient. The seed is created through the real services.
+- AC4. In the local environment the manager can **clear** all data, **seed** demo data into an empty system (409 if not empty), or **reset** (clear then seed), from the UI with confirmation or by API or artisan. Outside local these endpoints do not exist (404) (D-037).
+- AC5. A fresh install shows realistic data with photos (D-036) in every state:
+  - POs closed by full receipt, closed within under-tolerance, closed with over-receipt, short-closed, partially received, sent and draft;
+  - three days of sales;
+  - one negative ingredient.
+
+  The seed is created through the real services and is deterministic.
 
 ## Non-functional
 

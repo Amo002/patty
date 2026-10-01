@@ -326,3 +326,17 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** a reviewer opening the app should see a believable restaurant, not "Test Ingredient 1". Photos make the catalogue scannable at a glance.
 - **Decided by:** Mohamad (Q-015).
 - **Date:** 2026-10-01
+
+## D-037 Demo data API: clear, seed, reset (local only)
+- **Chosen:** three endpoints, each with an artisan twin and a UI action behind a confirm dialog. All are registered **only** when `APP_ENV=local`, and are 404 elsewhere.
+
+  | Endpoint | Artisan command | Effect |
+  |---|---|---|
+  | `POST /api/v1/demo/clear` | `patty:demo:clear` | Empty everything |
+  | `POST /api/v1/demo/seed` | `patty:demo:seed` | Load the realistic data into an **empty** system; 409 `demo_not_empty` otherwise |
+  | `POST /api/v1/demo/reset` | `patty:demo:reset` | Clear, then seed |
+
+- **Clear uses `migrate:fresh`, not DELETE.** The append-only triggers on `stock_movements` (D-024) refuse DELETE, as they should. Erasing history in a demo means starting a new database, which is honest and visible. Even our own tooling cannot quietly rewrite the ledger.
+- **Why:** reviewers and the live session need to start from zero ("build it from scratch in front of us") or from a rich state ("show me a partially received order"), on demand, in seconds.
+- **Decided by:** Mohamad (Q-016).
+- **Date:** 2026-10-01

@@ -20,7 +20,7 @@ An independent, high-capability security pass over the finished code, with every
 
 ## Contract
 
-[security.md](../security.md) threats S1 to S16.
+[security.md](../security.md) threats S1 to S17.
 
 ## Acceptance criteria
 
