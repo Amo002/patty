@@ -1,6 +1,6 @@
 # Q-003 What does the `received` state mean?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-7, PTY-8
 
 ## Context
@@ -34,4 +34,4 @@ All other moves are rejected.
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**A, as recommended.** `received` means partially received (labelled so in the UI). The order closes automatically when nothing is outstanding. Recorded as D-012.

@@ -1,6 +1,6 @@
 # Q-006 How are units handled?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-3
 
 ## Context
@@ -22,4 +22,4 @@ The brief gives "150 g of beef, 1 bun and 20 g of cheese", so ingredients have d
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**A, as recommended.** One unit per ingredient (g, ml, piece), unsigned integer quantities, no conversion; unit locked once stock has moved. Recorded as D-015.

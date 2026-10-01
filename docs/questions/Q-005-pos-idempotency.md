@@ -1,6 +1,6 @@
 # Q-005 What if the POS sends the same sale twice?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-9
 
 ## Context
@@ -22,4 +22,4 @@ A POS calls our endpoint over a network. If the response is lost, the POS retrie
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**B, as recommended.** Optional unique `pos_reference`; a replay returns the original sale with 200 and moves no stock. Recorded as D-014.

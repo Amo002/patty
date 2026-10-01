@@ -1,6 +1,6 @@
 # Q-002 Can a delivery exceed what was ordered?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-8
 
 ## Context
@@ -26,4 +26,11 @@ Order 1000 g beef. The supplier sends 1050 g. It happens in real kitchens. Weigh
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**B, with a 5% tolerance** (differs from the recommendation).
+
+- Per line, total received may reach `intdiv(ordered x 105, 100)`, in integers, rounding down: 1000 g allows 1050 g; 10 buns allows 10.
+- Stock rises by the full quantity received, excess included. Outstanding is `max(0, ordered - received)`; the excess is shown as over-received.
+- Beyond the limit, the whole delivery is rejected with 422.
+- The tolerance is `config('patty.over_delivery_tolerance_percent')`, so changing it is one line.
+
+Recorded as D-011.

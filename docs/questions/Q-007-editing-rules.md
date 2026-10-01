@@ -1,6 +1,6 @@
 # Q-007 What can be edited, and when?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-6, PTY-7
 
 ## Context
@@ -26,4 +26,4 @@ Deletes: nothing that has stock movements or is referenced by an order or sale c
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**Accepted as written.** Recorded as D-016.

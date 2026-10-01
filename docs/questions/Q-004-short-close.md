@@ -1,6 +1,6 @@
 # Q-004 Can an order be closed with quantity still outstanding?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-7, PTY-8
 
 ## Context
@@ -27,4 +27,4 @@ The supplier sends 600 of 1000 g beef and says the rest is not coming. Under the
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**B, as recommended.** Manual short-close from `received` only; `short_closed = true`; missing quantity shown as not delivered; stock untouched. Recorded as D-013.

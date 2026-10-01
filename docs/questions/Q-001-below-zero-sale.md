@@ -1,6 +1,6 @@
 # Q-001 What happens when a sale would take stock below zero?
 
-Status: open
+Status: closed (2026-10-01)
 Blocks: PTY-9
 Named in the brief: "You'll hit decisions the brief doesn't answer, like what happens when a sale would take stock below zero."
 
@@ -27,4 +27,4 @@ The POS reports sales that **already happened**. The customer has paid and has t
 
 ## Answer
 
-<!-- Mohamad: write your answer here, then set Status: closed -->
+**B, as recommended.** Accept the sale, record the movements, flag the ingredient as Negative. Recorded as D-010.

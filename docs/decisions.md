@@ -59,6 +59,39 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** the history should read like real team work, and the AI log is the honest, graded record of how AI was used.
 - **Date:** 2026-10-01
 
----
+## D-010 A sale below zero is accepted and flagged (Q-001)
+- **Chosen:** record the sale and its movements even if on-hand goes negative. Show the ingredient as "Negative" in red.
+- **Rejected:** rejecting the sale (the sale already happened, so the data would be lost); clamping at zero (the ledger would stop summing to reality).
+- **Why:** the POS reports facts. Negative stock is information: an unrecorded delivery, a miscount or loss. Surfacing it is what the owner needs. Hiding it by refusing the sale destroys data.
+- **Date:** 2026-10-01
 
-Pending, from open questions: Q-001 to Q-007 (see [questions/](questions/)).
+## D-011 Over-delivery tolerated up to 5% per line (Q-002)
+- **Chosen:** a line may receive in total up to `intdiv(ordered x (100 + 5), 100)`, using integer math and rounding down. Stock rises by the full amount received. Outstanding floors at 0, and the excess shows as over-received. Beyond the limit, the whole delivery is rejected (422). Tolerance in `config/patty.php`.
+- **Rejected:** strict rejection of any excess (the orchestrator's recommendation, which is simpler but ignores how suppliers actually deliver by weight); unlimited excess (a typo inflates stock).
+- **Why:** suppliers routinely deliver slightly over on weighed goods, and refusing to record what physically arrived makes stock wrong. A cap still catches typos. Rounding down keeps the limit an integer and never lets a small-count line (10 buns) go over at all.
+- **Decided by:** Mohamad, overriding the recommendation.
+- **Date:** 2026-10-01
+
+## D-012 `received` means partially received; closing is automatic (Q-003)
+- **Chosen:** `draft -> sent -> received -> closed`. The first delivery moves sent to received. The order closes in the same transaction as the delivery that clears the last outstanding quantity. The UI labels `received` "Partially received".
+- **Rejected:** `received` = fully received with a manual close (contradicts "the order closes when everything has been received").
+- **Date:** 2026-10-01
+
+## D-013 Short-close from `received` (Q-004)
+- **Chosen:** a manager can close a `received` order with quantity outstanding. It is marked `short_closed`, the remainder shows as not delivered, and stock is untouched.
+- **Rejected:** no manual close (dead orders clutter the open list forever); a `cancelled` state (not in the brief; a likely live extension).
+- **Date:** 2026-10-01
+
+## D-014 POS idempotency via optional `pos_reference` (Q-005)
+- **Chosen:** a nullable unique `pos_reference`. A replay returns the original sale with 200 and moves no stock.
+- **Why:** network retries are the most likely way stock goes wrong in real life, and arithmetic tests cannot catch it.
+- **Date:** 2026-10-01
+
+## D-015 One unit per ingredient, integer quantities (Q-006)
+- **Chosen:** `g`, `ml` or `piece` per ingredient. All quantities are unsigned integers in that unit, with no conversion. The unit is locked once stock has moved.
+- **Rejected:** purchase-unit conversion (a next step).
+- **Date:** 2026-10-01
+
+## D-016 Editing rules (Q-007)
+- **Chosen:** as tabled in Q-007. PO lines and supplier are editable in draft only. Recipes are always editable but affect future sales only. Deliveries, sales and movements are never edited or deleted. Only draft POs can be deleted.
+- **Date:** 2026-10-01
