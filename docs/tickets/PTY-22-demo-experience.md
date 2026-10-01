@@ -54,8 +54,8 @@ F20, and F5 to F16 as run by the seeder.
   4. Watch stock and Incoming change (Dashboard stock panel)
   5. See what happened (Activity)
 - [ ] Each step ticks itself off from real data on refresh:
-  1. PO-0003 status is not `sent`
-  2. PO-0002 has more deliveries than at seed time
+  1. the seeded PO-...-0003 is no longer `sent`
+  2. the seeded PO-...-0002 has more deliveries than at seed time
   3. a non-seed sale exists
   4. ticks once step 2 or 3 is done
   5. the Activity page has been visited (localStorage)

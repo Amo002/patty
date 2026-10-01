@@ -23,7 +23,7 @@ FR-6 AC1 to AC7. D-020, D-021. T8, T11, T16.
 ## Acceptance criteria
 
 - [ ] E27 `GET /api/v1/stock`: paginated, every ingredient with on-hand, **incoming** (sum of outstanding on sent/received POs, D-020), unit and a `negative` flag. Grouped queries, no N+1. `generated_at` in `meta`.
-- [ ] E6 `GET /api/v1/ingredients/{ingredient}/movements`: movements newest first, paginated, no ids, with reason, delta, reference label (for example "Delivery #3 / PO-0002", "Sale #12 (Classic Burger x2)") and running balance
+- [ ] E6 `GET /api/v1/ingredients/{ingredient}/movements`: movements newest first, paginated, no ids, with reason, delta, reference label (for example "GRN-2026-0003 for PO-2026-0002", "SALE-2026-000012 Classic Burger x2") and running balance
 - [ ] E16 `GET /api/v1/purchase-orders?status=open`: orders in sent or received, with lines (ordered, received, outstanding), `progress_percent`, paginated, `meta.generated_at`.
 - [ ] E28 `GET /api/v1/dashboard`: counts for the KPI row (ingredients, negative count, open orders, outstanding lines)
 - [ ] E29 `GET /api/v1/activity?subject_type=&subject_id=`: audit entries newest first, paginated, subject referenced by ULID, each with event, description, subject label, channel, request id and time

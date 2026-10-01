@@ -25,6 +25,21 @@ stock_movements *---------------------------------------------------+
 
 All tables have `id` and `created_at`/`updated_at` unless noted. All quantities are **unsigned integers in the ingredient's unit**, except `stock_movements.quantity_delta`, which is signed.
 
+**Identifiers (D-031):**
+- `id` is an internal integer primary key, used for joins and foreign keys only. It is never exposed.
+- Addressable tables (ingredients, suppliers, menu_items, purchase_orders, purchase_order_lines, deliveries, sales) also have **`ulid`** (char 26, unique). It is the public identifier and route key.
+- purchase_orders, deliveries and sales also have **`number`** (unique), a human document number from `document_sequences`.
+
+**Names** on ingredients, suppliers and menu_items use `COLLATE NOCASE` with a unique index, so the database itself rejects "Beef" next to "beef".
+
+### document_sequences
+| Column | Type | Notes |
+|---|---|---|
+| type | string | `PO`, `GRN`, `SALE` |
+| year | unsigned smallint | UTC calendar year |
+| last_value | unsigned int | Incremented under a row lock, in the same transaction as the document it numbers |
+| | unique(type, year) | Formats: `PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001` |
+
 ### ingredients
 | Column | Type | Notes |
 |---|---|---|

@@ -119,7 +119,10 @@ This is the bookkeeping principle: postings are the truth, balances are a view o
 | Concern | Approach | Decision |
 |---|---|---|
 | API responses | One envelope via the `ApiResponse` trait. Every error rendered in one place (`bootstrap/app.php`). | D-019 |
-| Status codes | 200 / 201 / 404 / 405 / **409 state forbids** / **422 input wrong** / 429 / 500 | D-019 |
+| Status codes | 200 / 201 / 401 (POS key) / 404 / 405 / **409 state forbids** / **422 input wrong** / 429 / 500. Full list in [api.md](api.md). | D-019, D-028 |
+| Identifiers | ULIDs in URLs and payloads; integer ids never leave the server; human document numbers (PO, GRN, SALE) | D-031 |
+| Versioning | `/api/v1`, V1 namespaces, `X-API-Version`, written policy for breaking changes | D-031 |
+| Lists | Paginated everywhere; skeletons and lazy loading in the UI | D-032 |
 | Audit trail | spatie/laravel-activitylog: field changes plus named business events, with channel, request id and IP. No fake users. | D-021 |
 | Logging | Per domain: `stock`, `purchasing`, `pos`, `catalog`. `laravel.log` is errors only. Daily, 14 days, request id on every line. | D-022 |
 | Freshness | No server cache, `no-store`, polling plus refetch on focus and back navigation | D-006 |
@@ -147,5 +150,7 @@ How "stock numbers that are always right" is protected, layer by layer (D-024):
 
 ## 9. Decisions and roadmap
 
-- All decisions: [decisions.md](decisions.md) (D-001 onwards). Open questions: [questions/](questions/).
+- All decisions: [decisions.md](decisions.md) (D-001 onwards). Questions: [questions/](questions/).
+- Contract and behaviour: [api.md](api.md), [validation.md](validation.md), [flows.md](flows.md), [ui.md](ui.md), [security.md](security.md).
+- Phases and journal: [progress.md](progress.md).
 - Tickets and releases: [tickets/BOARD.md](tickets/BOARD.md) and [workflow.md](workflow.md#releases).
