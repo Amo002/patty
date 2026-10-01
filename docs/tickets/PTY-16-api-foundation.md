@@ -45,7 +45,7 @@ NFR-3, NFR-3a, NFR-3b, NFR-3c. D-019, D-021, D-022, D-024. Tests T15, T17, T18.
   - any other Throwable: 500 `server_error`, generic message, no trace when `APP_DEBUG=false`, logged to `laravel.log`
 - [ ] `JsonResource::withoutWrapping()` in `AppServiceProvider`, so `data` is never `data.data`
 - [ ] Versioning (D-031):
-  - `routes/api/v1.php` mounted at `/api/v1` from `bootstrap/app.php`;
+  - `routes/api/v1.php` mounted at `/api/v1` from `bootstrap/app.php`. It only `require`s every file in `routes/api/v1/` (catalog.php, purchasing.php, sales.php, visibility.php, demo.php, created empty here), so parallel tickets never edit the same routes file (D-040);
   - controllers in `App\Http\Controllers\Api\V1`, requests in `App\Http\Requests\V1`, resources in `App\Http\Resources\V1`;
   - `ApiVersion` middleware adds `X-API-Version: 1`.
 - [ ] `GET /api/v1/health` (E1) returns the envelope (used by tests and Postman)
@@ -90,7 +90,7 @@ NFR-3, NFR-3a, NFR-3b, NFR-3c. D-019, D-021, D-022, D-024. Tests T15, T17, T18.
 
 ### CI additions (this ticket)
 - [ ] `composer audit` step (S14)
-- [ ] "Journal" step: on pull requests, fails if the diff touches `app/`, `routes/`, `database/` or `resources/` but not `docs/progress.md` (D-033). Uses `git diff --name-only origin/${{ github.base_ref }}...HEAD`.
+- [ ] "Journal" step: on pull requests, fails if the diff touches `app/`, `routes/`, `database/` or `resources/` but changes neither `docs/progress.md` nor any `docs/tickets/PTY-*.md` file (D-033, amended by D-040 so parallel PRs do not all fight over progress.md). Uses `git diff --name-only origin/${{ github.base_ref }}...HEAD`.
 
 Test-only routes are registered inside the test file, never in `routes/`.
 

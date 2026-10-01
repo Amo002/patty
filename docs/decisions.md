@@ -363,3 +363,20 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** no Fable credits are available. Keeping the rule "the reviewer is always one tier above the builder" matters more than having the strongest builder. For the stock arithmetic (L tickets) the extra safety net is three checks: the Opus review at `high`, the orchestrator reading the diff, and Mohamad's hand-check of every worked example.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01
+
+## D-040 At most three agents at once: two builders, one reviewer
+- **Chosen:** during the build phases, at most **3 sub-agents run at the same time**: 2 builders (Sonnet 5.5) and 1 reviewer (Opus 5.5). Further tickets wait in the queue. Fixes after review go back to the same builder (continued, not re-spawned).
+- **Why:** the project runs on a Claude Pro plan, not Max. Unbounded parallel agents would exhaust the usage limit and stop the session mid-build. Two builders keep throughput up, and one reviewer keeps every ticket reviewed.
+- **How it is run:**
+  - The two builders work in separate git worktrees on separate ticket branches, so they never touch each other's files.
+  - Tickets are paired so they do not edit the same files (for example PTY-3 schema with PTY-16 API foundation).
+  - API routes live in one file per area under `routes/api/v1/`, so parallel tickets do not collide.
+  - D-033 amended: a PR must change `docs/progress.md` **or** its own ticket file. The orchestrator updates the journal once per wave, so two parallel PRs do not conflict on progress.md.
+- **Waves for phase 3a:**
+  1. PTY-3 with PTY-16
+  2. PTY-4 with PTY-6
+  3. PTY-5 with PTY-7
+  4. PTY-8 with PTY-9
+  5. PTY-10 alone (it reads everything)
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01

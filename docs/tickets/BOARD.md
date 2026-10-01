@@ -28,6 +28,14 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 No tickets. Design artifacts are produced and approved here (progress.md). The UI ticket split (Q-012) and the PTY-17 scope are decided at the end of this phase. Runs alongside 3a.
 
 ### 3a Build backend
+
+Run in waves of two parallel builders and one shared reviewer (D-040):
+1. PTY-3 with PTY-16
+2. PTY-4 with PTY-6
+3. PTY-5 with PTY-7
+4. PTY-8 with PTY-9
+5. PTY-10
+
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|---|
 | 1 | [PTY-3](PTY-3-schema-and-models.md) | Schema, models, identifiers, factories | M | Sonnet / Opus | v0.2.0 |

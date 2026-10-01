@@ -26,6 +26,10 @@ The project runs in phases, each with a gate. The journal of every phase (goal, 
 
 Phases 2b and 3a can run at the same time. Every ticket names its phase.
 
+## Parallel work
+
+Two tickets can be built at the same time, each in its own git worktree and branch, with one reviewer shared between them (D-040). The board shows which pairs run together.
+
 ## The flow (per ticket)
 
 ```
