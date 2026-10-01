@@ -200,3 +200,90 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** they prove the UI flows end to end without making Node a requirement for a reviewer running the app or the core tests.
 - **Priority:** first to cut if time runs short.
 - **Date:** 2026-10-01
+
+## D-027 No login, by design, and it should feel intentional
+- **Chosen:** all four of the following.
+  - An identity chip ("Restaurant manager, no login by design") and a first-visit banner.
+  - A guided "Try it" card on the dashboard that ticks itself off from real data.
+  - "Reset demo data", local env only.
+  - A realistic seed built through the real services, so every state is visible on first open: a closed PO with over-receipt, a partially received PO, a sent PO, a draft, two days of sales, and one negative ingredient.
+- **Why:** the brief says no authentication. Without these, a reviewer lands on an app with no context and wonders what is missing. With them, the absence of login reads as a decision, and the reviewer has a path through every feature in minutes.
+- **Decided by:** Mohamad (Q-008).
+- **Date:** 2026-10-01
+
+## D-028 Optional POS key, off by default
+- **Chosen:** if `POS_API_KEY` is set, `POST /sales` requires a matching `X-POS-Key` (constant-time comparison), else 401. It is empty by default, so reviewers and Postman need no setup.
+- **Rejected:** fully open with no option; full API authentication (the brief says none).
+- **Why:** it shows the integration surface was thought about, without adding friction.
+- **Decided by:** Mohamad (Q-009).
+- **Date:** 2026-10-01
+
+## D-029 Idempotency conflict is a 409
+- **Chosen:** a reused `pos_reference` with the same `menu_item_id` and `quantity` is a replay (200, nothing moves). With a different payload it is **409 `idempotency_conflict`**: nothing is recorded, and a warning is logged.
+- **Rejected:** treating every reuse as a replay, which would hide a POS bug.
+- **Decided by:** Mohamad (Q-010).
+- **Date:** 2026-10-01
+
+## D-030 Small edges
+- **Time:**
+  - stored in UTC;
+  - the API returns ISO-8601 with `Z`;
+  - the UI shows the viewer's machine timezone (confirmed by Mohamad).
+- **No deletes** of ingredients, suppliers or menu items, because history references them. Draft POs can be deleted. Archiving is a next step. Mohamad left this to the orchestrator's judgement.
+- **Delivery date:** `received_at` cannot be in the future or before the PO's `sent_at`.
+- **Supplier catalogue:** none. Any supplier may supply any ingredient (a next step).
+- **Bounds:**
+  - max 50 lines;
+  - quantities 1 to 1,000,000 per line;
+  - sales 1 to 1,000 per event;
+  - provably no integer overflow (validation.md).
+- **PO progress** is the average of per-line completion, never a sum across units.
+- **Date:** 2026-10-01
+
+## D-031 API versioning and no internal ids exposed
+- **Chosen:**
+  - **Versioning:** path versioning `/api/v1`, with V1 namespaces for controllers, requests and resources, and shared services. An `X-API-Version` header. A written policy: additive changes stay in v1, breaking changes go to v2, retirement announced with `Deprecation` and `Sunset` headers.
+  - **Identifiers:** integer primary keys stay internal. Every addressable record has a **ULID** used in URLs, requests and responses.
+  - **Document numbers:** human-readable `PO-2026-0001`, `GRN-2026-0001` and `SALE-2026-000001` come from a per-type yearly counter, and are display-only.
+- **Rejected:**
+  - exposing auto-increment ids, which reveal volume and invite enumeration (`/purchase-orders/3`);
+  - UUID primary keys (slower joins and indexes, for no gain here);
+  - document numbers derived from the id (they leak the id).
+- **Why:** professional APIs do not expose database internals. ULIDs are unguessable and sortable, and keep integer keys fast for joins.
+- **Decided by:** Mohamad (Q-013).
+- **Date:** 2026-10-01
+
+## D-032 Pagination everywhere, skeletons and lazy loading
+- **Chosen:**
+  - **Pagination:** every collection endpoint is paginated (`page`, `per_page` default 25, max 100, above that 422) with `meta.pagination`. Dashboard KPIs come from their own endpoint.
+  - **UI:** skeleton placeholders for every loading region, and lazy loading of further pages on scroll with a "Load more" fallback.
+- **Rejected:** unpaginated lists "because the restaurant is small" (the orchestrator's first suggestion). Mohamad wanted it done properly everywhere.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-033 Phases, and docs that cannot fall behind
+- **Chosen:** the project runs in phases with gates, journaled in `progress.md` (goal, how it went, decisions, lessons):
+  - 0 discovery and planning;
+  - 1 specification;
+  - 2a backend design;
+  - 2b frontend design;
+  - 3a build backend;
+  - 3b build frontend;
+  - 4 review and testing;
+  - 5 security;
+  - 6 release;
+  - 7 interview prep.
+
+  Every PR updates `progress.md`. From PTY-16, CI fails a PR that changes `app/`, `routes/`, `database/` or `resources/` without changing `docs/progress.md`.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-034 A frontend design phase before any UI code
+- **Chosen:**
+  - Phase 2b produces a design system and every screen in every state (loaded, skeleton, empty, error) as Claude Artifact designs.
+  - Mohamad iterates and approves in writing.
+  - Only then are design.md and ui.md finalised, the UI ticket split (Q-012) and the PTY-17 scope decided, and PTY-11 unblocked.
+  - Phase 2b runs alongside the backend build.
+- **Why:** a design approved up front is cheaper than one discovered while coding.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01

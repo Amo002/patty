@@ -15,3 +15,9 @@ Until a question is closed, its **Recommendation** is the working assumption.
 | [Q-005](Q-005-pos-idempotency.md) | What if the POS sends the same sale twice? | closed | PTY-9 |
 | [Q-006](Q-006-units.md) | How are units handled? | closed | PTY-3 |
 | [Q-007](Q-007-editing-rules.md) | What can be edited, and when? | closed | PTY-6, PTY-7 |
+| [Q-008](Q-008-no-login-experience.md) | No-login experience | closed | PTY-22 |
+| [Q-009](Q-009-pos-endpoint-protection.md) | POS endpoint protection | closed | PTY-9 |
+| [Q-010](Q-010-idempotency-conflict.md) | Reference reused with a different payload | closed | PTY-9 |
+| [Q-011](Q-011-small-edges.md) | Time, deletes, delivery date, bounds | closed | several |
+| [Q-012](Q-012-ui-ticket-split.md) | UI ticket split and PTY-17 scope | **open** (phase 2b) | UI tickets |
+| [Q-013](Q-013-exposing-ids.md) | Database ids in URLs and API | closed | PTY-3, PTY-16 |

@@ -48,6 +48,7 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC8. A delivery is all-or-nothing: if any line fails validation, no stock moves.
 - AC9. A manager can short-close a `received` order with quantity still outstanding. It is marked short-closed, the missing quantity shows as not delivered, and stock is untouched (Q-004).
 - AC10. Two simultaneous deliveries on the same order cannot both pass the tolerance check. The order row is locked for the duration of the transaction.
+- AC11. `received_at` cannot be in the future or earlier than the order's `sent_at` (422).
 
 ### FR-5 Sales from the POS
 
@@ -59,6 +60,8 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC6. A sale is all-or-nothing across its ingredients.
 - AC7. Two simultaneous requests with the same `pos_reference` still produce one sale. The unique index is the final guard.
 - AC8. The sale endpoint is rate-limited (120 per minute) and answers 429 `too_many_requests` beyond that.
+- AC9. If `pos_reference` was already used with a different menu item or quantity, the sale is rejected (409 `idempotency_conflict`) and nothing is recorded (D-029).
+- AC10. If `POS_API_KEY` is configured, a sale without a matching `X-POS-Key` is rejected (401). With no key configured the endpoint is open (D-028).
 
 ### FR-6 Visibility
 
@@ -93,3 +96,15 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - NFR-4 Runnable. A clean clone runs with `composer setup && php artisan serve`. Tests run with `php artisan test`.
 - NFR-5 UI. Every feature above is reachable from the web UI without touching the API. It is usable with the keyboard, and motion respects `prefers-reduced-motion`.
 - NFR-6 API. Versioned under `/api/v1`, JSON only, documented by the Postman collection.
+- NFR-7 Identifiers. No integer database id appears in any URL, request or response. Records are addressed by ULID. Purchase orders, deliveries and sales carry human document numbers (`PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`) for display (D-031).
+- NFR-8 Versioning. The API is versioned in the path (`/api/v1`), with a written policy for additive and breaking changes, and an `X-API-Version` header (D-031).
+- NFR-9 Pagination. Every collection endpoint is paginated with `meta.pagination`. The UI shows skeletons while loading and lazy-loads further pages (D-032).
+- NFR-10 Time. Stored in UTC. Shown in the viewer's machine timezone (D-030).
+
+### FR-7 Demo experience (supports the "no login" decision)
+
+- AC1. The header identifies the user as "Restaurant manager" and explains that there is no login by design.
+- AC2. A first-visit banner introduces the demo and the guided tour. It is dismissible, and the dismissal is remembered.
+- AC3. The dashboard has a guided "Try it" card with five steps that tick themselves off from real data.
+- AC4. In the local environment the manager can reset the demo data (with confirmation). Outside local the endpoint does not exist (404).
+- AC5. A fresh install shows realistic data in every state: closed, partially received, sent and draft POs, two days of sales, and one negative ingredient. The seed is created through the real services.

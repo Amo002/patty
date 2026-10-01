@@ -29,6 +29,11 @@ This folder is the context every person and AI agent reads **before** writing co
 |---|---|
 | [stack.md](stack.md) | What we use, conventions, and what we never use |
 | [data.md](data.md) | Tables, derived values, invariants |
+| [api.md](api.md) | API contract v1: every endpoint, shapes, status and error codes, versioning |
+| [validation.md](validation.md) | Every input rule, per endpoint and field |
+| [flows.md](flows.md) | Every flow end to end, plus "A day at Patty" |
+| [ui.md](ui.md) | Pages, URLs, data sources, behaviour rules |
+| [security.md](security.md) | Threat model and security review plan |
 | [design.md](design.md) | Design tokens, motion, components, icons |
 | [testing.md](testing.md) | The tests that matter, and the manual QA checklist |
 | [environments.md](environments.md) | local, test, dev, prod, and why nothing is deployed |

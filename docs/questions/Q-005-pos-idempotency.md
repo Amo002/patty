@@ -23,3 +23,7 @@ A POS calls our endpoint over a network. If the response is lost, the POS retrie
 ## Answer
 
 **B, as recommended.** Optional unique `pos_reference`; a replay returns the original sale with 200 and moves no stock. Recorded as D-014.
+
+## Addendum (2026-10-01)
+
+Reusing a reference with a **different** payload returns 409 `idempotency_conflict` (Q-010, D-029).
