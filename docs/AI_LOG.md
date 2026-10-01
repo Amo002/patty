@@ -177,3 +177,29 @@ He also asked for:
 - **Mohamad then set a rule** that the AI had been bending: one ticket = one PR, with no mixed changes. The `.gitignore` and rule changes were moved out of the design PR into their own ticket (PTY-24).
 
 **Decisions:** D-041, D-042, D-043; Q-012 closed (UI split into PTY-12, PTY-18 and PTY-19; PTY-17 deferred).
+
+## 2026-10-01: Build wave 1 (PTY-3 and PTY-16), two Sonnet builders, one Opus reviewer
+
+**Setup:** two Sonnet 5.5 builders in separate git worktrees. Each had a brief with a strict list of files it owned, so the two could not collide (config/patty.php to PTY-3, config/services.php and tests/Pest.php to PTY-16). One Opus 5.5 reviewer took each ticket in turn (D-040).
+
+**What went wrong before it went right:** the first attempt at wave 1 was lost entirely. The session ended before either builder had committed anything. The restart briefs said "commit early and often", and both builders then committed after every working piece.
+
+**What the reviewer caught that green tests did not:**
+- **PTY-16, two majors with all 18 tests passing:**
+  - `Log::withContext()` only reaches the default logger, so `stock`, `purchasing`, `pos` and `catalog` log lines carried no request id. The reviewer proved it by writing to a domain channel.
+  - Audit rows created by model field changes would not be stamped with channel, request id and IP.
+
+  Six minors too (for example, a 429 dropped its `Retry-After` header), plus one test that claimed to prove `withoutWrapping()` but still passed when it was removed.
+- **PTY-3, two majors:**
+  - DocumentNumber's "must be in a transaction" check could never be exercised, because every test runs inside a transaction. Fixed by making `next()` open its own nested transaction.
+  - An under-delivery tolerance of 100% made `minToComplete` 0, which would close an order with nothing delivered. Fixed with a floor of 1.
+
+  Also found: SQLite silently ignores UNSIGNED. The docs now say so honestly instead of claiming the database enforces it.
+- **The method:** mutation-checking, which means breaking each rule on purpose and confirming a test fails. On PTY-3, 21 of 21 deliberate breaks were caught after the fixes.
+
+**Orchestrator checks before each PR:**
+- the diff contains only the ticket's own files;
+- every commit is authored by Mohamad, with no trailers;
+- Pint and the full suite pass after merging the latest develop. While doing this for PTY-3, a "class not found" failure appeared. It was not a bug: PTY-16 had just been merged and the worktree needed `composer install`.
+
+**Lesson:** a passing test suite is necessary, not sufficient. The independent, higher-tier reviewer is where the design rules (D-021, D-022) were actually enforced.

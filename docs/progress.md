@@ -134,6 +134,11 @@ The first file to open every session. It tracks the project phase by phase: what
 - v0.1.0 released (tooling and specification).
 - The first wave-1 attempt was lost when a session ended before the builders committed anything. Restarted with "commit early and often" in the builder briefs.
 - New rule from Mohamad: **one ticket = one PR**, and he reviews the full diff of each (workflow.md).
+- **Wave 1 done:**
+  - PTY-16 (API foundation) merged as PR #8;
+  - PTY-3 (schema, identifiers, triggers, tolerance) opened as PR #9.
+  - Both went through Opus review with changes requested (2 majors each), then fixes, then mutation checks.
+- **Next:** wave 2, PTY-4 (stock ledger, plus the morph map) with PTY-6 (menu and recipes API), once PR #9 is merged.
 ## Phase 3b: Build frontend (not started)
 ## Phase 4: Review and testing (continuous)
 ## Phase 5: Security (not started)
