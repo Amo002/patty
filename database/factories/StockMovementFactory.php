@@ -24,7 +24,7 @@ class StockMovementFactory extends Factory
             'ingredient_id' => Ingredient::factory(),
             'quantity_delta' => -fake()->numberBetween(1, 500),
             'reason' => MovementReason::Sale,
-            'reference_type' => Sale::class,
+            'reference_type' => 'sale',
             'reference_id' => Sale::factory(),
             'occurred_at' => now(),
         ];

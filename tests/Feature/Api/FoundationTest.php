@@ -7,6 +7,7 @@ use App\Http\Requests\V1\PaginationRequest;
 use App\Support\Audit;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
@@ -176,6 +177,12 @@ beforeEach(function () {
     // The 500 test reports an exception; keep that out of storage/logs.
     config(['logging.default' => 'null']);
 
+    // The app enforces a morph map; test-only models need short names too (merged, not replaced).
+    Relation::morphMap([
+        'foundation_widget' => FoundationWidget::class,
+        'foundation_logged_widget' => FoundationLoggedWidget::class,
+    ]);
+
     Schema::create('foundation_widgets', function ($table) {
         $table->id();
         $table->string('ulid')->unique();
@@ -318,7 +325,7 @@ it('T18: Audit::record stores the channel, request id and ip of the request', fu
     $entry = Activity::query()->latest('id')->firstOrFail();
 
     expect($entry->event)->toBe('widget.touched')
-        ->and($entry->subject_type)->toBe(FoundationWidget::class)
+        ->and($entry->subject_type)->toBe('foundation_widget')
         ->and($entry->properties['channel'])->toBe('pos')
         ->and($entry->properties['request_id'])->toBe('audit-1')
         ->and($entry->properties['ip'])->not->toBeEmpty()
@@ -330,7 +337,7 @@ it('T18: entries written by the LogsActivity trait are stamped too, without Audi
 
     $entry = Activity::query()->latest('id')->firstOrFail();
 
-    expect($entry->subject_type)->toBe(FoundationLoggedWidget::class)
+    expect($entry->subject_type)->toBe('foundation_logged_widget')
         ->and($entry->properties['channel'])->toBe('ui')
         ->and($entry->properties['request_id'])->toBe('trait-1')
         ->and($entry->properties['ip'])->not->toBeEmpty();
