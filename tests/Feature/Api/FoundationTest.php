@@ -144,11 +144,11 @@ class FoundationProbeController extends ApiController
         return $this->success(null, 'Logged.');
     }
 
-    public function raw(): JsonResponse
+    public function raw(): FoundationWidgetResource
     {
         $widget = FoundationWidget::create(['ulid' => (string) Str::ulid(), 'name' => 'Raw']);
 
-        return $this->success(FoundationWidgetResource::make($widget));
+        return FoundationWidgetResource::make($widget);
     }
 
     public function status(int $code): never
@@ -433,10 +433,9 @@ it('renders an AuthorizationException as 403 and lets an HttpResponseException t
     $this->getJson('/api/v1/__foundation/custom')->assertStatus(202)->assertExactJson(['custom' => true]);
 });
 
-it('does not wrap a resource a second time (withoutWrapping)', function () {
-    $response = $this->getJson('/api/v1/__foundation/raw')->assertOk();
-
-    expect($response->json('data'))->toHaveKeys(['id', 'name'])->not->toHaveKey('data');
+it('withoutWrapping: a resource returned directly is not nested under data', function () {
+    $body = $this->getJson('/api/v1/__foundation/raw')->assertSuccessful()->json();
+    expect($body)->toHaveKeys(['id', 'name'])->not->toHaveKey('data');
 });
 
 it('assertNoIntegerIds fails on an integer id or *_id and passes on strings', function () {
