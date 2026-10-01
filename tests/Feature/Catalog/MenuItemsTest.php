@@ -186,6 +186,18 @@ it('rejects a duplicate name in a different case on create and on rename', funct
     expect($other->fresh()->name)->toBe('Veggie Burger');
 });
 
+it('answers 422, not 500, when the name is an array', function () {
+    $item = MenuItem::factory()->create(['name' => 'Classic Burger']);
+
+    $create = $this->postJson('/api/v1/menu-items', ['name' => ['x']])->assertStatus(422)->assertJsonPath('code', 'validation_failed');
+    expect($create->json())->assertNoIntegerIds();
+    expect($create->json('errors'))->toHaveKey('name');
+
+    $rename = $this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => ['x']])->assertStatus(422)->assertJsonPath('code', 'validation_failed');
+    expect($rename->json())->assertNoIntegerIds();
+    expect($rename->json('errors'))->toHaveKey('name');
+});
+
 it('renames an item, allows re-sending its own name, and ignores a PATCH without a name', function () {
     $item = MenuItem::factory()->create(['name' => 'Classic Burger']);
 
