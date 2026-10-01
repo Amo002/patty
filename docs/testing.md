@@ -24,7 +24,7 @@ Run: `php artisan test` (or `vendor/bin/pest`). Style: `vendor/bin/pint --test`.
 | T6 | Editing lines of a sent order is rejected | Operation guards | PTY-7 |
 | T7 | A sale below zero is accepted and the ingredient shows negative | Q-001 decision | PTY-9 |
 | T8 | Interleaved deliveries and sales give an exact on-hand, equal to a hand-computed total | Ledger design | PTY-10 |
-| T9 | Over-delivery is rejected and nothing from that delivery is saved | Q-002, atomicity | PTY-8 |
+| T9 | Over-delivery within 5% is accepted (stock rises by the full amount); beyond it is rejected and nothing from that delivery is saved; limit rounds down | Q-002, atomicity | PTY-8 |
 | T10 | A repeated `pos_reference` does not move stock twice | Q-005 idempotency | PTY-9 |
 | T11 | Open orders list shows correct outstanding per line after partial deliveries | Visibility | PTY-10 |
 | T12 | Validation errors return 422 with field messages (representative, not exhaustive) | API contract | PTY-5, PTY-6 |
@@ -52,8 +52,9 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 
 ### QA-4 Receiving
 - [ ] Receive beef 600 g only. Stock of beef rises by 600. The PO shows Partially received, outstanding beef 400 and buns 10.
-- [ ] Try to receive beef 500 (more than the 400 outstanding). An error appears and stock is unchanged.
-- [ ] Receive beef 400 and buns 10. The PO shows Closed and disappears from open orders.
+- [ ] Try to receive beef 500 (total 1100, above the 1050 limit). An error appears and stock is unchanged.
+- [ ] Receive beef 430 (within 5%) and buns 10. Beef rises by 430, the PO shows Closed with beef over-received 30, and it disappears from open orders.
+- [ ] On another partially received PO, short-close it. It shows Closed (short) with the missing quantity as not delivered, and stock is unchanged.
 
 ### QA-5 POS sale
 - [ ] In the POS simulator, sell 2 Classic Burgers. Beef falls by 300, bun by 2, cheese by 40.

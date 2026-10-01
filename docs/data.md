@@ -106,7 +106,9 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 ```
 on_hand(ingredient)     = SUM(stock_movements.quantity_delta) WHERE ingredient_id = ?
 received(po_line)       = SUM(delivery_lines.quantity_received) WHERE purchase_order_line_id = ?
-outstanding(po_line)    = po_line.quantity_ordered - received(po_line)
+outstanding(po_line)    = max(0, quantity_ordered - received(po_line))
+over_received(po_line)  = max(0, received(po_line) - quantity_ordered)
+max_receivable(po_line) = intdiv(quantity_ordered * (100 + tolerance_percent), 100)   -- integers, rounds down
 po fully received       = every line has outstanding == 0
 ```
 
@@ -115,6 +117,6 @@ po fully received       = every line has outstanding == 0
 1. The only code that inserts into `stock_movements` is `StockLedger`. Nothing updates or deletes a movement.
 2. Each delivery line produces exactly one movement of `+quantity_received`.
 3. Each sale produces exactly one movement per recipe line, of `-(recipe quantity x sale quantity)`.
-4. `received(po_line) <= quantity_ordered` always (over-delivery rejected, Q-002).
+4. `received(po_line) <= max_receivable(po_line)` always (over-delivery tolerated up to 5%, beyond that rejected, Q-002).
 5. `purchase_orders.status` changes only through `PurchaseOrderStatus::transitionTo()` rules.
 6. A delivery or sale and its movements are written in one transaction, or not at all.

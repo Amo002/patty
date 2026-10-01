@@ -40,10 +40,11 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC1. A manager can record a delivery against an order that is `sent` or `received`, with one or more lines of (order line, quantity received > 0).
 - AC2. Recording a delivery against a `draft` or `closed` order is rejected with 422.
 - AC3. For every delivery line, stock of that ingredient rises by exactly the quantity received.
-- AC4. Outstanding per line = ordered - sum(received). It is derived, never stored.
-- AC5. A quantity greater than what is outstanding on that line is rejected with 422, and nothing from that delivery is saved (Q-002).
+- AC4. Per line, all derived, never stored: received = sum(delivered), outstanding = max(0, ordered - received), over-received = max(0, received - ordered).
+- AC5. Over-delivery is accepted up to a tolerance (Q-002, default 5%, `config/patty.php`). A delivery is rejected with 422, and nothing from it is saved, if it would take a line's total received above `floor(ordered x (100 + tolerance) / 100)`, computed in integers. Stock rises by the full quantity received, excess included.
 - AC6. The first delivery moves the order from `sent` to `received`.
-- AC7. When every line has zero outstanding, the order moves to `closed` in the same transaction.
+- AC7. When every line has zero outstanding (received >= ordered), the order moves to `closed` in the same transaction.
+- AC9. A manager can short-close a `received` order with quantity still outstanding. It is marked short-closed, the missing quantity shows as not delivered, and stock is untouched (Q-004).
 - AC8. A delivery is all-or-nothing: if any line fails validation, no stock moves.
 
 ### FR-5 Sales from the POS

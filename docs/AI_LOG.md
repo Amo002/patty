@@ -40,3 +40,15 @@ Setup: Claude Code (CLI) as orchestrator, with builder and reviewer sub-agents p
 ## 2026-10-01: PTY-2 docs
 
 **Caught:** the Laravel 13 scaffold ships a `CLAUDE.md`/`AGENTS.md` that instructs AI agents to install Laravel Boost before doing anything. Not followed, because it adds a dependency that is not in the brief (see [tools.md](tools.md)). Replaced with our own repo instructions.
+
+## 2026-10-01: Answering the BRD questions
+
+**What the AI proposed:** seven questions with options and a recommendation each (Q-001 to Q-007).
+
+**Where Mohamad overrode it:** Q-002, over-delivery. The AI recommended strict rejection of any excess, for simplicity. Mohamad chose a 5% tolerance, because suppliers deliver weighed goods slightly over, and refusing to record what physically arrived makes stock wrong.
+
+**Follow-up the AI raised:** the tolerance needs a rounding rule for small counts. 5% of 10 buns is 10.5. It proposed rounding down in integer math (`intdiv(ordered * 105, 100)`), so a 10-bun line allows exactly 10 and no float ever enters stock arithmetic. Accepted.
+
+**Ambiguity caught:** a short answer ("go with A") could have been read as Q-004 option A (no manual close), the opposite of what was intended elsewhere. The AI asked instead of assuming. Q-004 was confirmed as B (short-close).
+
+**Changes made:** requirements FR-4 AC4/AC5/AC9, data.md derived values and invariant 4, the PTY-8 worked example and tests (T9a to T9c), testing.md, decisions D-010 to D-016.
