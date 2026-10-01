@@ -21,6 +21,9 @@ Supporting work we chose to include, each small and justified in [decisions.md](
 - An audit trail (spatie/laravel-activitylog) and per-domain log channels (D-021, D-022).
 - An "Incoming" quantity on the stock view, to serve the brief's goal of not running out (D-020).
 - Opt-in browser tests, if time allows (D-026).
+- Realistic demo data with licence-free photos for ingredients and menu items, seed-only (D-036).
+- Demo data endpoints and commands to clear, seed and reset, local environment only (D-037).
+- Display scaling of g to kg and ml to L in the UI, with storage always in base units (D-038).
 
 ## Out (and staying out unless asked in the live session)
 
@@ -30,11 +33,11 @@ This section matters more than the one above. Every item here was considered and
 |---|---|
 | Authentication, users, login | The brief says no authentication is needed. A login screen is friction for the reviewer. |
 | Roles and permissions (spatie/laravel-permission) | Follows from no users. Listed under "next steps". |
-| File and image uploads (spatie/laravel-medialibrary) | Nothing in the brief has an image. |
+| File and image uploads (spatie/laravel-medialibrary) | Nothing in the brief has an image. Seed photos are static files (D-036). An upload feature is a next step. |
 | Multi-branch, stock transfers | One branch. |
 | Prices, costing, valuation, journal postings (the financial pillar) | The brief is quantities only, and costing brings edge cases (cost of negative stock, of over-delivered excess) that would each need tests and defence. The ledger maps one-to-one onto postings. See architecture.md section 8 and D-018. |
 | Multi-currency | One branch, one currency, and no money at all (D-018). |
-| Unit conversion (buy in kg, consume in g) | One unit per ingredient, see Q-006. |
+| Purchase-unit conversion (buy in cases or drums, consume in g or ml) | One base unit per ingredient, see Q-006. Display scaling g/kg and ml/L **is** in scope (D-038). |
 | Deployment, staging or production servers | The brief says no deployment. |
 | Queues, events and listeners, scheduler, websockets | Synchronous transactions are simpler and correct at this size. The triggers that would change this are in D-017. |
 | Server-side caching of stock | Stock must never be stale. It is derived on read. |

@@ -25,9 +25,10 @@ Patty is a single-branch back-office tool. The brief says no authentication. We 
 | S10 | Oversized or abusive payloads | arrays, strings | Max 50 lines, bounded quantities and string lengths (validation.md) | T21 | all |
 | S11 | Replay or double-counting | E25 | Idempotency by `pos_reference`, conflict detection, unique index as the final guard (D-014, D-029) | T10, T23 | PTY-9 |
 | S12 | Tampering with stock history | stock_movements | Append-only in code (StockLedger only, model guards) **and** in the database (triggers) (D-024) | T19 | PTY-3, PTY-4 |
-| S13 | Demo reset reachable in a real deployment | E30 | Route registered only when `APP_ENV=local` | T24 | PTY-22 |
+| S13 | Demo clear, seed or reset reachable in a real deployment | E30 to E32 | Routes registered only when `APP_ENV=local`; artisan commands confirm before running | T24 | PTY-22 |
 | S14 | Vulnerable dependencies | composer | `composer audit` in CI on every PR | CI | PTY-16 |
 | S15 | Secrets committed | git | `.env` ignored; `.env.example` holds no secrets; the POS key is empty by default | review | all |
+| S17 | Third-party images: licence, privacy, availability | seed photos | Only photos whose licence page was checked; credited in CREDITS.md; no people or brands; served from our own `public/`, never hot-linked | review of CREDITS.md | PTY-22 |
 | S16 | Log injection or PII in logs | logs | Structured context arrays, no free-form user strings in messages, no personal data stored at all | review | all |
 
 ## Phase 5: security review (PTY-21)

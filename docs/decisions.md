@@ -311,3 +311,18 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Unchanged:** short-close (D-013) still covers a supplier who will never deliver the rest, **below** the under-tolerance.
 - **Decided by:** Mohamad (Q-014).
 - **Date:** 2026-10-01
+
+## D-036 Realistic seed data with licence-free photos
+- **Chosen:**
+  - **Data:** 12 ingredients, 5 menu items and 4 **clearly fictional** suppliers (`.example` email domains, fictitious +962 numbers). The Classic Burger is exactly as in the brief (beef 150 g, bun 1, cheese 20 g).
+  - **History:** about 6 POs covering every state and tolerance case, and about 120 sales over the last 3 days with lunch and dinner peaks. Deterministic (fixed random seed), dated relative to now, created through the real services.
+  - **Photos:** about 17 licence-free photos (Unsplash or Pexels; no people, no brands), center-cropped and resized to 480×480 WebP with PHP GD by `scripts/prepare-seed-images.php`, and served from `public/images/seed`. Each one is credited in `public/images/seed/CREDITS.md` with its source URL and licence.
+  - A nullable `image_path` on ingredients and menu items, with a Hugeicons fallback in the UI.
+- **Rejected:**
+  - real company names, which could imply a relationship that doesn't exist;
+  - an image upload feature (D-001 stands; a next step);
+  - hot-linking images from third-party sites (privacy, availability);
+  - AI-generated images (slower to produce consistently).
+- **Why:** a reviewer opening the app should see a believable restaurant, not "Test Ingredient 1". Photos make the catalogue scannable at a glance.
+- **Decided by:** Mohamad (Q-015).
+- **Date:** 2026-10-01
