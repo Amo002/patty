@@ -14,30 +14,46 @@ Professional, calm, fast. A back-office tool a manager uses during service, so c
 
 ## Tokens (`public/css/app.css`, `:root`)
 
-### Colour (light; dark via `prefers-color-scheme` if time allows)
+### Approved design (D-041, D-042)
 
-| Token | Value | Use |
-|---|---|---|
-| `--bg` | `#F7F5F2` | Page background (warm paper) |
-| `--surface` | `#FFFFFF` | Cards, tables |
-| `--surface-2` | `#F0EDE8` | Table header, hover |
-| `--border` | `#E4DFD8` | Hairlines |
-| `--text` | `#1C1917` | Primary text |
-| `--text-muted` | `#78716C` | Labels, units |
-| `--accent` | `#C2410C` | Primary actions, focus ring (ember) |
-| `--accent-ink` | `#FFFFFF` | Text on accent |
-| `--ok` | `#15803D` | Closed, healthy |
-| `--warn` | `#B45309` | Partially received, low |
-| `--danger` | `#B91C1C` | Negative stock, errors |
-| `--info` | `#1D4ED8` | Sent |
+The approved boards (brand plus design system, light and dark) are in the private design canvas: https://claude.ai/artifact/3okL33eFNhVBXT9WtJRFWG (approved by Mohamad, 2026-10-01). **The values below are the source of truth for `public/css/app.css`.**
 
-Status pills: draft = neutral, sent = info, received = warn ("Partially received"), closed = ok.
+### Colour (light / dark, switches with the OS, plus a manual toggle)
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `--bg` | `#FAFAFA` | `#09090B` | Page background |
+| `--surface` | `#FFFFFF` | `#18181B` | Cards, tables, inputs |
+| `--surface-2` | `#F4F4F5` | `#27272A` | Table header, segmented controls, skeleton base |
+| `--border` | `#E4E4E7` | `#27272A` | Hairlines |
+| `--border-strong` | `#D4D4D8` | `#3F3F46` | Inputs, dashed empty states |
+| `--text` | `#18181B` | `#FAFAFA` | Primary text |
+| `--muted` | `#52525B` | `#A1A1AA` | Labels, units, captions (AA on surface) |
+| `--accent` | `#4F46E5` | `#818CF8` | Primary actions, focus ring, progress |
+| `--accent-text` | `#4338CA` | `#A5B4FC` | Links, ghost buttons |
+| `--on-accent` | `#FFFFFF` | `#0B0B12` | Text on accent |
+| `--accent-subtle` | `#EEF2FF` | `#1E1B4B` | Focus halo, chip background |
+| `--ok` | `#15803D` | `#4ADE80` | Closed, healthy, freshness dot |
+| `--warn-text` | `#B45309` | `#FCD34D` | Partially received, under-delivered |
+| `--danger` / `--danger-text` | `#DC2626` / `#B91C1C` | `#F87171` / `#FCA5A5` | Negative stock, errors |
+| `--danger-subtle` | `#FEF2F2` | `#2A0F0F` | Negative row, error banner |
+| `--info` | `#1D4ED8` | `#60A5FA` | Sent |
+
+Status pills (background / text): Draft and Short: neutral; Sent: info; Partially received: warn; Closed: ok; Negative: danger. Each pill has a dot and a text label (never colour alone).
 
 ### Type
 
-- Family: system UI stack (`ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif`). No webfont download, so the app works offline.
-- Numbers: `font-variant-numeric: tabular-nums`.
-- Scale: 12 / 14 (body) / 16 / 20 / 28 / 36 px. Weights 400, 500, 650.
+- **Inter** (SIL Open Font License), self-hosted as a variable `woff2` in `public/fonts/`. No CDN at runtime. System fallback stack.
+- Scale: 12 / 14 (UI) / 16 (body) / 20 / 28 / 36 px. Weights 400, 500, 600, 650, 700. Headings use -0.02em tracking.
+- **Every number** uses `font-variant-numeric: tabular-nums`.
+
+### Brand (D-042)
+
+- **"The stack" logo:** bun with sesame seeds, cheese with one drip, indigo patty, bottom bun. Files in `public/brand/`: `logo.svg`, `logo-mark.svg`, `logo-mono.svg` (currentColor), `favicon.svg` (3 layers, adapts to dark tabs).
+- PNG fallbacks (`favicon-32.png`, `apple-touch-icon.png` 180, `icon-512.png`) are drawn by `scripts/build-brand-pngs.php` with PHP GD in PTY-11.
+- **Loader:** first page load of a browser session only, 900 ms max, never blocks. Sequence: bottom bun rises (0 ms), patty drops and settles (150), cheese drips (400), top bun lands (500), wordmark slides in (700), splash fades. Reduced motion shows the static logo.
+- **Busy state:** the same three layers bob in sequence inside busy buttons.
+- The cheese colour (`#F59E0B`) appears **only** in the logo.
 
 ### Space, radius, shadow
 
