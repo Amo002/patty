@@ -14,7 +14,7 @@ AI is used as a team of builders and reviewers under one human owner. **Mohamad 
 
 ## Model ladder
 
-Tiers in use, lowest to highest: Sonnet 5.5 < Opus 5.5. Fable 5.1 is not used, because no credits are available (D-039). Haiku 4.5 is not used for building, as the tickets are too consequential.
+Tiers in use, lowest to highest: Sonnet 5.5 < Opus 5.5. Fable 5.1 is not used locally (D-039). It is used only in Claude Code on the web, for the final security pass. Haiku 4.5 is not used for building, as the tickets are too consequential.
 
 | Ticket weight | Typical work | Builder | Reviewer |
 |---|---|---|---|

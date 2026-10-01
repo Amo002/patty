@@ -55,7 +55,7 @@ No tickets. Design artifacts are produced and approved here (progress.md). The U
 ### 5 Security
 | Ticket | Title | Wt | Who | Release |
 |---|---|---|---|---|
-| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Mohamad with Opus (Fable optional) | v1.0.0 |
+| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Mohamad: Opus locally, Fable on the web | v1.0.0 |
 
 ### 6 Release and submission
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
