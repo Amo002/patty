@@ -64,7 +64,7 @@ When the brief is unclear, the orchestrator opens `docs/questions/Q-NNN-slug.md`
 | Version | Contents |
 |---|---|
 | v0.1.0 | Tooling and docs (PTY-1, PTY-2) |
-| v0.2.0 | Data model, stock ledger, catalogue APIs (PTY-3 to PTY-6) |
+| v0.2.0 | Data model, API foundation, stock ledger, catalogue APIs (PTY-3, PTY-16, PTY-4 to PTY-6) |
 | v0.3.0 | Purchasing, receiving, sales, visibility APIs (PTY-7 to PTY-10) |
 | v0.4.0 | Web UI (PTY-11, PTY-12) |
-| v1.0.0 | Postman, Docker, README, clean-clone check: the submission (PTY-13 to PTY-15) |
+| v1.0.0 | Postman, Docker, browser tests (stretch), README, clean-clone check: the submission (PTY-13 to PTY-15, PTY-17) |

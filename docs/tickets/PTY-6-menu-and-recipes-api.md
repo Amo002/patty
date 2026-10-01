@@ -25,6 +25,7 @@ FR-2 AC1 to AC4. Q-007.
 - [ ] `PUT /menu-items/{id}/recipe` replaces the recipe with the given lines in one transaction (simpler than per-line endpoints, and the UI edits the recipe as a whole)
 - [ ] Validation: at least one line, ingredient exists, quantity an integer >= 1, no duplicate ingredient
 - [ ] Resources include recipe lines with the ingredient name and unit
+- [ ] Replacing a recipe writes the audit event `recipe.replaced` with the old and new lines in properties, plus a `catalog` log line. `LogsActivity` on MenuItem.
 
 ## Tests required
 
@@ -32,3 +33,4 @@ FR-2 AC1 to AC4. Q-007.
 - [ ] Duplicate ingredient in a recipe gives 422
 - [ ] Quantity 0 or a decimal gives 422
 - [ ] Replacing the recipe removes the old lines
+- [ ] Replacing the recipe stores old and new lines in the `recipe.replaced` audit entry

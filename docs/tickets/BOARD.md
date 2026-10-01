@@ -19,9 +19,12 @@ _none_
 _none_
 
 ## To Do
+
+Listed in build order. PTY-16 runs right after PTY-3.
 | Ticket | Title | Wt | Builder / Reviewer | Release | Blocked by |
 |---|---|---|---|---|---|
 | [PTY-3](PTY-3-schema-and-models.md) | Schema, models, factories, seed | M | Opus / Fable | v0.2.0 | |
+| [PTY-16](PTY-16-api-foundation.md) | API foundation: envelope, errors, audit, logging, HTTP hardening | M | Opus / Fable | v0.2.0 | |
 | [PTY-4](PTY-4-stock-ledger.md) | Stock ledger | L | Opus / Fable | v0.2.0 | |
 | [PTY-5](PTY-5-ingredients-suppliers-api.md) | Ingredients and suppliers API | S | Sonnet / Opus | v0.2.0 | |
 | [PTY-6](PTY-6-menu-and-recipes-api.md) | Menu items and recipes API | S | Sonnet / Opus | v0.2.0 | |
@@ -34,3 +37,4 @@ _none_
 | [PTY-13](PTY-13-postman-collection.md) | Postman collection | S | Sonnet / Opus | v1.0.0 | |
 | [PTY-14](PTY-14-readme-and-submission.md) | README and submission | S | Sonnet / Opus | v1.0.0 | |
 | [PTY-15](PTY-15-docker.md) | Optional Docker setup | S | Sonnet / Opus | v1.0.0 | |
+| [PTY-17](PTY-17-browser-tests.md) | Browser tests (stretch, first to cut) | M | Opus / Fable | v1.0.0 | |

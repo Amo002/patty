@@ -10,7 +10,9 @@ Prove the domain, not the framework. The grading criterion is "tests on the part
 - **No filler.** Every test must fail if the logic it covers is deleted. The reviewer checks this per ticket.
 - No tests for framework behaviour (that Eloquent saves a row, that a getter returns a field).
 
-Run: `php artisan test` (or `vendor/bin/pest`). Style: `vendor/bin/pint --test`.
+Run: `php artisan test` (or `vendor/bin/pest`). Style: `vendor/bin/pint --test`. Opt-in browser suite (PTY-17, needs Node): `composer test:browser`.
+
+Log lines are not tested, since asserting log text would be filler. The single exception is the negative-stock warning, which is a business signal (PTY-4).
 
 ## The tests that matter (priority order)
 
@@ -19,7 +21,7 @@ Run: `php artisan test` (or `vendor/bin/pest`). Style: `vendor/bin/pint --test`.
 | T1 | Selling 2 Classic Burgers lowers beef by 300, bun by 2, cheese by 40 | Recipe explosion arithmetic | PTY-9 |
 | T2 | A partial delivery raises stock by what arrived, leaves the right outstanding, and does not close the order | Partial receiving | PTY-8 |
 | T3 | A second delivery completing the order closes it | Auto-close | PTY-8 |
-| T4 | Every invalid transition is rejected with 422 (dataset of all pairs) | State machine | PTY-7 |
+| T4 | Every invalid transition is rejected with 409 `invalid_transition` (dataset of all pairs) | State machine | PTY-7 |
 | T5 | Delivery against a draft or closed order is rejected, and stock does not move | Operation guards | PTY-8 |
 | T6 | Editing lines of a sent order is rejected | Operation guards | PTY-7 |
 | T7 | A sale below zero is accepted and the ingredient shows negative | Q-001 decision | PTY-9 |
@@ -29,7 +31,13 @@ Run: `php artisan test` (or `vendor/bin/pest`). Style: `vendor/bin/pint --test`.
 | T11 | Open orders list shows correct outstanding per line after partial deliveries | Visibility | PTY-10 |
 | T12 | Validation errors return 422 with field messages (representative, not exhaustive) | API contract | PTY-5, PTY-6 |
 | T13 | Unit of an ingredient with movements cannot be changed | History integrity | PTY-5 |
-| T14 | API responses carry `Cache-Control: no-store` | Freshness | PTY-10 |
+| T14 | API and page responses carry `Cache-Control: no-store` (covered by T17) | Freshness | PTY-16, PTY-12 |
+| T15 | Envelope contract: success shape, 201, 422 with field errors, 409 with code, 404, 500 without details | API contract (D-019) | PTY-16 |
+| T16 | Incoming = outstanding on open POs; zero after short-close; drafts excluded | Run-out gap (D-020) | PTY-10 |
+| T17 | Security headers, `no-store` and `X-Request-Id` on every response | HTTP layer (D-024) | PTY-16 |
+| T18 | Audit entries carry the channel. A rejected delivery leaves no audit row. Recipe replace stores old and new lines. | Audit (D-021) | PTY-16, PTY-6, PTY-8 |
+| T19 | Raw SQL update or delete on `stock_movements` is aborted by the database | DB guard (D-024) | PTY-3 |
+| T20 | POS endpoint answers 429 beyond the rate limit | HTTP layer (D-024) | PTY-9 |
 
 ## Manual QA checklist (owner runs per ticket)
 
@@ -65,3 +73,15 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 - [ ] Keep the dashboard open in one tab and record a sale in another. The dashboard updates within about 10 s without a reload, and the "updated" stamp resets.
 - [ ] Navigate away and press the browser Back button. The numbers are current, not a cached page.
 - [ ] Open an ingredient's history. The movements sum to the displayed on-hand.
+
+### QA-7 User experience (design.md user satisfaction rules)
+- [ ] Double-click "Record delivery". Only one delivery is recorded, and the button showed it was busy.
+- [ ] Recording a delivery, sending a PO and short-closing each ask for confirmation with a plain summary.
+- [ ] The delivery form opens prefilled with the outstanding quantities and shows each line's limit.
+- [ ] An over-limit quantity shows "Beef: 1,100 g is above the 1,050 g limit" next to the field.
+- [ ] Open the PO in two tabs, send it in one, then try to edit it in the other. A notice explains it was already sent, and the view refreshes.
+- [ ] Empty lists explain what to do and offer the action.
+- [ ] 12500 g displays as `12,500 g` with a `12.5 kg` hint.
+- [ ] At 820 px width everything is usable. Tab through a page and focus is always visible. With reduced motion on, nothing animates.
+- [ ] The dashboard shows Incoming next to On hand. After a partial delivery, incoming falls and on hand rises by the same amount.
+- [ ] The PO detail Activity panel shows created, sent and delivery recorded, each with its channel.

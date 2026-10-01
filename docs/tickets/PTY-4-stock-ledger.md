@@ -9,7 +9,7 @@
 | Reviewer | Fable 5.1 |
 | Branch | `PTY-4-stock-ledger` |
 | Release | v0.2.0 |
-| Depends on | PTY-3 |
+| Depends on | PTY-3, PTY-16 |
 
 ## Goal
 
@@ -26,7 +26,10 @@ data.md invariants 1 and 6. D-004. NFR-1, NFR-2.
   - `onHand(Ingredient): int`, which is `SUM(quantity_delta)`.
   - `onHandForAll(): Collection` keyed by ingredient id, one grouped query (no N+1).
 - [ ] No other class creates `StockMovement` rows (the reviewer checks with a search)
-- [ ] `StockMovement` model blocks update and delete: overriding `save` on existing rows and `delete` to throw `ImmutableMovement`
+- [ ] `StockMovement` model blocks update and delete: overriding `save` on existing rows and `delete` to throw `ImmutableMovement`. This is the application layer; the database triggers from PTY-3 are the layer below it.
+- [ ] `record()` writes one `info` line to the `stock` log channel, with ingredient, delta, reason and reference
+- [ ] `record()` writes a `warning` to `stock` when the resulting on-hand is below zero
+- [ ] Docblocks on `record`, `onHand`, `onHandForAll`, per D-023
 - [ ] `Ingredient::$appends` is not used for stock. On-hand comes from the ledger explicitly.
 
 ## Worked example (Mohamad checks by hand)
@@ -40,6 +43,7 @@ Movements for beef: +1000, -150, -150, +400, -300. On-hand = 800.
 - [ ] `onHandForAll` matches `onHand` for each ingredient
 - [ ] Updating or deleting a movement throws
 - [ ] A zero delta is rejected
+- [ ] A movement that takes on-hand below zero logs a warning to the `stock` channel
 
 ## Out of scope
 

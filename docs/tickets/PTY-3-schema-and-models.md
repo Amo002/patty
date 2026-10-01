@@ -24,6 +24,7 @@ data.md (all tables). Q-006 (integer quantities, single unit).
 - [ ] Migrations for all ten tables, with the foreign keys, unique constraints and indexes in data.md
 - [ ] Quantities are `unsignedInteger`. `stock_movements.quantity_delta` is a signed `integer`. No float or decimal columns.
 - [ ] `stock_movements` has no `updated_at`
+- [ ] The `stock_movements` migration creates SQLite triggers `stock_movements_no_update` and `stock_movements_no_delete` (`BEFORE UPDATE` / `BEFORE DELETE` → `RAISE(ABORT, 'stock_movements is append-only')`). The `down()` drops them. A comment notes the MySQL/Postgres equivalent (D-024).
 - [ ] Enums: `App\Enums\Unit` (g, ml, piece), `App\Enums\PurchaseOrderStatus` (cases only; the transition logic comes in PTY-7), `App\Enums\MovementReason` (delivery, sale). Each has a `label()` for display.
 - [ ] Models with relations and enum casts. `StockMovement` has `UPDATED_AT = null`.
 - [ ] Factories for every model
@@ -37,6 +38,7 @@ data.md (all tables). Q-006 (integer quantities, single unit).
 ## Tests required
 
 - [ ] `tests/Feature/Schema/ConstraintsTest.php`: duplicate recipe ingredient and duplicate PO line ingredient are rejected by the database
+- [ ] T19: a raw `DB::table('stock_movements')->update(...)` and `->delete()` both throw (the triggers work below the application)
 
 ## Out of scope
 
