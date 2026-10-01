@@ -27,5 +27,5 @@ Everything in the repo, plus the private brief and context outside the repo.
 | Existing entries in [AI_LOG.md](AI_LOG.md) or [decisions.md](decisions.md) | Append only. History is not rewritten. A wrong entry gets a correcting entry. |
 | Existing migrations after they are merged | Add a new migration instead |
 | `stock_movements` rows, via update or delete, from any code path | Append-only by design |
-| Git history (force-push, rebase of pushed branches, squash) | The interviewers read the history |
+| Git history (force-push, rebase of pushed branches, squash) | The history is part of the record of how the work was done |
 | Commit trailers crediting AI | Authorship is Mohamad's. Disclosure lives in AI_LOG. |

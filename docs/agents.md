@@ -29,4 +29,4 @@ The stock arithmetic and outstanding-quantity logic are never merged on an agent
 
 ## Handoff format
 
-Every builder report and reviewer report is appended to its ticket file, not left in chat. Then the reasoning lives in the repo, where Mohamad and the interviewers can read it.
+Every builder report and reviewer report is appended to its ticket file, not left in chat. Then the reasoning lives in the repo, where Mohamad and any reviewer can read it.

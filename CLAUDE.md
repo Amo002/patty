@@ -1,47 +1,33 @@
-<laravel-boost-guidelines>
-# Laravel Application
+# Patty: instructions for AI agents
 
-This repository contains a Laravel application. Complete the following setup before working on the user's request.
+Inventory and purchasing service for a single-branch burger restaurant. Laravel 13, SQLite, Pest, Blade plus vanilla `fetch` and Alpine (no build step).
 
-## Prerequisites
+## Read before working
 
-Verify that PHP and Composer are available:
+1. `docs/progress.md`: where work stopped, what is next
+2. The ticket you are working on: `docs/tickets/PTY-N-*.md`
+3. `docs/requirements.md`, `docs/data.md`, `docs/scope.md`
+4. `docs/workflow.md`, `docs/agents.md`, `docs/tools.md`: how we work and what you may not touch
 
-```sh
-php -v
-composer -V
-```
+## Hard rules
 
-If either command is unavailable, detect the user's operating system and install the prerequisites with the appropriate command:
+- Stock is changed **only** through `App\Services\StockLedger`. `stock_movements` is append-only. On-hand and outstanding quantities are derived, never stored.
+- Purchase order status changes **only** through the transition map in `App\Enums\PurchaseOrderStatus`.
+- Quantities are integers in the ingredient's unit. Never floats.
+- Domain logic lives in `app/Services`. Controllers validate with a FormRequest, call one service method, and return a Resource.
+- Every write that touches stock runs in `DB::transaction`.
+- No new dependency, table or endpoint that is not in a ticket. Raise it first.
+- No emoji in code, UI, docs, commits or PRs.
+- Commits: `PTY-N: Imperative sentence`, authored by the repo owner, **no AI co-author trailers**. Never push to `main` or `develop`. Never force-push.
+- Tests must fail if the logic they cover is removed. No filler.
+- Append to `docs/AI_LOG.md` after each meaningful prompt: what was asked, what came back, what was wrong, what changed.
 
-macOS:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.5)"
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://php.new/install/windows/8.5'))
-```
-
-Linux:
+## Commands
 
 ```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/linux/8.5)"
+composer setup              # first-time install
+php artisan serve           # run
+php artisan test            # tests
+vendor/bin/pint             # fix style
+php artisan migrate:fresh --seed   # reset local data
 ```
-
-After installation, ask the user to restart their terminal. If the agent needs the restarted shell to continue, ask the user to reopen their terminal and rerun their original prompt.
-
-## Agent Setup
-
-Install Laravel Boost from the application root before making application changes:
-
-```sh
-composer require laravel/boost --dev
-php artisan boost:install
-```
-
-Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
-</laravel-boost-guidelines>
