@@ -39,7 +39,7 @@ class StorePurchaseOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'supplier_id' => ['required', 'string', 'ulid', Rule::exists('suppliers', 'ulid')],
+            'supplier_id' => ['bail', 'required', 'string', 'ulid', Rule::exists('suppliers', 'ulid')],
             ...$this->lineRules(),
         ];
     }

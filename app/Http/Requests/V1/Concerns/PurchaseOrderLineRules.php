@@ -29,9 +29,9 @@ trait PurchaseOrderLineRules
     protected function lineRules(): array
     {
         return [
-            'lines' => ['required', 'array', 'min:1', 'max:50'],
-            'lines.*.ingredient_id' => ['required', 'string', 'ulid', Rule::exists('ingredients', 'ulid'), 'distinct'],
-            'lines.*.quantity_ordered' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'lines' => ['bail', 'required', 'array', 'min:1', 'max:50'],
+            'lines.*.ingredient_id' => ['bail', 'required', 'string', 'ulid', Rule::exists('ingredients', 'ulid'), 'distinct'],
+            'lines.*.quantity_ordered' => ['bail', 'required', 'integer:strict', 'min:1', 'max:1000000'],
         ];
     }
 

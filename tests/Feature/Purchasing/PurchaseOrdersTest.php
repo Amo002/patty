@@ -8,6 +8,7 @@ use App\Models\Ingredient;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
+use App\Services\PurchaseOrderService;
 use Spatie\Activitylog\Models\Activity;
 
 const PO_URL = '/api/v1/purchase-orders';
@@ -255,19 +256,138 @@ it('names the line when an ingredient is repeated', function () {
     expect(PurchaseOrder::query()->count())->toBe(0);
 });
 
-it('validates quantities and references', function (bool $realIngredient, int|float $quantity, string $expected) {
+it('rejects every non-integer or out-of-range quantity on create and on replace (G3)', function (mixed $quantity) {
     $payload = poPayload();
-    $payload['lines'] = [['ingredient_id' => $realIngredient ? beef()->ulid : 1, 'quantity_ordered' => $quantity]];
+    $payload['lines'] = [['ingredient_id' => beef()->ulid, 'quantity_ordered' => $quantity]];
+
+    $create = $this->postJson(PO_URL, $payload)->assertStatus(422);
+    expect($create->json())->assertNoIntegerIds();
+    expect(json_encode($create->json('errors')))->toContain('Line 1 (Beef): quantity');
+
+    $draft = createPo();
+    $replace = $this->putJson(PO_URL."/$draft/lines", ['lines' => $payload['lines']])->assertStatus(422);
+    expect($replace->json())->assertNoIntegerIds();
+    expect(PurchaseOrder::query()->count())->toBe(1)
+        ->and(PurchaseOrderLine::query()->count())->toBe(2);
+})->with([
+    'true' => [true],
+    'false' => [false],
+    'fractional string' => ['1.5'],
+    'float' => [1.5],
+    'text' => ['abc'],
+    'exponent string' => ['1e3'],
+    'negative' => [-1],
+    'zero' => [0],
+    'null' => [null],
+    'empty array' => [[]],
+    'above the maximum' => [1000001],
+]);
+
+it('accepts the largest quantity and rejects one above it', function () {
+    $payload = poPayload();
+    $payload['lines'] = [['ingredient_id' => beef()->ulid, 'quantity_ordered' => 1000000]];
+
+    $created = $this->postJson(PO_URL, $payload)->assertCreated();
+    expect($created->json())->assertNoIntegerIds();
+    expect($created->json('data.lines.0.quantity_ordered'))->toBe(1000000)
+        ->and($created->json('data.lines.0.max_receivable'))->toBe(1002000);
+});
+
+it('accepts 50 lines and rejects 51', function () {
+    $ingredients = Ingredient::factory()->count(51)->create();
+    $lines = fn (int $count) => $ingredients->take($count)
+        ->map(fn (Ingredient $ingredient) => ['ingredient_id' => $ingredient->ulid, 'quantity_ordered' => 1])
+        ->values()->all();
+    $supplier = Supplier::factory()->create()->ulid;
+
+    $tooMany = $this->postJson(PO_URL, ['supplier_id' => $supplier, 'lines' => $lines(51)])->assertStatus(422);
+    expect($tooMany->json())->assertNoIntegerIds();
+    expect(PurchaseOrder::query()->count())->toBe(0);
+
+    $fifty = $this->postJson(PO_URL, ['supplier_id' => $supplier, 'lines' => $lines(50)])->assertCreated();
+    expect($fifty->json())->assertNoIntegerIds();
+    expect($fifty->json('data.lines'))->toHaveCount(50);
+});
+
+it('answers 422, never 500, when a string field receives an array or a number (D-031)', function (array $override) {
+    $payload = array_replace_recursive(poPayload(), $override);
 
     $response = $this->postJson(PO_URL, $payload)->assertStatus(422);
 
-    expect(json_encode($response->json('errors')))->toContain($expected);
+    expect($response->json())->assertNoIntegerIds();
+    expect($response->json('code'))->toBe('validation_failed');
+    expect(PurchaseOrder::query()->count())->toBe(0);
 })->with([
-    'zero quantity' => [true, 0, 'Line 1 (Beef): quantity'],
-    'fractional quantity' => [true, 1.5, 'Line 1 (Beef): quantity'],
-    'above the maximum' => [true, 1000001, 'Line 1 (Beef): quantity'],
-    'numeric ingredient id' => [false, 5, 'Line 1: ingredient'],
+    'supplier as array' => [['supplier_id' => ['x']]],
+    'supplier as nested array' => [['supplier_id' => [['x']]]],
+    'supplier as number' => [['supplier_id' => 7]],
+    'ingredient as array' => [['lines' => [['ingredient_id' => ['x']]]]],
+    'ingredient as number' => [['lines' => [['ingredient_id' => 1]]]],
 ]);
+
+it('answers 422 when lines is not a list of objects', function (mixed $lines) {
+    $response = $this->postJson(PO_URL, ['supplier_id' => Supplier::factory()->create()->ulid, 'lines' => $lines])->assertStatus(422);
+
+    expect($response->json())->assertNoIntegerIds();
+})->with([
+    'a string' => ['abc'],
+    'strings in a list' => [['abc', 'def']],
+    'numbers in a list' => [[1, 2]],
+]);
+
+it('rolls the whole creation back when a line cannot be written (atomic)', function () {
+    $supplier = Supplier::factory()->create();
+    $written = 0;
+    PurchaseOrderLine::creating(function () use (&$written) {
+        if (++$written === 2) {
+            throw new RuntimeException('disk full');
+        }
+    });
+
+    $lines = [
+        ['ingredient' => beef(), 'quantity_ordered' => 1000],
+        ['ingredient' => bun(), 'quantity_ordered' => 10],
+    ];
+
+    expect(fn () => app(PurchaseOrderService::class)->create($supplier, $lines))->toThrow(RuntimeException::class);
+
+    // Without DB::transaction the order and its first line would already be saved.
+    expect(PurchaseOrder::query()->count())->toBe(0)
+        ->and(PurchaseOrderLine::query()->count())->toBe(0)
+        ->and(Activity::query()->where('event', 'purchase_order.created')->count())->toBe(0);
+});
+
+it('keeps the old lines when a replacement fails halfway (atomic)', function () {
+    $order = PurchaseOrder::query()->where('ulid', createPo())->firstOrFail();
+    PurchaseOrderLine::creating(fn () => throw new RuntimeException('disk full'));
+
+    expect(fn () => app(PurchaseOrderService::class)->replaceLines($order, [['ingredient' => beef(), 'quantity_ordered' => 5]]))
+        ->toThrow(RuntimeException::class);
+
+    // Without DB::transaction the delete of the old lines would already be committed.
+    expect(PurchaseOrderLine::query()->where('purchase_order_id', $order->id)->count())->toBe(2)
+        ->and(Activity::query()->where('event', 'purchase_order.lines_updated')->count())->toBe(0);
+});
+
+it('does not move the status when the audit write fails (atomic)', function () {
+    $order = PurchaseOrder::query()->where('ulid', createPo())->firstOrFail();
+    Activity::creating(fn (Activity $activity) => $activity->event === 'purchase_order.sent' ? throw new RuntimeException('audit down') : null);
+
+    expect(fn () => app(PurchaseOrderService::class)->send($order))->toThrow(RuntimeException::class);
+
+    expect($order->fresh()->status)->toBe(PurchaseOrderStatus::Draft)
+        ->and($order->fresh()->sent_at)->toBeNull();
+});
+
+it('rejects an unknown ingredient with the line named', function () {
+    $payload = poPayload();
+    $payload['lines'][1]['ingredient_id'] = '01jzzzzzzzzzzzzzzzzzzzzzzz';
+
+    $response = $this->postJson(PO_URL, $payload)->assertStatus(422);
+
+    expect($response->json())->assertNoIntegerIds();
+    expect(json_encode($response->json('errors')))->toContain('Line 2');
+});
 
 it('accepts an uppercase ULID', function () {
     $payload = poPayload();
