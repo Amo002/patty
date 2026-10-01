@@ -50,7 +50,7 @@ NFR-3, NFR-3a, NFR-3b, NFR-3c. D-019, D-021, D-022, D-024. Tests T15, T17, T18.
   - `ApiVersion` middleware adds `X-API-Version: 1`.
 - [ ] `GET /api/v1/health` (E1) returns the envelope (used by tests and Postman)
 - [ ] Pagination helper: `ApiResponse::paginated(LengthAwarePaginator, ResourceClass)` returns `data` plus `meta.pagination = { page, per_page, total, last_page, has_more }`. A shared `PaginationRequest` rule set (validation.md G8: `per_page` max 100, else 422).
-- [ ] `PosKey` middleware (D-028): if `config('patty.pos_api_key')` is set, require `X-POS-Key` (`hash_equals`), else 401 `unauthorized`. Applied to E25 in PTY-9. `.env.example` has `POS_API_KEY=` (empty).
+- [ ] `PosKey` middleware (D-028): if `config('services.pos.api_key')` is set, require `X-POS-Key` (`hash_equals`), else 401 `unauthorized`. Applied to E25 in PTY-9. `.env.example` has `POS_API_KEY=` (empty).
 - [ ] 401 rendered by `withExceptions` (`AuthenticationException` or a domain `Unauthorized`) as 401 `unauthorized`
 
 ### Middleware
@@ -111,3 +111,43 @@ Cross-cutting for F1 to F20: envelope, errors, request id, channel, audit and lo
 1. `curl -i http://127.0.0.1:8000/api/v1/health` shows the envelope plus the `X-Request-Id`, `X-API-Version`, `Cache-Control: no-store` and security headers.
 2. `curl -i http://127.0.0.1:8000/api/v1/nope` gives the 404 JSON envelope.
 3. `storage/logs/` has `laravel.log` only for errors. The domain channel files appear once features write to them.
+
+
+## Builder notes
+
+### What was built, in order
+1. spatie/laravel-activitylog ^5.1 with its published migration and config, `App\Support\Audit::record()` (stamps `channel`, `request_id`, `ip`), and the middleware: `RequestContext`, `NoStoreCache`, `SecurityHeaders`, `ApiVersion`, `ForceJsonResponse`, `PosKey`. POS key lives at `services.pos.api_key` (env `POS_API_KEY`), not in `config/patty.php`.
+2. The envelope: `ApiResponse` trait (`success`, `created`, `paginated`, static `error`), `ApiController`, abstract `DomainException` (`status()`, `errorCode()`, optional `errors()`), `PaginationRequest`, `HealthController` (E1), `routes/api/v1.php` requiring `routes/api/v1/*.php`, the `pos` rate limiter and `JsonResource::withoutWrapping()`.
+3. Logging: `errors` daily channel (level error, 14 days) as the stack default, plus daily `stock`, `purchasing`, `pos`, `catalog` at info. `.env.example` sets `LOG_STACK=errors` and `POS_API_KEY=`.
+4. Tests (`tests/Feature/Api/FoundationTest.php`, 17 tests) and the `assertNoIntegerIds` expectation in `tests/Pest.php`.
+5. CI: `composer audit`, and the Journal step on pull requests (job name unchanged, checkout uses `fetch-depth: 0`).
+
+### How an exception becomes an envelope
+- Any exception thrown during an `api/*` request (controller, FormRequest, middleware, model lookup, routing) is caught by Laravel's handler. Laravel first reports it (writes to the `errors` log channel), then calls the single `$exceptions->render(...)` closure in `bootstrap/app.php`.
+- The closure returns null for non-API paths (web keeps default rendering). For API paths one `match` picks: `DomainException` uses its own `status()` and `errorCode()`; `ValidationException` is 422 `validation_failed` with field `errors`; `AuthenticationException` (thrown by `PosKey`) is 401 `unauthorized`; `ModelNotFoundException` or `NotFoundHttpException` is 404; `MethodNotAllowedHttpException` is 405; `ThrottleRequestsException` is 429; anything else is 500 `server_error` with a fixed message.
+- Every branch builds its body through `ApiResponse::error()`, so the failure shape exists in exactly one function. Controllers never catch.
+- Global middleware still wraps the response, so error responses also get the security headers, `no-store`, `X-Request-Id` and `X-API-Version`.
+
+### Deviations and notes
+- `ApiVersion` is registered globally with an `api/*` path guard instead of only in the `api` group, because an unmatched `/api/v1/nope` never enters the group but must still carry `X-API-Version`. `ForceJsonResponse` is in the api group as specified.
+- The 401 path uses Laravel's `AuthenticationException` (the ticket allowed this or a domain `Unauthorized`), so no extra exception class was added.
+- `DomainException` has an optional `errors()` method (default empty) so a rule such as `over_delivery` can name its line in `errors` (api.md says it does).
+- Incoming `X-Request-Id` is only echoed if it matches `[A-Za-z0-9._-]{1,64}`, otherwise a UUID is generated (log injection, S16). An unknown `X-Patty-Channel` falls back to `api`.
+- Daily channels use the `days` key (the one Laravel reads); the stock `daily` channel's `max_files` key is ignored by Laravel and was left untouched.
+- Extra tests beyond the ticket: 405, 429 on the `pos` limiter, web pages carry the headers, unsafe request id, unknown channel, and a test proving `assertNoIntegerIds` itself fails on integer ids.
+- Mutation check done on T15e: making the 500 message echo the exception text fails the test.
+- `docs/AI_LOG.md` was not touched (the orchestrator owns it); known AI-relevant fix: the first `composer require` ran with a Windows ReadOnly directory attribute problem and pinned the version as `5.1`, corrected to `^5.1`.
+
+## Reviewer findings
+
+| # | Severity | File:line | Finding | Resolution |
+|---|---|---|---|---|
+| 1 | major | app/Http/Middleware/RequestContext.php:31 | `Log::withContext()` only adds context to the default (stack) logger. `Log::channel('stock')->info(...)` lines carry no `request_id` or `channel` (verified: a `stock` line written after `withContext` has an empty context). D-022 says every line gets them, and the domain channels are where the logging actually happens. Use `Log::shareContext([...])` (applies to every channel, resolved or not), and add a test that writes to a domain channel and sees `request_id`. | fixed in 6d77924 (test in 9945ebd) |
+| 2 | major | app/Support/Audit.php:20 | Only entries written through `Audit::record` get `channel`, `request_id` and `ip`. Field-change entries from the `LogsActivity` trait (PTY-5, PTY-6, PTY-7) skip this helper, so they will carry none of them. D-021 ("every entry carries channel, request_id and ip") and data.md say they must, and no other ticket covers this. Register the stamping once in `AppServiceProvider` with spatie v5's `LogActivityAction::beforeLogging(fn ($activity) => ...)`, so `Audit::record` and the trait share one code path. Test it with an `activity()->log()` call that does not go through `Audit::record`. | fixed in 5ae2636 (test in 9945ebd) |
+| 3 | minor | bootstrap/app.php:63 | The `default` branch turns every other HTTP exception into 500 `server_error`: `HttpResponseException`, 403 (`AuthorizationException` after `prepareException`), 413, 419 and 503. Laravel does not report HttpExceptions, so this gives a 500 with nothing in `laravel.log`, which goes against S8. Return `null` for `HttpResponseException`. Map any other `HttpExceptionInterface` to its own status with a generic message, and leave `server_error` for real crashes. | fixed in 5afaac8 (test in 9945ebd) |
+| 4 | minor | bootstrap/app.php:61 | The 429 envelope drops the `Retry-After` and `X-RateLimit-*` headers that `ThrottleRequestsException::getHeaders()` carries, so the POS cannot tell when to retry. Pass `$e->getHeaders()` to the response (the 405 `Allow` header is lost the same way). | fixed in 5afaac8 (test in 9945ebd) |
+| 5 | minor | tests/Feature/Api/FoundationTest.php:271 | The comment says this proves `withoutWrapping()`, but it does not. Mutation: deleting `JsonResource::withoutWrapping()` leaves all 18 tests green. `paginated()` calls `->resolve()`, and `success()` serialises through `jsonSerialize`, and neither path ever wraps. Either fix the comment or add a test that returns a resource directly (`FoundationWidgetResource::make(...)`) and asserts there is no `data` key inside it. | fixed in f042111 |
+| 6 | minor | tests/Feature/Api/FoundationTest.php:187 | T15e checks that the 500 hides the text, but not the other half of S8 and the acceptance criterion ("logged to laravel.log"). Add `Exceptions::fake()` plus `Exceptions::assertReported(RuntimeException::class)`, or an equivalent. | fixed in 9945ebd |
+| 7 | minor | app/Http/Middleware/PosKey.php:20 | Accepted deviation: the key lives at `services.pos.api_key` because `config/patty.php` belongs to PTY-3. But PTY-9 T22 (docs/tickets/PTY-9-pos-sales.md:77) still sets `patty.pos_api_key`, so that test will fail, and a builder may "fix" it in the middleware. The orchestrator should update PTY-9 T22 and this ticket's acceptance criterion so they name the same key. | fixed in criterion above now names services.pos.api_key; PTY-9 left for the orchestrator |
+| 8 | minor | app/Support/Audit.php:31 | The description is always the event name (`->log($event)`). E29 (api.md) expects a human `description` ("PO-2026-0003 sent to Golden Bakery") next to `event`, which this signature cannot produce. Add an optional `?string $description = null` now, before five feature tickets call `record()`. | fixed in 5ae2636 (test in 9945ebd) |
+| 9 | nit | app/Http/Middleware/RequestContext.php:47 | In PCRE, `$` also matches before a trailing newline: `preg_match` returns 1 for `"abc\n"`. Use `\z` (or the `D` modifier), so the S16 guard says exactly what it means. | fixed in 6d77924 (test in 9945ebd) |
