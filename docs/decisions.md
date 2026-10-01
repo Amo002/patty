@@ -380,3 +380,26 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
   5. PTY-10 alone (it reads everything)
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01
+
+## D-041 Visual direction: calm pro tool, indigo, Inter, light and dark
+- **Chosen:** neutral zinc surfaces with a single indigo accent (`#4F46E5`, dark `#818CF8`); light and dark themes from the same tokens (system preference plus a manual toggle); Inter, self-hosted under the SIL OFL; purposeful motion only. The tokens are in design.md.
+- **Supersedes:** the ember accent and the system-font stack in the original design.md.
+- **Rejected:** a warm kitchen brand look; a dark-only ops console; ember or green accents (green collides with the "OK" status).
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-042 Brand: "the stack" logo, session loader, adaptive favicon
+- **Chosen:** a geometric burger of four stacked layers. It doubles as the idea behind the stock ledger: entries that only ever stack.
+  - The wordmark is Inter.
+  - The SVG assets live in `public/brand/`.
+  - The favicon is simplified to 3 layers and adapts to dark tabs.
+  - The animated loader shows on the first load of a session (900 ms max, never blocking, reduced-motion aware), and the same motion is the busy state on buttons.
+- **Decided by:** Mohamad (requested a logo with motion and a matching favicon; approved the boards).
+- **Date:** 2026-10-01
+
+## D-043 Design approved at system level; screens are built in code
+- **Chosen:** Mohamad approved the brand board and the design system (light and dark) on 2026-10-01. The 7 screens are **not** drawn as separate mockups. They are built directly in code (PTY-12, PTY-18, PTY-19) from the approved tokens and components, and reviewed in the browser by the design reviewer.
+- **Why:** about 8 hours of build time remain. Drawing 7 screens in 4 states would cost hours of usage and review before any feature exists. The design system already fixes every component and state the screens use, so the screens are compositions of approved parts.
+- **Supersedes:** the "all 7 screens before approval" scope chosen earlier the same day.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01

@@ -9,7 +9,7 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 | Done | PTY-1 |
 | Awaiting Mohamad | PTY-2 |
 | In Review | (none) |
-| In Progress | (none) |
+| In Progress | PTY-3, PTY-16 (wave 1) |
 | To Do | PTY-3 to PTY-17, PTY-21, PTY-22 |
 
 ## By phase
@@ -24,8 +24,10 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 |---|---|---|---|
 | [PTY-2](PTY-2-project-docs.md) | Project docs, questions, decisions, contract, flows, tickets | Awaiting Mohamad | v0.1.0 |
 
-### 2b Frontend design
-No tickets. Design artifacts are produced and approved here (progress.md). The UI ticket split (Q-012) and the PTY-17 scope are decided at the end of this phase. Runs alongside 3a.
+### 2b Frontend design (approved 2026-10-01)
+| Ticket | Title | Status | Release |
+|---|---|---|---|
+| [PTY-23](PTY-23-frontend-design.md) | Frontend design: brand, logo, loader, design system | Awaiting Mohamad (PR) | v0.2.0 |
 
 ### 3a Build backend
 
@@ -48,17 +50,19 @@ Run in waves of two parallel builders and one shared reviewer (D-040):
 | 8 | [PTY-9](PTY-9-pos-sales.md) | POS sales endpoint | L | Sonnet / Opus | v0.3.0 |
 | 9 | [PTY-10](PTY-10-visibility-endpoints.md) | Visibility endpoints | M | Sonnet / Opus | v0.3.0 |
 
-### 3b Build frontend (blocked until 2b is approved)
+### 3b Build frontend (unblocked: design approved)
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|---|
 | 1 | [PTY-11](PTY-11-design-system.md) | Design system and app shell | M | Sonnet / Opus + design reviewer | v0.4.0 |
-| 2 | [PTY-12](PTY-12-ui-pages.md) | UI pages (may be split in 2b) | M | Sonnet / Opus + design reviewer | v0.4.0 |
-| 3 | [PTY-22](PTY-22-demo-experience.md) | Demo experience: identity, banner, Try-it, reset, realistic seed | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 2 | [PTY-12](PTY-12-ui-pages.md) | UI: Dashboard and Activity | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 3 | [PTY-18](PTY-18-ui-catalogue.md) | UI: Ingredients, Suppliers, Menu and Recipes | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 4 | [PTY-19](PTY-19-ui-purchasing-and-pos.md) | UI: Purchase Orders, Receive, POS Simulator | M | Sonnet / Opus + design reviewer | v0.4.0 |
+| 5 | [PTY-22](PTY-22-demo-experience.md) | Demo experience: identity, banner, Try-it, reset, realistic seed | M | Sonnet / Opus + design reviewer | v0.4.0 |
 
 ### 4 Review and testing (continuous)
 | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|
-| [PTY-17](PTY-17-browser-tests.md) | Browser tests (stretch, first to cut) | M | Sonnet / Opus | v1.0.0 |
+| [PTY-17](PTY-17-browser-tests.md) | Browser tests (**deferred**, Q-012) | M | Sonnet / Opus | next steps |
 
 ### 5 Security
 | Ticket | Title | Wt | Who | Release |
