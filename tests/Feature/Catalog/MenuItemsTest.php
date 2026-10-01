@@ -138,6 +138,59 @@ it('rejects quantities that are zero, decimal or not numbers, naming line and in
     expect(MenuItem::count())->toBe(0);
 })->with([true, false, '1.5', 1.5, 'abc', '1e3', -1, 0, null, 'empty array' => [[]]]);
 
+it('enforces the line count limit: 50 lines are accepted, 51 are rejected (G5)', function () {
+    $ingredients = Ingredient::factory()->count(51)->create();
+    $linesFor = fn (int $count) => $ingredients->take($count)
+        ->map(fn ($ingredient) => ['ingredient_id' => $ingredient->ulid, 'quantity' => 1])->values()->all();
+
+    $ok = $this->postJson('/api/v1/menu-items', ['name' => 'Fifty Lines', 'recipe' => $linesFor(50)])->assertCreated();
+    expect($ok->json())->assertNoIntegerIds();
+    expect($ok->json('data.recipe'))->toHaveCount(50);
+
+    $tooMany = $this->postJson('/api/v1/menu-items', ['name' => 'Fifty One', 'recipe' => $linesFor(51)])->assertStatus(422);
+    expect($tooMany->json())->assertNoIntegerIds();
+    expect($tooMany->json('errors'))->toHaveKey('recipe');
+
+    $item = MenuItem::where('name', 'Fifty Lines')->firstOrFail();
+    $replace = $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => $linesFor(51)])->assertStatus(422);
+    expect($replace->json())->assertNoIntegerIds();
+    expect($replace->json('errors'))->toHaveKey('lines');
+    expect($item->recipeLines()->count())->toBe(50);
+});
+
+it('enforces the quantity limit: 1,000,000 is accepted, 1,000,001 is rejected', function () {
+    $i = menuIngredients();
+    $payload = fn (string $name, int $quantity) => ['name' => $name, 'recipe' => [['ingredient_id' => $i['beef']->ulid, 'quantity' => $quantity]]];
+
+    $ok = $this->postJson('/api/v1/menu-items', $payload('Max Burger', 1000000))->assertCreated();
+    expect($ok->json())->assertNoIntegerIds();
+    expect($ok->json('data.recipe.0.quantity'))->toBe(1000000);
+
+    $over = $this->postJson('/api/v1/menu-items', $payload('Over Burger', 1000001))->assertStatus(422);
+    expect($over->json())->assertNoIntegerIds();
+    expect($over->json('errors')['recipe.0.quantity'])->toBe(['Line 1 (Beef): quantity must be at most 1,000,000.']);
+});
+
+it('enforces the name length limits: 2 and 100 characters are accepted, 1 and 101 are rejected', function () {
+    $item = MenuItem::factory()->create(['name' => 'Classic Burger']);
+
+    foreach ([2, 100] as $length) {
+        $created = $this->postJson('/api/v1/menu-items', ['name' => str_repeat('a', $length)])->assertCreated();
+        expect($created->json())->assertNoIntegerIds();
+    }
+    expect($this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => str_repeat('b', 100)])->assertOk()->json())->assertNoIntegerIds();
+
+    foreach ([1, 101] as $length) {
+        $create = $this->postJson('/api/v1/menu-items', ['name' => str_repeat('c', $length)])->assertStatus(422);
+        expect($create->json())->assertNoIntegerIds();
+        expect($create->json('errors'))->toHaveKey('name');
+
+        $rename = $this->patchJson("/api/v1/menu-items/{$item->ulid}", ['name' => str_repeat('d', $length)])->assertStatus(422);
+        expect($rename->json())->assertNoIntegerIds();
+        expect($rename->json('errors'))->toHaveKey('name');
+    }
+});
+
 it('says "at least 1" for a zero quantity', function () {
     $i = menuIngredients();
 
