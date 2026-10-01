@@ -270,6 +270,29 @@ it('writes the recipe.replaced entry on create with an empty old list (F3)', fun
         ->and($entry->properties['new'])->toHaveCount(3);
 });
 
+it('replaces a recipe atomically: a failing audit write leaves the old lines intact', function () {
+    config(['logging.default' => 'null']);
+    $i = menuIngredients();
+    $item = classicBurger($i);
+    $before = $item->recipeLines()->orderBy('id')->get(['id', 'ingredient_id', 'quantity'])->toArray();
+
+    // The audit entry is the last write inside the transaction, after the old lines are deleted and the new ones inserted.
+    Activity::creating(fn () => throw new RuntimeException('audit write failed'));
+
+    try {
+        $this->putJson("/api/v1/menu-items/{$item->ulid}/recipe", ['lines' => [
+            ['ingredient_id' => $i['beef']->ulid, 'quantity' => 180],
+            ['ingredient_id' => $i['bun']->ulid, 'quantity' => 1],
+        ]])->assertStatus(500);
+    } finally {
+        Activity::flushEventListeners();
+    }
+
+    // Same rows, same primary keys: the deletes and inserts were rolled back, not redone.
+    expect($item->recipeLines()->orderBy('id')->get(['id', 'ingredient_id', 'quantity'])->toArray())->toBe($before);
+    expect(Activity::where('event', 'recipe.replaced')->count())->toBe(0);
+});
+
 it('refuses an empty or missing lines array on replace and keeps the old recipe', function () {
     $i = menuIngredients();
     $item = classicBurger($i);
