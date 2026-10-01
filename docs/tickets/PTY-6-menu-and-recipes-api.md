@@ -87,3 +87,47 @@ Classic Burger: Beef 150, Bun 1, Cheese 20. Replacing it with Beef 180, Bun 1 re
 - A concurrent duplicate name that slips past `Rule::unique` hits the NOCASE index and surfaces as a 500, not a 422. Not in the ticket; candidate follow-up.
 - Audit lines are `{ingredient, ingredient_id (ULID), quantity}`.
 - Done-means item 3 (activity endpoint) waits for PTY-10.
+
+## Reviewer findings
+
+Reviewer: Opus 5.5. Pint passes, full suite 100/100 green. Scope is clean (only PTY-6 files plus `MenuItem.php`), commits are authored by the repo owner with no trailers.
+
+| # | Severity | File:line | Finding | Resolution |
+|---|---|---|---|---|
+| 1 | Medium | `app/Http/Requests/V1/Concerns/RecipeLineRules.php:62` | `quantity: true` is accepted and stored as 1 (201), breaking G3, which lists `true` as rejected. Laravel's `integer` rule uses `filter_var(..., FILTER_VALIDATE_INT)`, which turns `true` into 1, and `min:1` then measures it as a one-character string. Fix: add `numeric` (`is_numeric(true)` is false) or use `integer:strict`, and add `true` and `"1.5"` to the dataset at `MenuItemsTest.php:136`. PO lines, deliveries and sales will copy this rule, so fix the pattern once. | open |
+| 2 | Medium | `app/Http/Requests/V1/StoreMenuItemRequest.php:51`, `UpdateMenuItemRequest.php:38` | `'A menu item called '.$this->input('name')` runs inside `messages()` on every request. `{"name": ["x"]}` raises "Array to string conversion" and returns 500 `server_error` instead of 422. Fix: use Laravel's `:input` placeholder (`'A menu item called :input already exists.'`), and add a test for an array name on POST and PATCH. | open |
+| 3 | Medium | `app/Services/MenuService.php:97` | No test proves that replace is atomic. Mutation: removing `DB::transaction` keeps all 26 tests green. The "keeps the old recipe" tests fail in validation and never reach the service. Add a test that makes the audit write throw (for example `Activity::creating(fn () => throw new RuntimeException)`) and asserts 500 and that the old lines are still there. The reviewer checked that this passes with the transaction and would fail without it. | open |
+| 4 | Low | `tests/Feature/Catalog/MenuItemsTest.php:106-116` | The duplicate-by-case test passes for the wrong reason. If the lowercasing is removed, the uppercase ULID fails `exists` on the same key `lines.1.ingredient_id`, so the test stays green (only the "accepts uppercase" test catches it). Assert the message `Line 2 (Beef): ingredient is listed more than once.` | open |
+| 5 | Low | `tests/Feature/Catalog/MenuItemsTest.php` | No boundary tests for S10 and G5. Removing `max:50` or `max:1000000` keeps the suite green. Add tests for 50 lines (ok) and 51 lines (422), and for quantities 1,000,000 (ok) and 1,000,001 (422). | open |
+| 6 | Low | `app/Services/MenuService.php:57,79` | A concurrent duplicate name gets past `Rule::unique`, hits the NOCASE unique index and returns 500, not 422 (documented by the builder). Not required here. Recommendation: in the planned follow-up ticket, map `UniqueConstraintViolationException` centrally in `bootstrap/app.php` to 422 `validation_failed`. | open (follow-up ticket) |
+| 7 | Low | `tests/Feature/Catalog/MenuItemsTest.php:138,251,261,291,312` | The ticket says to use `assertNoIntegerIds()` in every test, but these tests skip it on their JSON responses (404, 422 empty lines, zero quantity, create audit, list). The rename test checks only the first of its three responses. | open |
+| 8 | Nit | `app/Http/Requests/V1/Concerns/RecipeLineRules.php:89` | `lineMessages()` queries ingredient names on every request, including valid ones, because `messages()` is built before validation runs. It is one bounded query (at most 50 strings). Acceptable, but Mohamad should know why the query is there. | open |
+| 9 | Nit | `app/Services/MenuService.php:80` | A PATCH that re-sends the same name still writes a "Menu item renamed" catalog line with old equal to new. No activity row is written, because nothing is dirty. Could be guarded with `wasChanged('name')`. | open |
+| 10 | Nit | `app/Services/MenuService.php:59` | The `$lines !== []` branch can never run, because E12 `min:1` rejects `[]`. On create, `writeRecipe` also reads and deletes old lines that cannot exist yet. Harmless, but either simplify it or be ready to explain it. | open |
+
+### Builder deviations: verdicts
+- Shared `RecipeLineRules` trait: accepted. One definition for E12 and E15 means the two endpoints cannot drift.
+- MenuService `paginate` and `withRecipe`: accepted. Eager loading lives in one place (`recipeRelations()`), and the N+1 test catches its removal.
+- Flat dotted error keys: accepted. They match the api.md example (`lines.0.quantity`).
+- Create with a recipe writes `recipe.replaced` with `old: []`: accepted. It matches F3 (activity +2).
+- Rename audit in `attribute_changes`: accepted (spatie v5). PTY-10's E29 `changes` must read that column, not `properties`.
+- PATCH without a name returns 200 as a no-op: accepted (G10).
+- Line messages built in `messages()` instead of G7's `attributes()`: accepted, because placeholders cannot carry "Line 2 (Beef)".
+- Concurrent duplicate name returns 500: see finding 6.
+
+### Mutation results (`tests/Feature/Catalog/MenuItemsTest.php`)
+| Mutation | Result |
+|---|---|
+| Remove `distinct` | killed (2 tests) |
+| Quantity `min:0` | killed (2) |
+| Drop ULID lowercasing | killed (1; see finding 4) |
+| Drop `DB::transaction` in replace | **survived** (finding 3) |
+| Audit `old` set to `[]` | killed (1) |
+| Paginate size hardcoded to 10 | killed (1) |
+| Drop eager load in `paginate` | killed (1) |
+| Drop nested `recipeLines.ingredient` eager load | killed (1) |
+| Drop `max:50` | **survived** (finding 5) |
+| Drop `max:1000000` | **survived** (finding 5) |
+| Drop the unique `ignore` on PATCH | killed (1) |
+| Drop the `recipe.replaced` audit call | killed (2) |
+| Drop delete of the old lines | killed (2) |
