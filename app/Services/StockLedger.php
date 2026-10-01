@@ -30,7 +30,13 @@ class StockLedger
      *
      * D-010: a movement that takes on-hand below zero is still recorded. The
      * physical event already happened, so refusing it would delete information;
-     * it is flagged with a warning on the `stock` channel instead.
+     * it is flagged with a warning on the `stock` channel instead. The warning
+     * fires on every movement that leaves on-hand below zero, including a delivery
+     * that leaves it still negative. The post-insert re-read is exact inside the
+     * caller's transaction; concurrency can only affect the warning, never the
+     * stock figure, which is always the sum of committed movements.
+     *
+     * Both log lines are emitted after commit, so a rolled-back movement is never logged.
      *
      * @param  Model  $reference  the row that caused it (a DeliveryLine or a Sale)
      * @param  CarbonInterface|null  $occurredAt  business time; defaults to now
