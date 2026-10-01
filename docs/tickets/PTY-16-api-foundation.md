@@ -111,3 +111,29 @@ Cross-cutting for F1 to F20: envelope, errors, request id, channel, audit and lo
 1. `curl -i http://127.0.0.1:8000/api/v1/health` shows the envelope plus the `X-Request-Id`, `X-API-Version`, `Cache-Control: no-store` and security headers.
 2. `curl -i http://127.0.0.1:8000/api/v1/nope` gives the 404 JSON envelope.
 3. `storage/logs/` has `laravel.log` only for errors. The domain channel files appear once features write to them.
+
+
+## Builder notes
+
+### What was built, in order
+1. spatie/laravel-activitylog ^5.1 with its published migration and config, `App\Support\Audit::record()` (stamps `channel`, `request_id`, `ip`), and the middleware: `RequestContext`, `NoStoreCache`, `SecurityHeaders`, `ApiVersion`, `ForceJsonResponse`, `PosKey`. POS key lives at `services.pos.api_key` (env `POS_API_KEY`), not in `config/patty.php`.
+2. The envelope: `ApiResponse` trait (`success`, `created`, `paginated`, static `error`), `ApiController`, abstract `DomainException` (`status()`, `errorCode()`, optional `errors()`), `PaginationRequest`, `HealthController` (E1), `routes/api/v1.php` requiring `routes/api/v1/*.php`, the `pos` rate limiter and `JsonResource::withoutWrapping()`.
+3. Logging: `errors` daily channel (level error, 14 days) as the stack default, plus daily `stock`, `purchasing`, `pos`, `catalog` at info. `.env.example` sets `LOG_STACK=errors` and `POS_API_KEY=`.
+4. Tests (`tests/Feature/Api/FoundationTest.php`, 17 tests) and the `assertNoIntegerIds` expectation in `tests/Pest.php`.
+5. CI: `composer audit`, and the Journal step on pull requests (job name unchanged, checkout uses `fetch-depth: 0`).
+
+### How an exception becomes an envelope
+- Any exception thrown during an `api/*` request (controller, FormRequest, middleware, model lookup, routing) is caught by Laravel's handler. Laravel first reports it (writes to the `errors` log channel), then calls the single `$exceptions->render(...)` closure in `bootstrap/app.php`.
+- The closure returns null for non-API paths (web keeps default rendering). For API paths one `match` picks: `DomainException` uses its own `status()` and `errorCode()`; `ValidationException` is 422 `validation_failed` with field `errors`; `AuthenticationException` (thrown by `PosKey`) is 401 `unauthorized`; `ModelNotFoundException` or `NotFoundHttpException` is 404; `MethodNotAllowedHttpException` is 405; `ThrottleRequestsException` is 429; anything else is 500 `server_error` with a fixed message.
+- Every branch builds its body through `ApiResponse::error()`, so the failure shape exists in exactly one function. Controllers never catch.
+- Global middleware still wraps the response, so error responses also get the security headers, `no-store`, `X-Request-Id` and `X-API-Version`.
+
+### Deviations and notes
+- `ApiVersion` is registered globally with an `api/*` path guard instead of only in the `api` group, because an unmatched `/api/v1/nope` never enters the group but must still carry `X-API-Version`. `ForceJsonResponse` is in the api group as specified.
+- The 401 path uses Laravel's `AuthenticationException` (the ticket allowed this or a domain `Unauthorized`), so no extra exception class was added.
+- `DomainException` has an optional `errors()` method (default empty) so a rule such as `over_delivery` can name its line in `errors` (api.md says it does).
+- Incoming `X-Request-Id` is only echoed if it matches `[A-Za-z0-9._-]{1,64}`, otherwise a UUID is generated (log injection, S16). An unknown `X-Patty-Channel` falls back to `api`.
+- Daily channels use the `days` key (the one Laravel reads); the stock `daily` channel's `max_files` key is ignored by Laravel and was left untouched.
+- Extra tests beyond the ticket: 405, 429 on the `pos` limiter, web pages carry the headers, unsafe request id, unknown channel, and a test proving `assertNoIntegerIds` itself fails on integer ids.
+- Mutation check done on T15e: making the 500 message echo the exception text fails the test.
+- `docs/AI_LOG.md` was not touched (the orchestrator owns it); known AI-relevant fix: the first `composer require` ran with a Windows ReadOnly directory attribute problem and pinned the version as `5.1`, corrected to `^5.1`.
