@@ -88,3 +88,25 @@ F5, F6, F7, F11, F12.
 - [ ] On create (E17) and line replace (E19, draft only), each line **snapshots** `Ingredient::effectiveTolerance()` into its tolerance columns (D-035).
 - [ ] The PO line resource has `tolerance`, `max_receivable` and `min_to_complete`.
 - [ ] T26 (part): change an ingredient's tolerance after the PO is sent. The PO line's snapshot is unchanged. While still in draft, a line replace picks up the new values.
+
+## Builder notes
+
+Why bad states cannot happen (the interview answer, four lines):
+1. `PurchaseOrderStatus::allowedTransitions()` is the only place the map exists: draft to sent, sent to received, received to closed, closed to nothing.
+2. `PurchaseOrder::transitionTo()` is the only code that writes `status`. It asks the map and throws `InvalidTransition` (409) otherwise. `status` is not `$fillable`, and a new order is a draft through the model `$attributes`, so request data can never set it.
+3. Every service method re-reads the order under `lockForUpdate` inside a transaction, so the status checked is the status changed, and the audit row commits or rolls back with it.
+4. The UI `allowed_actions` comes from the same status, so it never offers a button the server would refuse.
+
+What was done:
+- Enum map plus a unit test that pins all 16 (from, to) pairs.
+- Model: `transitionTo` stamps `sent_at`/`closed_at` and logs rejected moves at `notice`. `status`, `sent_at`, `closed_at`, `short_closed` are not fillable (factories are unguarded, so tests can still set a status). `LogsActivity` records `updated` only and `status` only: named events come from `Audit::record`, and `supplier_id` is an integer key that must not reach the trail.
+- Line model: `received()` uses the `received_sum` attribute when a list loaded it with `withSum`, else one query. `outstanding`, `underDelivered`, `overReceived` follow data.md. PTY-8 should reuse them.
+- `progressPercent()`: average of per-line `min(received, ordered) / ordered` in fixed point (scale 10^9), no float. Flooring each line loses under one unit, which would turn an exact 50 percent (1/3 and 2/3) into 49, so one unit per line is added back before the final floor.
+- Service: create, replaceLines, send, shortClose, delete, each in a transaction with audit and a `purchasing` log line. Tolerances are snapshotted on create and on every draft line replace (D-035).
+- Requests: `PurchaseOrderLineRules` is shared by E17 and E19. Quantities use `integer:strict` (so `true` is rejected), reference fields use `bail` so an array never reaches the `ulid`/`exists` rules, and error messages never interpolate raw input.
+- Atomicity tests fail a line write or the audit write halfway and assert nothing was saved.
+
+Deviations and notes:
+- `DocumentNumber` is an instance service, so it is injected into `PurchaseOrderService`.
+- A status change writes two activity rows: the trait `updated` (what changed) and the named event (what happened). E29 (PTY-10) may want to filter on `event`.
+- Delete and send-without-lines throw `InvalidTransition` through `forAction()`, with a message naming the action.
