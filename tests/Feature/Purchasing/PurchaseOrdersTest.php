@@ -190,7 +190,16 @@ it('replaces the lines of a draft', function () {
     expect($response->json('data.lines'))->toHaveCount(1)
         ->and($response->json('data.lines.0.ingredient.name'))->toBe('Bun')
         ->and($response->json('data.lines.0.quantity_ordered'))->toBe(40);
-    expect(Activity::query()->where('event', 'purchase_order.lines_updated')->count())->toBe(1);
+
+    // F6: the audit event holds the old and the new lines, by name, ULID and quantity.
+    $event = Activity::query()->where('event', 'purchase_order.lines_updated')->sole();
+    expect($event->properties['old_lines'])->toBe([
+        ['ingredient' => 'Beef', 'ingredient_id' => beef()->ulid, 'quantity_ordered' => 1000],
+        ['ingredient' => 'Bun', 'ingredient_id' => bun()->ulid, 'quantity_ordered' => 10],
+    ])->and($event->properties['lines'])->toBe([
+        ['ingredient' => 'Bun', 'quantity_ordered' => 40],
+    ]);
+    expect($event->properties->toArray())->assertNoIntegerIds();
 });
 
 it('deletes a draft and never reuses its number', function () {

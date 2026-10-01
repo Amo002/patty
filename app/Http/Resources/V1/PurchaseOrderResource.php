@@ -8,7 +8,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Expects `supplier`, `lines.ingredient` and the `received_sum` on each line to be
- * loaded (PurchaseOrderController::with()), so a list costs a fixed number of queries.
+ * loaded (PurchaseOrder::detailRelations()), so a list costs a fixed number of queries.
  *
  * @mixin PurchaseOrder
  */

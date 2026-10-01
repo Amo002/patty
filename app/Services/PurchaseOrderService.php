@@ -16,8 +16,12 @@ use Illuminate\Support\Facades\Log;
  * Purchase order life before and after delivery: create, edit, send, short-close, delete.
  *
  * Receiving a delivery (sent to received, and the automatic close) is PTY-8.
- * Every method runs in one transaction and re-reads the order under a row
- * lock, so the status it checks is the status it changes. Each writes its
+ * Every method runs in one transaction and re-reads the order with
+ * lockForUpdate before checking its status. lockForUpdate is a no-op on
+ * SQLite: there the database's single-writer lock serialises writers, so a
+ * racing writer fails (database is locked) instead of double-transitioning.
+ * On MySQL and Postgres the row lock does the work, so the status checked is
+ * the status changed (same approach as DocumentNumber). Each writes its
  * audit event inside the same transaction, so the trail cannot disagree with
  * the data, and one line to the `purchasing` log channel (D-021, D-022).
  *
@@ -41,7 +45,7 @@ class PurchaseOrderService
     {
         return DB::transaction(function () use ($supplier, $lines) {
             $order = PurchaseOrder::create([
-                'number' => $this->numbers->next('PO'),
+                'number' => $this->numbers->next(DocumentNumber::PURCHASE_ORDER),
                 'supplier_id' => $supplier->id,
             ]);
 
@@ -81,11 +85,15 @@ class PurchaseOrderService
                 throw OrderNotEditable::for($order->number, $order->status);
             }
 
+            // F6: the trail keeps the lines as they were, so the change can be read back.
+            $oldLines = $this->describeStored($order);
+
             $order->lines()->delete();
             $this->writeLines($order, $lines);
 
             Audit::record('purchase_order.lines_updated', $order, [
                 'number' => $order->number,
+                'old_lines' => $oldLines,
                 'lines' => $this->describeLines($lines),
             ], "Changed the lines of {$order->number} ({$this->summary($lines)})");
 
@@ -174,7 +182,10 @@ class PurchaseOrderService
     }
 
     /**
-     * Re-read the order with a row lock, so the status checked is the status changed.
+     * Re-read the order with lockForUpdate so the status checked is the status
+     * changed. A no-op on SQLite, whose single-writer lock already serialises
+     * writes (a racing writer fails rather than double-transitioning); the row
+     * lock matters on MySQL and Postgres.
      */
     private function lock(PurchaseOrder $order): PurchaseOrder
     {
@@ -186,11 +197,7 @@ class PurchaseOrderService
      */
     private function fresh(PurchaseOrder $order): PurchaseOrder
     {
-        return $order->refresh()->load([
-            'supplier',
-            'lines' => fn ($query) => $query->withSum('deliveryLines as received_sum', 'quantity_received'),
-            'lines.ingredient',
-        ]);
+        return $order->refresh()->load(PurchaseOrder::detailRelations());
     }
 
     /**
@@ -209,6 +216,20 @@ class PurchaseOrderService
                 'over_tolerance_cap' => $tolerance->overCap,
             ]);
         }
+    }
+
+    /**
+     * The order's stored lines as name, ULID and quantity (never integer keys).
+     *
+     * @return array<int, array{ingredient: string, ingredient_id: string, quantity_ordered: int}>
+     */
+    private function describeStored(PurchaseOrder $order): array
+    {
+        return $order->lines()->with('ingredient')->get()->map(fn ($line) => [
+            'ingredient' => $line->ingredient->name,
+            'ingredient_id' => $line->ingredient->ulid,
+            'quantity_ordered' => $line->quantity_ordered,
+        ])->all();
     }
 
     /**

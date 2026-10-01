@@ -7,6 +7,7 @@ use App\Exceptions\Domain\InvalidTransition;
 use App\Models\Concerns\HasPublicUlid;
 use Database\Factories\PurchaseOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -133,6 +134,28 @@ class PurchaseOrder extends Model
         $sum = $lines->sum(fn (PurchaseOrderLine $line) => intdiv(min($line->received(), $line->quantity_ordered) * 100, $line->quantity_ordered));
 
         return intdiv($sum, $lines->count());
+    }
+
+    /**
+     * The one definition of what a purchase order response needs loaded:
+     * supplier, lines with their delivered total (`received_sum`, one grouped
+     * query) and each line's ingredient. Used by the list, show and every
+     * service return, so no caller loads a slightly different copy.
+     *
+     * @return array<string, mixed>
+     */
+    public static function detailRelations(): array
+    {
+        return [
+            'supplier',
+            'lines' => fn ($lines) => $lines->withSum('deliveryLines as received_sum', 'quantity_received'),
+            'lines.ingredient',
+        ];
+    }
+
+    public function scopeWithDetails(Builder $query): void
+    {
+        $query->with(static::detailRelations());
     }
 
     public function supplier(): BelongsTo

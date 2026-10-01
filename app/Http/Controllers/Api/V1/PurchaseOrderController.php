@@ -35,7 +35,7 @@ class PurchaseOrderController extends ApiController
                 PurchaseOrderStatus::Received->value,
             ]))
             ->when($status !== null && $status !== ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->where('status', $status))
-            ->tap($this->withDetails(...))
+            ->withDetails()
             // id breaks ties between orders created in the same second.
             ->latest()->latest('id')
             ->paginate($request->perPage());
@@ -58,11 +58,7 @@ class PurchaseOrderController extends ApiController
      */
     public function show(PurchaseOrder $purchaseOrder): JsonResponse
     {
-        $purchaseOrder->load([
-            'supplier',
-            'lines' => fn ($lines) => $lines->withSum('deliveryLines as received_sum', 'quantity_received'),
-            'lines.ingredient',
-        ]);
+        $purchaseOrder->load(PurchaseOrder::detailRelations());
 
         return $this->success(new PurchaseOrderResource($purchaseOrder));
     }
@@ -105,17 +101,5 @@ class PurchaseOrderController extends ApiController
         $this->orders->delete($purchaseOrder);
 
         return $this->success(null, "Deleted {$purchaseOrder->number}.");
-    }
-
-    /**
-     * Eager loads for the resource, with delivered totals as one grouped sum (no N+1).
-     */
-    private function withDetails(Builder $query): void
-    {
-        $query->with([
-            'supplier',
-            'lines' => fn ($lines) => $lines->withSum('deliveryLines as received_sum', 'quantity_received'),
-            'lines.ingredient',
-        ]);
     }
 }
