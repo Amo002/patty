@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('delivery_lines', function (Blueprint $table) {
             $table->id();
             $table->foreignId('delivery_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('purchase_order_line_id')->constrained()->restrictOnDelete();
+            // Indexed explicitly: SQLite does not index foreign keys, and received(line)
+            // sums quantity_received over this column.
+            $table->foreignId('purchase_order_line_id')->index()->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity_received');
             $table->timestamps();
         });
