@@ -82,3 +82,46 @@ Setup: Claude Code (CLI) as orchestrator, with builder and reviewer sub-agents p
 - new tickets PTY-16 and PTY-17, plus updates to PTY-3 to PTY-14;
 - tests T15 to T20 and QA-7;
 - the comment standard in `CLAUDE.md`.
+
+## 2026-10-01: Round 3, closing the gaps before build
+
+**Prompt (summary):** Mohamad asked:
+- how reviewers test without login without it feeling odd;
+- to see every flow and how data moves;
+- whether validation had been studied fully;
+- whether the tickets were detailed enough.
+
+He also asked for:
+- pagination with skeletons and lazy loading;
+- professional API versioning, with no database ids visible;
+- a phase journal;
+- a separate frontend design phase;
+- a final security review with Fable.
+
+**Honest answers the AI gave:**
+- **Validation had not been studied fully.** Rules were scattered across tickets. Now `validation.md` has every field, with global rules G1 to G10 and a test for each row.
+- **The backend tickets were reasonable, the UI tickets were thin.** There was no single API contract (now `api.md`, E1 to E30) and no flows (now `flows.md`, F1 to F20).
+
+**Where Mohamad was ahead of the AI:**
+- **Pagination.** The AI first proposed leaving catalogue lists unpaginated "because the restaurant is small". Mohamad wanted pagination everywhere, with skeletons and lazy loading (D-032).
+- **Database ids.** The AI's earlier design used `PO-0001` derived from the database id and exposed integer ids in URLs. Mohamad asked for nothing internal to be shown. Now ULIDs are the public ids, and document numbers come from their own sequence (D-031).
+- **Phases.** The AI's progress log was a flat list. Mohamad asked for phases, with frontend and backend design separated (D-033, D-034).
+
+**What the AI caught itself in this round:**
+- **Idempotency conflict.** A reused `pos_reference` with a different item or quantity was silently treated as a replay, which would hide a POS bug. It now returns 409 (D-029, Mohamad agreed).
+- **A wrong progress formula in its own contract draft.** The PO `progress_percent` summed quantities across lines, which adds grams to pieces. It now averages each line's own completion.
+- **Case-insensitive uniqueness** is now enforced by the database (`COLLATE NOCASE` with a unique index), not only by the validator.
+- **Delivery dates** cannot precede the PO's `sent_at`.
+
+**Process slips:**
+- **The UI ticket question confused Mohamad.** He read "split the UI tickets" as "separate UIs". The AI re-explained (one app, the split is only about review size), and the decision moved to the design phase, where page sizes will be known.
+- **A `sed` edit stripped the backslashes** from PHP namespaces in PTY-16. It was caught by reading the result back and fixed by hand.
+- **The endpoint-coverage check reported false "unclaimed" endpoints**, because tickets cite ranges ("E2 to E5"). It was verified by hand. Lesson: a checking script needs checking too.
+
+**Changes made:**
+- new `api.md`, `validation.md`, `flows.md` (with "A day at Patty": beef 180, bun 21, cheese 120, checked by hand), `ui.md` and `security.md`;
+- decisions D-027 to D-034;
+- questions Q-008 to Q-013 (Q-012 open until phase 2b);
+- tickets: every ticket now has phase, contract, flows, test data and a demo script; PTY-3 rewritten; new PTY-21 (security) and PTY-22 (demo experience);
+- tests T21 to T25 and QA-8;
+- the phase journal in progress.md.

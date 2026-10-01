@@ -89,6 +89,16 @@ The first file to open every session. It tracks the project phase by phase: what
   - this phase journal.
 
   D-027 to D-034.
+- Round 3 output:
+  - api.md (E1 to E30);
+  - validation.md (G1 to G10 plus every field);
+  - flows.md (F1 to F20 plus the worked day);
+  - ui.md;
+  - security.md (S1 to S16);
+  - every ticket deepened;
+  - PTY-21 and PTY-22 added.
+
+**Lessons:** state the honest gaps when asked (validation was not complete). Ask before mapping a confusing answer (the UI split). Verify scripted edits by reading them back.
 
 **Exit:** PR #2 merged.
 
