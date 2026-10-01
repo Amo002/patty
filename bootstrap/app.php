@@ -1,21 +1,66 @@
 <?php
 
+use App\Exceptions\Domain\DomainException;
+use App\Http\Concerns\ApiResponse;
+use App\Http\Middleware\ApiVersion;
+use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\NoStoreCache;
+use App\Http\Middleware\RequestContext;
+use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // D-031: the version lives in the path. routes/api/v1.php only requires the per-area files (D-040).
+        api: __DIR__.'/../routes/api/v1.php',
+        apiPrefix: 'api/v1',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->api(prepend: [ForceJsonResponse::class]);
+
+        // Global, so the headers also cover web pages, /up and unmatched URLs.
+        $middleware->append([
+            RequestContext::class,
+            NoStoreCache::class,
+            SecurityHeaders::class,
+            ApiVersion::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // D-019: the one place where an exception becomes an HTTP response for the API.
+        // Returning null for non-API requests leaves web pages on Laravel's default rendering.
+        // Reporting (laravel.log) is separate and still runs for every exception.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return match (true) {
+                $e instanceof DomainException => ApiResponse::error($e->getMessage(), $e->errorCode(), $e->status(), $e->errors()),
+                $e instanceof ValidationException => ApiResponse::error('The given data was invalid.', 'validation_failed', 422, $e->errors()),
+                $e instanceof AuthenticationException => ApiResponse::error('Unauthorized.', 'unauthorized', 401),
+                $e instanceof ModelNotFoundException,
+                $e instanceof NotFoundHttpException => ApiResponse::error('Resource not found.', 'not_found', 404),
+                $e instanceof MethodNotAllowedHttpException => ApiResponse::error('Method not allowed.', 'method_not_allowed', 405),
+                $e instanceof ThrottleRequestsException => ApiResponse::error('Too many requests.', 'too_many_requests', 429),
+                // S8: never echo the exception text, trace or SQL. The log has it, keyed by request id.
+                default => ApiResponse::error('Something went wrong on our side.', 'server_error', 500),
+            };
+        });
     })->create();
