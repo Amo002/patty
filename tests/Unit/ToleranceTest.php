@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PurchaseOrderLine;
 use App\Support\Tolerance;
 
 // D-035 arithmetic. Expected values are worked by hand: allowance = intdiv(ordered * bps, 10000),
@@ -24,6 +25,21 @@ it('treats zero basis points as exact quantities only', function () {
 
     expect($tolerance->maxReceivable(1000))->toBe(1000)
         ->and($tolerance->minToComplete(1000))->toBe(1000);
+});
+
+it('never lets a line complete with nothing received', function (int $underBps, int $ordered) {
+    $tolerance = new Tolerance(overBps: 0, underBps: $underBps, overCap: null);
+
+    expect($tolerance->minToComplete($ordered))->toBe(1);
+})->with([
+    '100% under tolerance on 1000' => [10000, 1000],
+    'a single piece ordered' => [500, 1],
+]);
+
+it('labels a PO line tolerance as a snapshot', function () {
+    $line = PurchaseOrderLine::factory()->make();
+
+    expect($line->tolerance()->source)->toBe(Tolerance::SOURCE_SNAPSHOT);
 });
 
 it('applies a zero cap as no over-delivery even when the percentage allows some', function () {

@@ -45,6 +45,7 @@ class PurchaseOrderLine extends Model
             overBps: $this->over_tolerance_bps,
             underBps: $this->under_tolerance_bps,
             overCap: $this->over_tolerance_cap,
+            source: Tolerance::SOURCE_SNAPSHOT,
         );
     }
 
