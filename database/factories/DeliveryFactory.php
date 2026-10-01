@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Models\Delivery;
 use App\Models\PurchaseOrder;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Delivery>
@@ -16,8 +18,10 @@ class DeliveryFactory extends Factory
     public function definition(): array
     {
         return [
-            'number' => sprintf('GRN-%d-%04d', now('UTC')->year, fake()->unique()->numberBetween(1, 9999)),
-            'purchase_order_id' => PurchaseOrder::factory(),
+            // Test-only shape that DocumentNumber can never produce.
+            'number' => 'GRN-TEST-'.Str::upper(Str::random(8)),
+            // Goods can only arrive against an order that was sent.
+            'purchase_order_id' => PurchaseOrder::factory()->status(PurchaseOrderStatus::Sent),
             'received_at' => now(),
         ];
     }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PurchaseOrderStatus;
+use App\Models\DeliveryLine;
 use App\Models\Ingredient;
 use App\Models\MenuItem;
 use App\Models\PurchaseOrder;
@@ -73,6 +75,13 @@ it('leaves the stored movement untouched after a refused update', function () {
     }
 
     expect($movement->fresh()->quantity_delta)->toBe(-5);
+});
+
+it('builds delivery lines that belong to the same order as their delivery', function () {
+    $line = DeliveryLine::factory()->create();
+
+    expect($line->purchaseOrderLine->purchase_order_id)->toBe($line->delivery->purchase_order_id)
+        ->and($line->delivery->purchaseOrder->status)->toBe(PurchaseOrderStatus::Sent);
 });
 
 it('defaults short_closed to false on a new purchase order', function () {

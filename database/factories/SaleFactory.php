@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\MenuItem;
 use App\Models\Sale;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Sale>
@@ -16,7 +17,7 @@ class SaleFactory extends Factory
     public function definition(): array
     {
         return [
-            'number' => sprintf('SALE-%d-%06d', now('UTC')->year, fake()->unique()->numberBetween(1, 999999)),
+            'number' => 'SALE-TEST-'.Str::upper(Str::random(8)),
             'menu_item_id' => MenuItem::factory(),
             'quantity' => fake()->numberBetween(1, 5),
             'pos_reference' => null,
