@@ -6,10 +6,10 @@ The first file to open every session. It tracks the project phase by phase: what
 
 | | |
 |---|---|
-| Phase | **2a Backend design: done.** Next: 2b and 3a in parallel. |
-| Active ticket | PTY-2 follow-up (D-039 model ladder), PR #3 |
-| Waiting on Mohamad | Merge PR #3, then the v0.1.0 release PR |
-| Next | Release v0.1.0, then phase 2b (frontend design) alongside phase 3a (PTY-3, PTY-16, ...) |
+| Phase | **3a Build backend** (wave 1: PTY-3 and PTY-16 building). 2b frontend design approved. |
+| Active ticket | PTY-3, PTY-16 (builders); PTY-23 design PR |
+| Waiting on Mohamad | PR for PTY-23 (design) and PTY-24 (repo hygiene) |
+| Next | Opus review of wave 1, then waves 2 to 5, then UI (PTY-11, PTY-12, PTY-18, PTY-19, PTY-22) |
 | Deadline | Submit Sunday 4 October, target 11:00 Amman (hard limit 12:00) |
 | Cut order if late | PTY-17 browser tests, PTY-15 Docker, Try-it self-ticking, Postman scenario, Activity page UI |
 
@@ -20,9 +20,9 @@ The first file to open every session. It tracks the project phase by phase: what
 | 0 | Discovery and planning | Understand the brief; choose stack and process | Plan approved by Mohamad | Done (2026-10-01) |
 | 1 | Specification | What to build and not build; every unclear point answered | Requirements, scope, questions closed | Done (2026-10-01) |
 | 2a | Backend design | How it works: architecture, data, API contract, validation, flows, threat model | Docs merged (PR #2) | Done (2026-10-01) |
-| 2b | Frontend design | How it looks and feels: design system and every screen in every state | Mohamad's written approval below | Not started |
-| 3a | Build: backend | PTY-3, PTY-16, PTY-4 to PTY-10 | All merged, CI green, v0.3.0 tagged | Not started |
-| 3b | Build: frontend | PTY-11, UI tickets (split decided in 2b), PTY-22 | All merged, QA checklists pass, v0.4.0 tagged | Blocked by 2b |
+| 2b | Frontend design | How it looks and feels: brand and design system | Mohamad's written approval below | Done (2026-10-01) |
+| 3a | Build: backend | PTY-3, PTY-16, PTY-4 to PTY-10 | All merged, CI green, v0.3.0 tagged | **In progress** |
+| 3b | Build: frontend | PTY-11, PTY-12, PTY-18, PTY-19, PTY-22 | All merged, QA checklists pass, v0.4.0 tagged | Not started |
 | 4 | Review and testing | Per-ticket code and design review, plus a final full pass | Every ticket's review section complete; QA-1 to QA-8 pass | Continuous |
 | 5 | Security | PTY-21: `/security-review` on Opus 5.5 locally, then Fable 5.1 in Claude Code on the web; triage, fixes | Every finding fixed or accepted with a reason | Not started |
 | 6 | Release and submission | Postman, Docker, README, clean-clone check, v1.0.0, reply email | Submitted | Not started |
@@ -110,7 +110,7 @@ The first file to open every session. It tracks the project phase by phase: what
 
 **Exit:** PR #2 merged by Mohamad (2026-10-01 19:10 UTC). The model-ladder change (D-039: no Fable credits locally; Sonnet builds, Opus reviews; Fable only in Claude Code on the web for the security pass) landed on the branch after the merge and follows in PR #3.
 
-## Phase 2b: Frontend design (not started)
+## Phase 2b: Frontend design (done, 2026-10-01)
 
 **Goal:** a design Mohamad approves before any UI code exists.
 
@@ -119,9 +119,21 @@ The first file to open every session. It tracks the project phase by phase: what
 2. Mohamad reviews and iterates on the artifacts.
 3. On approval: finalise design.md and ui.md, decide the UI ticket split (Q-012) and the PTY-17 scope, and write the UI tickets in full.
 
-**Approval:** _(Mohamad writes approval and date here)_
+**How it went:**
+- Mohamad chose the direction: calm pro tool, indigo, light and dark, Inter, purposeful motion (D-041). He also asked for a logo with an animated loader and a matching favicon (D-042).
+- The orchestrator built the brand board and the design-system boards in the design canvas.
+- Given about 8 hours of build time left, Mohamad approved at system level, and the screens are built in code from the approved parts (D-043).
+- UI split into PTY-12, PTY-18 and PTY-19; PTY-17 deferred (Q-012).
 
-## Phase 3a: Build backend (not started)
+**Approval:** Mohamad, 2026-10-01: "i approve the design". Canvas: https://claude.ai/artifact/3okL33eFNhVBXT9WtJRFWG
+
+**Lessons:** approve the system, not every screen, when time is short; screens built from approved parts carry little design risk.
+
+## Phase 3a: Build backend (in progress, started 2026-10-01)
+
+- v0.1.0 released (tooling and specification).
+- The first wave-1 attempt was lost when a session ended before the builders committed anything. Restarted with "commit early and often" in the builder briefs.
+- New rule from Mohamad: **one ticket = one PR**, and he reviews the full diff of each (workflow.md).
 ## Phase 3b: Build frontend (not started)
 ## Phase 4: Review and testing (continuous)
 ## Phase 5: Security (not started)

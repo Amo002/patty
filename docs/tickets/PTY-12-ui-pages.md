@@ -1,4 +1,4 @@
-# PTY-12 UI pages for all six features
+# PTY-12 UI: Dashboard and Activity
 
 | Field | Value |
 |---|---|
@@ -10,9 +10,9 @@
 | Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer with Claude in Chrome |
 | Branch | `PTY-12-ui-pages` |
 | Release | v0.4.0 |
-| Depends on | PTY-10, PTY-11, **phase 2b design approved** |
+| Depends on | PTY-10, PTY-11 (design approved 2026-10-01) |
 
-> **Provisional.** The final screen specs, and whether this ticket is split into several (Q-012), are decided in phase 2b after Mohamad approves the designs. Behaviour rules U1 to U12 in [ui.md](../ui.md) already apply (skeletons, lazy loading, states, confirmations, errors, time, numbers, no `x-html`).
+> **Scope after Q-012:** this ticket is the Dashboard and the Activity page. Catalogue pages are PTY-18; Purchase Orders, Receive and the POS Simulator are PTY-19. All acceptance criteria below that belong to those pages move there. Screens are built in code from the approved design system (D-043). Behaviour rules U1 to U12 in [ui.md](../ui.md) already apply (skeletons, lazy loading, states, confirmations, errors, time, numbers, no `x-html`).
 
 ## Goal
 
