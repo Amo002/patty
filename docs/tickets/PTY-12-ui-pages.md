@@ -54,3 +54,10 @@ NFR-5, FR-1 to FR-6 from the UI side. Manual QA-1 to QA-7.
 ## Tests required
 
 - [ ] Each page route returns 200 and carries `Cache-Control: no-store`
+
+## Additions from D-035 to D-038
+
+- [ ] Ingredients: photo thumbnails; a tolerance column ("+5% / -5%, max +2 kg", with "default" shown muted); an edit dialog for the overrides.
+- [ ] Menu: photos.
+- [ ] PO lines show max receivable, min to complete and the under-delivered or over-received tags. The receive dialog shows each line's limit in the user's chosen unit.
+- [ ] Every quantity uses `<x-quantity-input>` and the `units.js` formatter.

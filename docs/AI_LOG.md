@@ -125,3 +125,31 @@ He also asked for:
 - tickets: every ticket now has phase, contract, flows, test data and a demo script; PTY-3 rewritten; new PTY-21 (security) and PTY-22 (demo experience);
 - tests T21 to T25 and QA-8;
 - the phase journal in progress.md.
+
+## 2026-10-01: Round 4 (tolerances like SAP and Dynamics, real seed data, demo API, units)
+
+**Prompt (summary):** Mohamad asked for:
+- delivery tolerance "like SAP and Microsoft Dynamics, both": SAP's over- and under-delivery tolerances, and Dynamics' absolute limit ("max 2 kg");
+- seeders with real data and real images;
+- API endpoints to clear and seed data;
+- storage in g and ml, with the UI handling kg and L.
+
+**What the AI did:**
+- Before planning, it explained how each system actually behaves, so "both" became a concrete design:
+  - SAP's under-tolerance completes a line without manual closing;
+  - an absolute cap combines with the percentage as the **stricter** of the two;
+  - both systems **copy tolerances onto the PO line** so later changes don't alter sent orders.
+
+  Mohamad chose all three (D-035).
+- It chose **basis points** so percentages stay integers (and 2.5% remains possible), and rounding down in both directions so a 10-bun line accepts exactly 10 and completes only at 10.
+- It re-checked "A day at Patty" against the new rules before changing the docs. All existing numbers stay valid.
+- It noticed that **"clear data" would collide with our own append-only triggers**, because DELETE on `stock_movements` is refused by design. Clear is therefore `migrate:fresh`: a new database, not a quiet edit of history (D-037). This is now a walkthrough point.
+- **Images:**
+  - it checked that PHP GD with WebP support is available, so photos can be processed with no new tool;
+  - it specified licence checks and credits (S17);
+  - it insisted on fictional suppliers with `.example` emails, so no real business is implied.
+- **Units:** storage and API stay integer base units; only the UI scales and parses kg and L, using string-based decimal parsing so `1.005 kg` becomes exactly `1005` with no float error (D-038).
+
+**Owner rationale recorded:** D-011's "why" is now Mohamad's own, follow SAP and D365 practice, replacing the AI draft flagged earlier.
+
+**A slip:** a security threat (S17) was appended after S16's position by a scripted edit and had to be reordered. Small, but it is why every scripted edit is read back.

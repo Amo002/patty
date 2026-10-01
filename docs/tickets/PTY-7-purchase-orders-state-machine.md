@@ -82,3 +82,9 @@ F5, F6, F7, F11, F12.
 1. Create a PO through E17. The response has `number: "PO-2026-0001"` and `allowed_actions: ["edit_lines","send","delete"]`.
 2. Send it, then send again. The second call gives 409 `invalid_transition`, and the message names both states.
 3. PUT lines on the sent PO gives 409 `order_not_editable`.
+
+## Additions from D-035 to D-038
+
+- [ ] On create (E17) and line replace (E19, draft only), each line **snapshots** `Ingredient::effectiveTolerance()` into its tolerance columns (D-035).
+- [ ] The PO line resource has `tolerance`, `max_receivable` and `min_to_complete`.
+- [ ] T26 (part): change an ingredient's tolerance after the PO is sent. The PO line's snapshot is unchanged. While still in draft, a line replace picks up the new values.

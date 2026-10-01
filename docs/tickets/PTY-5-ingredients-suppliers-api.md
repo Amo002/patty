@@ -65,3 +65,9 @@ F1, F2.
 1. `curl -X POST .../api/v1/ingredients -d '{"name":"Lettuce","unit":"g"}'` gives 201 with a ULID `id`.
 2. The same again with "lettuce" gives 422 with `errors.name`.
 3. `curl .../api/v1/ingredients?per_page=2` shows `meta.pagination`.
+
+## Additions from D-035 to D-038
+
+- [ ] E3 and E5 accept `over_tolerance_bps`, `under_tolerance_bps` and `over_tolerance_cap` (validation.md). `null` on PATCH resets a field to the default.
+- [ ] The Ingredient resource has `tolerance { over_bps, under_bps, over_cap, source }` (effective values) and `image_url` (absolute URL via `asset()`, or null).
+- [ ] Tests: override then read gives `source: ingredient`; resetting to null gives `source: default`; bps above 10,000 gives 422; `image_url` is null when there is no image.

@@ -23,3 +23,8 @@ Anyone, including a POS integrator, can exercise the whole API in Postman.
 - [ ] A "Scenario" folder that runs the brief end to end in order: create ingredients, recipe, PO, send, partial delivery, sale, check stock. Tests assert the numbers.
 - [ ] Example responses saved for the error cases: 409 `invalid_transition`, 409 `cannot_receive`, 422 `over_delivery`, 422 `validation_failed`, 429 `too_many_requests`
 - [ ] Requests send `X-Patty-Channel: api` (or `pos` for the Sales folder), so the audit trail shows where they came from
+
+## Additions from D-035 to D-038
+
+- [ ] A "Demo data" folder: clear, seed, reset (E30 to E32), noting they are local only.
+- [ ] The scenario folder includes an under-tolerance completion (receive 960 of 1000) and a cap rejection.

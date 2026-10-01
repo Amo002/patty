@@ -8,7 +8,7 @@ The first file to open every session. It tracks the project phase by phase: what
 |---|---|
 | Phase | **2a Backend design** |
 | Active ticket | PTY-2 (docs), PR #2, awaiting Mohamad |
-| Waiting on Mohamad | Read and merge PR #2. Confirm or rewrite the D-011 rationale in his own words. |
+| Waiting on Mohamad | Read and merge PR #2 |
 | Next | Release v0.1.0, then phase 2b (frontend design) alongside phase 3a (PTY-3, PTY-16, ...) |
 | Deadline | Submit Sunday 4 October, target 11:00 Amman (hard limit 12:00) |
 | Cut order if late | PTY-17 browser tests, PTY-15 Docker, Try-it self-ticking, Postman scenario, Activity page UI |
@@ -97,6 +97,14 @@ The first file to open every session. It tracks the project phase by phase: what
   - security.md (S1 to S16);
   - every ticket deepened;
   - PTY-21 and PTY-22 added.
+
+- **Round 4:**
+  - SAP and Dynamics-style tolerances: over, under and an absolute cap, in basis points, snapshotted per PO line (D-035);
+  - realistic seed data with licence-free photos (D-036);
+  - demo clear, seed and reset API (D-037);
+  - store base units, UI shows kg and L (D-038).
+
+  D-011 superseded, with the owner rationale recorded.
 
 **Lessons:** state the honest gaps when asked (validation was not complete). Ask before mapping a confusing answer (the UI split). Verify scripted edits by reading them back.
 

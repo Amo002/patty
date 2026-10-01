@@ -32,3 +32,9 @@ The look, motion and layout from [design.md](../design.md), as one CSS file and 
 ## Out of scope
 
 Feature pages (PTY-12).
+
+## Additions from D-035 to D-038
+
+- [ ] `public/js/units.js`, the single place for unit display and input conversion, implementing every row of the ui.md conversion table. String-based decimal parsing, no float multiplication.
+- [ ] A `<x-quantity-input>` Blade component: number field plus a g/kg or ml/L switch, sending integer base units, with the precision error before submit.
+- [ ] Image component: shows `image_url` (lazy-loaded, fixed aspect ratio, so no layout shift) with a Hugeicons fallback.

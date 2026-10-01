@@ -98,3 +98,11 @@ Factories only. The document number test travels from 2026-12-31 23:59 UTC to 20
 ## Out of scope
 
 Services other than DocumentNumber, controllers, routes, the realistic seed (PTY-22).
+
+## Additions from D-035 to D-038
+
+- [ ] Ingredients: nullable `over_tolerance_bps`, `under_tolerance_bps` (unsigned smallint), `over_tolerance_cap` (unsigned int), and `image_path` (string). Menu items: nullable `image_path`.
+- [ ] Purchase order lines: `over_tolerance_bps`, `under_tolerance_bps` (not null) and `over_tolerance_cap` (nullable), the snapshot columns (D-035).
+- [ ] `config/patty.php` `tolerance.defaults` per unit: g and ml (over 500, under 500, cap 2000); piece (over 500, under 500, cap null).
+- [ ] `Ingredient::effectiveTolerance(): Tolerance` merges the overrides with the unit default and reports the source (`default` or `ingredient`).
+- [ ] Test: an ingredient with no overrides gets the unit default; a partial override merges per field.

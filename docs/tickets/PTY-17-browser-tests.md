@@ -34,3 +34,7 @@ Each one ends with `assertNoJavaScriptErrors()`.
 - [ ] POS simulator: sell until cheese is negative. The Negative flag is visible on the dashboard.
 - [ ] Over-delivery input beyond 5% shows the inline error, and stock is unchanged.
 - [ ] Every page on a mobile viewport passes `assertNoAccessibilityIssues()`.
+
+## Additions from D-035 to D-038
+
+- [ ] Unit input: on a PO line choose kg, type `2.4`, save; the API received `2400`. Type `1.0005` kg; an inline error, nothing sent.

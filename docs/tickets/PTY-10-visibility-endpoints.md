@@ -55,3 +55,8 @@ F17, F18, F19, and "A day at Patty" (T8).
 1. Run the T8 scenario through the API (or the Postman scenario). `GET /stock` shows beef 180, bun 21, cheese 120.
 2. `GET /ingredients/{cheese}/movements`: the first row's `balance_after` equals cheese on-hand.
 3. `GET /dashboard` shows `negative_count` 0 at the end of the day (cheese recovered at 15:30).
+
+## Additions from D-035 to D-038
+
+- [ ] Incoming (E27) and outstanding (E16) use `is_complete`. A line completed within under-tolerance contributes 0 incoming, and its shortfall is not "coming".
+- [ ] T16 extended: a PO line of 1000 with 960 received contributes incoming 0.

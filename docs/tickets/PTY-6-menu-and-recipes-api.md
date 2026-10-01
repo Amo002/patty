@@ -59,3 +59,7 @@ Classic Burger: Beef 150, Bun 1, Cheese 20. Replacing it with Beef 180, Bun 1 re
 1. Create Classic Burger with its recipe through E12. The response lists 3 lines with units.
 2. PUT a recipe with a duplicate ingredient. 422 names the line.
 3. `GET /api/v1/activity?subject_type=menu_item&subject_id=<ulid>` shows `recipe.replaced` (once PTY-10 lands).
+
+## Additions from D-035 to D-038
+
+- [ ] The menu item resource has `image_url` (absolute URL or null).
