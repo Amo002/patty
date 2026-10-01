@@ -73,6 +73,14 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC6. Next to on-hand, the stock view shows **Incoming**: the sum of outstanding quantities for that ingredient on open orders (D-020).
 - AC7. An activity view lists audit entries, globally and per purchase order: what happened, when, through which channel (D-021).
 
+### FR-7 Demo experience (supports the "no login" decision)
+
+- AC1. The header identifies the user as "Restaurant manager" and explains that there is no login by design.
+- AC2. A first-visit banner introduces the demo and the guided tour. It is dismissible, and the dismissal is remembered.
+- AC3. The dashboard has a guided "Try it" card with five steps that tick themselves off from real data.
+- AC4. In the local environment the manager can reset the demo data (with confirmation). Outside local the endpoint does not exist (404).
+- AC5. A fresh install shows realistic data in every state: closed, partially received, sent and draft POs, two days of sales, and one negative ingredient. The seed is created through the real services.
+
 ## Non-functional
 
 - NFR-1 Correctness. Quantities are integers in the ingredient's unit. No floats anywhere in stock arithmetic.
@@ -100,11 +108,3 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - NFR-8 Versioning. The API is versioned in the path (`/api/v1`), with a written policy for additive and breaking changes, and an `X-API-Version` header (D-031).
 - NFR-9 Pagination. Every collection endpoint is paginated with `meta.pagination`. The UI shows skeletons while loading and lazy-loads further pages (D-032).
 - NFR-10 Time. Stored in UTC. Shown in the viewer's machine timezone (D-030).
-
-### FR-7 Demo experience (supports the "no login" decision)
-
-- AC1. The header identifies the user as "Restaurant manager" and explains that there is no login by design.
-- AC2. A first-visit banner introduces the demo and the guided tour. It is dismissible, and the dismissal is remembered.
-- AC3. The dashboard has a guided "Try it" card with five steps that tick themselves off from real data.
-- AC4. In the local environment the manager can reset the demo data (with confirmation). Outside local the endpoint does not exist (404).
-- AC5. A fresh install shows realistic data in every state: closed, partially received, sent and draft POs, two days of sales, and one negative ingredient. The seed is created through the real services.
