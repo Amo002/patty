@@ -59,7 +59,9 @@ trait RecipeLineRules
 
         return [
             "{$key}.*.ingredient_id" => ['required', 'string', 'ulid', Rule::exists('ingredients', 'ulid'), 'distinct'],
-            "{$key}.*.quantity" => ['required', 'integer', 'min:1', 'max:1000000'],
+            // G3: `integer:strict` because plain `integer` uses filter_var, which accepts `true` (as 1) and "5".
+            // Every quantity rule in the system (PO lines, deliveries, sales) should copy this one.
+            "{$key}.*.quantity" => ['required', 'integer:strict', 'min:1', 'max:1000000'],
         ];
     }
 

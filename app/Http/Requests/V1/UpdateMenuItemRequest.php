@@ -35,7 +35,7 @@ class UpdateMenuItemRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'A menu item called '.$this->input('name').' already exists.',
+            'name.unique' => 'A menu item with this name already exists.',
             'name.min' => 'The name must be at least 2 characters.',
             'name.max' => 'The name must be at most 100 characters.',
         ];

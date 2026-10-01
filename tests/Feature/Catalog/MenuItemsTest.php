@@ -133,7 +133,7 @@ it('rejects quantities that are zero, decimal or not numbers, naming line and in
     expect($response->json('errors'))->toHaveKey('recipe.1.quantity')
         ->and($response->json('errors')['recipe.1.quantity'][0])->toStartWith('Line 2 (Beef): quantity ');
     expect(MenuItem::count())->toBe(0);
-})->with([0, 1.5, 'abc', '1e3', -1, null]);
+})->with([true, false, '1.5', 1.5, 'abc', '1e3', -1, 0, null, []]);
 
 it('says "at least 1" for a zero quantity', function () {
     $i = menuIngredients();
