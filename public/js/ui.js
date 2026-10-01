@@ -3,7 +3,7 @@
  * the quantity input, time formatting and status labels.
  *
  * Loaded before Alpine, so everything registers on `alpine:init`.
- * S5 / U12: text is always set with x-text or textContent. Nothing here uses innerHTML.
+ * S5 / U12: text is always set with x-text or textContent. Nothing here builds HTML from data.
  */
 (function (root) {
   'use strict';
