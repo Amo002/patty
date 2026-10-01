@@ -14,6 +14,7 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC4. A manager can create a supplier with a name (unique) and optional contact email and phone.
 - AC5. A manager can list suppliers.
 - AC6. An ingredient's unit cannot be changed once any stock movement exists for it (409 `unit_locked`). Changing it would silently reinterpret history.
+- AC7. Each ingredient can override the default delivery tolerances: over % and under % (basis points, 0 to 10,000) and an absolute over-cap in its unit. Empty means "use the default for this unit" (D-035).
 
 ### FR-2 Recipes
 
@@ -41,14 +42,22 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC1. A manager can record a delivery against an order that is `sent` or `received`, with one or more lines of (order line, quantity received > 0).
 - AC2. Recording a delivery against a `draft` or `closed` order is rejected (409 `cannot_receive`).
 - AC3. For every delivery line, stock of that ingredient rises by exactly the quantity received.
-- AC4. Per line, all derived, never stored: received = sum(delivered), outstanding = max(0, ordered - received), over-received = max(0, received - ordered).
-- AC5. Over-delivery is accepted up to a tolerance (Q-002, default 5%, `config/patty.php`). A delivery is rejected (422 `over_delivery`), and nothing from it is saved, if it would take a line's total received above `floor(ordered x (100 + tolerance) / 100)`, computed in integers. Stock rises by the full quantity received, excess included.
+- AC4. Per line, all derived, never stored (D-035):
+  - received = sum(delivered);
+  - max_receivable = ordered + min(intdiv(ordered x over_bps, 10000), over_cap if set);
+  - min_to_complete = ordered - intdiv(ordered x under_bps, 10000);
+  - complete = received >= min_to_complete;
+  - outstanding = complete ? 0 : ordered - received;
+  - under-delivered = complete and received < ordered ? ordered - received : 0;
+  - over-received = max(0, received - ordered).
+- AC5. A delivery is rejected (422 `over_delivery`), and nothing from it is saved, if it would take any line above its `max_receivable`. Stock rises by the full quantity received, excess included.
 - AC6. The first delivery moves the order from `sent` to `received`.
-- AC7. When every line has zero outstanding (received >= ordered), the order moves to `closed` in the same transaction.
+- AC7. When every line is complete (received >= min_to_complete), the order moves to `closed` in the same transaction.
 - AC8. A delivery is all-or-nothing: if any line fails validation, no stock moves.
 - AC9. A manager can short-close a `received` order with quantity still outstanding. It is marked short-closed, the missing quantity shows as not delivered, and stock is untouched (Q-004).
 - AC10. Two simultaneous deliveries on the same order cannot both pass the tolerance check. The order row is locked for the duration of the transaction.
 - AC11. `received_at` cannot be in the future or earlier than the order's `sent_at` (422).
+- AC12. Tolerances are snapshotted onto each PO line when it is created or edited in draft. Changing an ingredient later never changes an existing line (D-035).
 
 ### FR-5 Sales from the POS
 

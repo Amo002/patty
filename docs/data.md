@@ -45,6 +45,10 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 |---|---|---|
 | name | string, unique | |
 | unit | string | enum `Unit`: `g`, `ml`, `piece`. Locked once movements exist. |
+| over_tolerance_bps | unsigned smallint, nullable | Over-delivery % in basis points (500 = 5%). Null means the unit default (D-035). |
+| under_tolerance_bps | unsigned smallint, nullable | Under-delivery % in basis points. Null means the unit default. |
+| over_tolerance_cap | unsigned int, nullable | Absolute over-delivery cap in the ingredient unit. Null means the unit default (2,000 for g and ml, none for piece). |
+| image_path | string, nullable | Relative to `public/`, for example `images/seed/ingredients/beef.webp`. Seed-only, no uploads (D-036). |
 
 ### suppliers
 | Column | Type | Notes |
@@ -57,6 +61,7 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 | Column | Type | Notes |
 |---|---|---|
 | name | string, unique | |
+| image_path | string, nullable | Seed photo, as for ingredients |
 
 ### recipe_lines
 | Column | Type | Notes |
@@ -81,6 +86,9 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 | purchase_order_id | fk, cascade | |
 | ingredient_id | fk, restrict | |
 | quantity_ordered | unsigned int, > 0 | |
+| over_tolerance_bps | unsigned smallint | **Snapshot** of the effective tolerance when the line was created or edited in draft (D-035) |
+| under_tolerance_bps | unsigned smallint | Snapshot |
+| over_tolerance_cap | unsigned int, nullable | Snapshot. Null means no cap. |
 | | unique(purchase_order_id, ingredient_id) | |
 
 ### deliveries
@@ -128,10 +136,14 @@ Created by spatie/laravel-activitylog. One row per field change or named busines
 ```
 on_hand(ingredient)     = SUM(stock_movements.quantity_delta) WHERE ingredient_id = ?
 received(po_line)       = SUM(delivery_lines.quantity_received) WHERE purchase_order_line_id = ?
-outstanding(po_line)    = max(0, quantity_ordered - received(po_line))
-over_received(po_line)  = max(0, received(po_line) - quantity_ordered)
-max_receivable(po_line) = intdiv(quantity_ordered * (100 + tolerance_percent), 100)   -- integers, rounds down
-po fully received       = every line has outstanding == 0
+over_allowance(line)    = min(intdiv(ordered * over_bps, 10000), over_cap)   -- over_cap ignored when null
+max_receivable(line)    = ordered + over_allowance(line)
+min_to_complete(line)   = ordered - intdiv(ordered * under_bps, 10000)
+is_complete(line)       = received(line) >= min_to_complete(line)
+outstanding(line)       = is_complete ? 0 : ordered - received(line)
+under_delivered(line)   = is_complete and received < ordered ? ordered - received : 0
+over_received(line)     = max(0, received(line) - ordered)
+po fully received       = every line is_complete                              -- auto-close
 incoming(ingredient)    = SUM(outstanding(po_line)) over lines of that ingredient on POs in sent | received
 ```
 
@@ -140,6 +152,7 @@ incoming(ingredient)    = SUM(outstanding(po_line)) over lines of that ingredien
 1. The only code that inserts into `stock_movements` is `StockLedger`. Nothing updates or deletes a movement.
 2. Each delivery line produces exactly one movement of `+quantity_received`.
 3. Each sale produces exactly one movement per recipe line, of `-(recipe quantity x sale quantity)`.
-4. `received(po_line) <= max_receivable(po_line)` always (over-delivery tolerated up to 5%, beyond that rejected, Q-002).
+4. `received(line) <= max_receivable(line)` always. Beyond it a delivery is rejected (D-035).
 5. `purchase_orders.status` changes only through `PurchaseOrderStatus::transitionTo()` rules.
 6. A delivery or sale and its movements are written in one transaction, or not at all.
+7. A PO line's tolerance snapshot never changes after the PO leaves draft.

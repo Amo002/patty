@@ -74,12 +74,12 @@ Template for each flow:
 - **Steps (one transaction):**
   1. Lock the PO row (`lockForUpdate`).
   2. Status must be sent or received, else `CannotReceive`.
-  3. For each line: `received_so_far + qty <= intdiv(ordered x 105, 100)`, else `OverDelivery` (nothing saved).
+  3. For each line: `received_so_far + qty <= max_receivable`, using the line's snapshot tolerance (`ordered + min(intdiv(ordered x over_bps, 10000), over_cap)`), else `OverDelivery` (nothing saved).
   4. Take the next GRN number.
   5. Create the delivery and its delivery lines.
   6. For each delivery line: `StockLedger::record(+qty, delivery, line)`.
   7. If the status is sent, move to received.
-  8. If every line's outstanding is 0, move to closed (not in this flow).
+  8. If every line is complete (`received >= min_to_complete`), move to closed (not in this flow).
   9. Audit `delivery.recorded`; log.
 - **Rows written:** deliveries +1, delivery_lines +1, stock_movements +1 (+2400 beef), purchase_orders status sent to received, activity_log +2 (`delivery.recorded`, status change), document_sequences updated
 - **Log:** `purchasing` info "GRN-2026-0001 recorded on PO-2026-0001"; `stock` info per movement
@@ -92,13 +92,13 @@ Template for each flow:
   - `received_at` before `sent_at`: 422
 
 ### F9 Completing delivery (auto-close)
-- As F8, but after step 6 every line has outstanding 0, so step 8 moves the order from received to closed in the **same transaction** and sets `closed_at`.
+- As F8, but after step 6 every line is complete (received at or above `min_to_complete`), so step 8 moves the order from received to closed in the **same transaction** and sets `closed_at`.
 - **Rows written (extra):** activity_log +1 (`purchase_order.closed`)
 - **Response:** the PO with `status: "closed"`, `allowed_actions: []`. **UI next:** status pill morphs to Closed; the PO leaves the open-orders list.
 - A single delivery covering everything goes sent to received to closed in one transaction.
 
 ### F10 Over-delivery rejected
-- **Request:** E23 with beef 800 when ordered 3000, received 2400, limit 3150 (2400 + 800 = 3200)
+- **Request:** E23 with beef 800 when ordered 3000, received 2400. Max receivable is 3000 + min(150, 2000 cap) = 3150, and 2400 + 800 = 3200.
 - **Steps:** step 3 throws `OverDelivery` and the transaction rolls back.
 - **Rows written:** none. No delivery, no movement, no audit row.
 - **Log:** `purchasing` notice "Over-delivery rejected" with the line, attempted total and limit
@@ -178,17 +178,36 @@ Template for each flow:
 - Each entry shows a description, the channel tag (UI / POS / API) and the time in the viewer's timezone.
 
 ### F20 Reset demo data (local only)
-- **Screen:** Dashboard intro banner, "Reset demo data". Confirm: "This erases everything and restores the demo. Continue?"
+- **Screen:** identity chip menu or intro banner, "Reset demo". Confirm: "This erases everything and restores the demo data. Continue?"
 - **Request:** E30. The route exists only when `APP_ENV=local`.
-- **Steps:** `Artisan::call('migrate:fresh', ['--seed' => true])`. Not in a transaction, because the database is rebuilt. The seeder runs through the real services (D-027).
+- **Steps:** F22 clear, then F22 seed. Not in a transaction, because the database is rebuilt. The seeder runs through the real services (D-027, D-036).
 - **Response:** 200. **UI next:** toast, then a full reload.
 - **Outside local:** 404 (the route is not registered).
+
+### F21 Line completed within under-tolerance (SAP style)
+- **Request:** E23 on a PO line of beef 1,000 g (snapshot: over 5%, under 5%, cap 2,000). Max receivable 1,050, min to complete 950. The delivery has beef 960.
+- **Steps:** as F8. After step 6, received 960 >= 950, so the line is **complete**. If every line is complete, the PO closes (as F9).
+- **Rows written:** as F8/F9. **No stock movement for the missing 40 g**: it never arrived.
+- **Response:** the line has `is_complete: true`, `quantity_outstanding: 0`, `quantity_under_delivered: 40`.
+- **UI next:** "Under-delivered 40 g (within tolerance)" on the line; PO Closed (not Short). Incoming beef drops by the full remaining 40.
+- **Contrast:** receiving 900 instead gives received 900 < 950, so the line is not complete, with outstanding 100. The manager either waits or short-closes (F11).
+
+### F22 Clear and seed demo data (local only)
+- **Clear (E31):** `migrate:fresh` without seeding. Every table is empty, including `activity_log` and `document_sequences`. It is implemented by dropping and recreating tables **because the append-only triggers on `stock_movements` correctly refuse DELETE** (D-024, D-037). Even our own tooling cannot quietly delete stock history; it can only start a new database.
+- **Seed (E32):** refuses with 409 `demo_not_empty` if any ingredient, supplier, menu item, PO or sale exists. Otherwise it runs `DemoSeeder` through the real services and returns the counts.
+- **UI next:** after clear, the dashboard shows its empty states, with "Load demo data" as the main action; after seed, a toast and a reload.
+- **Outside local:** both 404.
 
 ---
 
 ## A day at Patty (the worked scenario, and test T8)
 
 Classic Burger = Beef 150 g, Bun 1, Cheese 20 g. Everything starts at zero. Every number below is asserted by the T8 test.
+
+Tolerances (defaults, D-035):
+- PO-A beef 3,000 g: max receivable 3,150, min to complete 2,850.
+- PO-B bun 40: max 42, min 38.
+- PO-C cheese 500 g: max 525, min 475.
 
 | Time | Event | Beef | Bun | Cheese | Incoming beef / bun / cheese | Order states |
 |---|---|---|---|---|---|---|

@@ -33,8 +33,9 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `cannot_receive` | Deliveries only against sent or partially received orders |
 | 409 | `unit_locked` | The unit cannot change once stock has moved |
 | 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
+| 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
 | 422 | `validation_failed` | Input is malformed; `errors` holds `{ field: [messages] }` |
-| 422 | `over_delivery` | The quantity would exceed the tolerance limit; `errors` names the line |
+| 422 | `over_delivery` | The quantity would take the line above `max_receivable` (over % or absolute cap, D-035); `errors` names the line |
 | 422 | `menu_item_not_sellable` | The menu item has no recipe |
 | 429 | `too_many_requests` | Rate limit on sales exceeded |
 | 500 | `server_error` | Unexpected. Generic message, never details. |
@@ -81,7 +82,9 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | E27 | GET | `/stock` | Stock per ingredient: on hand, incoming, negative | 200 | 422 | PTY-10 |
 | E28 | GET | `/dashboard` | KPI counts | 200 | | PTY-10 |
 | E29 | GET | `/activity` | Audit trail, `?subject_type=&subject_id=` | 200 | 422 | PTY-10 |
-| E30 | POST | `/demo/reset` | Re-seed demo data. **Registered only when `APP_ENV=local`.** | 200 | 404 outside local | PTY-22 |
+| E30 | POST | `/demo/reset` | Clear, then seed. **Local only.** | 200 `{ counts }` | 404 outside local | PTY-22 |
+| E31 | POST | `/demo/clear` | Empty the system completely (`migrate:fresh`, D-037). **Local only.** | 200 | 404 outside local | PTY-22 |
+| E32 | POST | `/demo/seed` | Load realistic demo data into an empty system. **Local only.** | 200 `{ counts }` | 404 outside local, 409 `demo_not_empty` | PTY-22 |
 
 ---
 
@@ -98,6 +101,8 @@ The single reference for every endpoint. Builders implement exactly this. Postma
   "incoming": 400,
   "is_negative": false,
   "unit_locked": true,
+  "tolerance": { "over_bps": 500, "under_bps": 500, "over_cap": 2000, "source": "default" },
+  "image_url": "http://127.0.0.1:8000/images/seed/ingredients/beef.webp",
   "created_at": "2026-10-01T08:00:00Z",
   "updated_at": "2026-10-01T08:00:00Z"
 }
@@ -114,6 +119,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
   "id": "01JA...",
   "name": "Classic Burger",
   "is_sellable": true,
+  "image_url": "http://127.0.0.1:8000/images/seed/menu/classic-burger.webp",
   "recipe": [
     { "ingredient": { "id": "01JA...", "name": "Beef", "unit": "g" }, "quantity": 150 },
     { "ingredient": { "id": "01JA...", "name": "Bun", "unit": "piece" }, "quantity": 1 },
@@ -140,7 +146,11 @@ The single reference for every endpoint. Builders implement exactly this. Postma
       "quantity_received": 600,
       "quantity_outstanding": 400,
       "quantity_over_received": 0,
-      "max_receivable": 1050
+      "quantity_under_delivered": 0,
+      "is_complete": false,
+      "max_receivable": 1050,
+      "min_to_complete": 950,
+      "tolerance": { "over_bps": 500, "under_bps": 500, "over_cap": 2000 }
     }
   ],
   "progress_percent": 60,
@@ -149,6 +159,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 }
 ```
 - `allowed_actions` is a subset of `edit_lines`, `send`, `delete`, `receive`, `short_close`, derived from the status. The UI shows only these buttons.
+- A line is **complete** at `min_to_complete` (under-tolerance), and then `quantity_outstanding` is 0 and any shortfall is `quantity_under_delivered`. `tolerance` is the snapshot taken when the line was created (D-035).
 - `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Quantities of different units (g and pieces) are never added together.
 
 ### Delivery
@@ -210,8 +221,8 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 
 | Endpoint | Body |
 |---|---|
-| E3 POST ingredients | `{ "name": "Beef", "unit": "g" }` |
-| E5 PATCH ingredient | `{ "name"?: "...", "unit"?: "g" }` |
+| E3 POST ingredients | `{ "name": "Beef", "unit": "g", "over_tolerance_bps"?: 500, "under_tolerance_bps"?: 500, "over_tolerance_cap"?: 2000 }` |
+| E5 PATCH ingredient | any subset of the E3 fields. Tolerance fields accept `null` (back to the unit default). |
 | E8 POST suppliers | `{ "name": "...", "email"?: "...", "phone"?: "..." }` |
 | E10 PATCH supplier | any subset of the above |
 | E12 POST menu-items | `{ "name": "Classic Burger", "recipe"?: [ { "ingredient_id": "01JA...", "quantity": 150 } ] }` |

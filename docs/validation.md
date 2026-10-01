@@ -25,6 +25,9 @@ The single source of truth for what input is accepted. Every rule here has a tes
 | name | required (POST), `string`, `min:2`, `max:100`, unique (G6) | "An ingredient called Beef already exists." |
 | unit | required (POST), `Rule::enum(Unit::class)` (`g`, `ml`, `piece`) | "Unit must be one of g, ml, piece." |
 | unit change when movements exist | service: `UnitLocked` | 409 `unit_locked`: "Beef already has stock history in g, so its unit can't change." |
+| over_tolerance_bps | `nullable`, `integer`, `min:0`, `max:10000` (0% to 100%, basis points) | "Over-delivery tolerance must be between 0% and 100%." |
+| under_tolerance_bps | `nullable`, `integer`, `min:0`, `max:10000` | |
+| over_tolerance_cap | `nullable`, `integer`, `min:0`, `max:1000000`, in the ingredient unit | |
 
 ### Suppliers (E8, E10): `StoreSupplierRequest`, `UpdateSupplierRequest`
 | Field | Rules |
@@ -61,7 +64,7 @@ E20 send, E21 close and E22 delete take no body. The status rules give 409 `inva
 | received_at | `nullable`, `date`, `before_or_equal:now`, and **not before the order's `sent_at`** (checked in `after()`) |
 | note | `nullable`, `string`, `max:255` |
 | order status | service: `CannotReceive`, 409 |
-| tolerance | service: `OverDelivery`, 422 `over_delivery`. The total received would exceed `intdiv(ordered x 105, 100)` (D-011). |
+| tolerance | service: `OverDelivery`, 422 `over_delivery`. The total received would exceed the line's `max_receivable` = ordered + min(over %, over cap), using the line's **snapshot** tolerance (D-035). |
 
 ### Sales (E25): `StoreSaleRequest`
 | Field | Rules |
@@ -81,6 +84,9 @@ E20 send, E21 close and E22 delete take no body. The status rules give 409 `inva
 | E16 purchase orders | status | `nullable`, in `draft`, `sent`, `received`, `closed`, `open` |
 | E29 activity | subject_type | `nullable`, in `purchase_order`, `ingredient`, `supplier`, `menu_item`, `sale` |
 | E29 activity | subject_id | `nullable`, `ulid`, `required_with:subject_type` |
+
+### Demo data (E30 to E32)
+No body. Registered only in the local environment. E32 returns 409 `demo_not_empty` if any data exists.
 
 ## Bounds and overflow
 

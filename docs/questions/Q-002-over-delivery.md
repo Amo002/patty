@@ -34,3 +34,7 @@ Order 1000 g beef. The supplier sends 1050 g. It happens in real kitchens. Weigh
 - The tolerance is `config('patty.over_delivery_tolerance_percent')`, so changing it is one line.
 
 Recorded as D-011.
+
+## Addendum (2026-10-01)
+
+Extended to SAP and Dynamics-style tolerances: over **and** under percentages plus an absolute over-cap, snapshotted per PO line (Q-014, D-035). The 5% over-delivery default stands. Mohamad's rationale: follow established ERP practice.

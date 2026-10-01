@@ -67,11 +67,13 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Why:** the POS reports facts. Negative stock is information: an unrecorded delivery, a miscount or loss. Surfacing it is what the owner needs. Hiding it by refusing the sale destroys data.
 - **Date:** 2026-10-01
 
-## D-011 Over-delivery tolerated up to 5% per line (Q-002)
+## D-011 Over-delivery tolerated up to 5% per line (Q-002). SUPERSEDED by D-035
 - **Chosen:** a line may receive in total up to `intdiv(ordered x (100 + 5), 100)`, using integer math and rounding down. Stock rises by the full amount received. Outstanding floors at 0, and the excess shows as over-received. Beyond the limit, the whole delivery is rejected (422). Tolerance in `config/patty.php`.
 - **Rejected:** strict rejection of any excess (the orchestrator's recommendation, which is simpler but ignores how suppliers actually deliver by weight); unlimited excess (a typo inflates stock).
 - **Why (AI draft, Mohamad to confirm in his own words):** suppliers routinely deliver slightly over on weighed goods, and refusing to record what physically arrived makes stock wrong. A cap still catches typos. Rounding down keeps the limit an integer and never lets a small-count line (10 buns) go over at all.
 - **Decided by:** Mohamad, overriding the recommendation.
+- **Owner rationale (confirmed 2026-10-01):** follow established ERP practice. SAP and Microsoft Dynamics 365 both use delivery tolerances. The AI draft above is kept for history.
+- **Superseded by D-035:** over **and** under tolerance in basis points, plus an absolute over-cap, snapshotted onto each PO line.
 - **Date:** 2026-10-01
 
 ## D-012 `received` means partially received; closing is automatic (Q-003)
@@ -286,4 +288,26 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
   - Phase 2b runs alongside the backend build.
 - **Why:** a design approved up front is cheaper than one discovered while coding.
 - **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-035 Delivery tolerances, SAP and Dynamics style: over, under, and an absolute cap
+- **Chosen:**
+  - Every PO line carries three tolerance values, snapshotted from the ingredient (or the unit default) when the line is created or edited in draft:
+    - `over_tolerance_bps`;
+    - `under_tolerance_bps`;
+    - `over_tolerance_cap`.
+  - Basis points keep percentages as integers (500 = 5.00%).
+  - The arithmetic, all integers:
+    - `max_receivable = ordered + min(intdiv(ordered x over_bps, 10000), over_cap if set)`. Beyond it the delivery is rejected (422 `over_delivery`).
+    - `min_to_complete = ordered - intdiv(ordered x under_bps, 10000)`. At or above it the line is **complete**: outstanding becomes 0, and any shortfall shows as "under-delivered within tolerance".
+    - The PO closes automatically when every line is complete.
+  - Defaults (`config/patty.php`): over 5%, under 5%. Cap 2,000 for g and ml, none for pieces. Each ingredient can override all three.
+- **Why:**
+  - **SAP** has over- and under-delivery percentages per PO item; under-tolerance lets a line complete without manual closing.
+  - **Microsoft Dynamics 365** combines percentages with absolute limits.
+  - Doing both means a large order cannot be over-delivered by an unreasonable absolute amount (5% of 50 kg is 2.5 kg, but the cap holds it to 2 kg).
+  - Snapshotting onto the line means changing an ingredient's settings never changes an order already sent to a supplier. Both systems behave this way.
+  - Rounding down in both directions means a 10-bun line accepts exactly 10 and completes only at 10.
+- **Unchanged:** short-close (D-013) still covers a supplier who will never deliver the rest, **below** the under-tolerance.
+- **Decided by:** Mohamad (Q-014).
 - **Date:** 2026-10-01
