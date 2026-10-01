@@ -5,15 +5,22 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Middleware\PosKey;
 use App\Http\Requests\V1\PaginationRequest;
 use App\Support\Audit;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Monolog\Handler\TestHandler;
 use PHPUnit\Framework\AssertionFailedError;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /*
 | Everything below the tests is test-only scaffolding: a throwaway table, a
@@ -28,6 +35,17 @@ class FoundationWidget extends Model
     protected $table = 'foundation_widgets';
 
     protected $fillable = ['ulid', 'name'];
+}
+
+// Stands in for the PTY-5/6/7 models that log field changes with the LogsActivity trait.
+class FoundationLoggedWidget extends FoundationWidget
+{
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logOnly(['name']);
+    }
 }
 
 class FoundationWidgetResource extends JsonResource
@@ -104,6 +122,50 @@ class FoundationProbeController extends ApiController
         return $this->success(null, 'Audited.');
     }
 
+    public function logged(): JsonResponse
+    {
+        FoundationLoggedWidget::create(['ulid' => (string) Str::ulid(), 'name' => 'Trait logged']);
+
+        return $this->success(null, 'Logged.');
+    }
+
+    public function describe(): JsonResponse
+    {
+        $widget = FoundationWidget::create(['ulid' => (string) Str::ulid(), 'name' => 'Described']);
+        Audit::record('widget.sent', $widget, [], 'Widget sent to Golden Bakery');
+
+        return $this->success(null, 'Described.');
+    }
+
+    public function stockLog(): JsonResponse
+    {
+        Log::channel('stock')->info('stock line');
+
+        return $this->success(null, 'Logged.');
+    }
+
+    public function raw(): JsonResponse
+    {
+        $widget = FoundationWidget::create(['ulid' => (string) Str::ulid(), 'name' => 'Raw']);
+
+        return $this->success(FoundationWidgetResource::make($widget));
+    }
+
+    public function status(int $code): never
+    {
+        abort($code);
+    }
+
+    public function forbidden(): never
+    {
+        throw new AuthorizationException('no');
+    }
+
+    public function custom(): never
+    {
+        throw new HttpResponseException(response()->json(['custom' => true], 202));
+    }
+
     public function ping(): JsonResponse
     {
         return $this->success(null, 'pong');
@@ -129,6 +191,13 @@ beforeEach(function () {
         Route::get('boom', [FoundationProbeController::class, 'boom']);
         Route::post('audit', [FoundationProbeController::class, 'audit']);
         Route::get('pos-only', [FoundationProbeController::class, 'ping'])->middleware(PosKey::class);
+        Route::post('logged', [FoundationProbeController::class, 'logged']);
+        Route::post('describe', [FoundationProbeController::class, 'describe']);
+        Route::get('stock-log', [FoundationProbeController::class, 'stockLog']);
+        Route::get('raw', [FoundationProbeController::class, 'raw']);
+        Route::get('status/{code}', [FoundationProbeController::class, 'status']);
+        Route::get('forbidden', [FoundationProbeController::class, 'forbidden']);
+        Route::get('custom', [FoundationProbeController::class, 'custom']);
         Route::get('limited', [FoundationProbeController::class, 'ping'])->middleware('throttle:pos');
     });
 });
@@ -186,8 +255,12 @@ it('renders a wrong verb as the 405 envelope', function () {
 
 it('T15e: an unexpected exception renders a generic 500 without leaking its text', function () {
     config(['app.debug' => false]);
+    Exceptions::fake();
 
     $response = $this->getJson('/api/v1/__foundation/boom');
+
+    // S8: hidden from the client, but still reported so the detail reaches laravel.log.
+    Exceptions::assertReported(RuntimeException::class);
 
     $response->assertStatus(500)
         ->assertJsonPath('code', 'server_error')
@@ -218,10 +291,24 @@ it('T17: a sent X-Request-Id is echoed, and an unsafe one is replaced', function
     $this->getJson('/api/v1/health', ['X-Request-Id' => 'req-abc_123'])
         ->assertHeader('X-Request-Id', 'req-abc_123');
 
-    $unsafe = "bad id\nwith newline";
-    $echoed = $this->getJson('/api/v1/health', ['X-Request-Id' => $unsafe])->headers->get('X-Request-Id');
+    // "abc\n" is the case a `$` anchor would wrongly accept.
+    foreach (["bad id\nwith newline", "abc\n"] as $unsafe) {
+        $echoed = $this->getJson('/api/v1/health', ['X-Request-Id' => $unsafe])->headers->get('X-Request-Id');
 
-    expect($echoed)->not->toBe($unsafe)->and($echoed)->toMatch('/^[A-Za-z0-9._-]{1,64}$/');
+        expect($echoed)->not->toBe($unsafe)->and($echoed)->toMatch('/^[A-Za-z0-9._-]{1,64}\z/');
+    }
+});
+
+it('shares request_id and channel with the domain log channels, not only the default one', function () {
+    config(['logging.channels.stock' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+
+    $this->getJson('/api/v1/__foundation/stock-log', ['X-Request-Id' => 'log-1', 'X-Patty-Channel' => 'ui'])->assertOk();
+
+    $record = Log::channel('stock')->getLogger()->getHandlers()[0]->getRecords()[0];
+
+    expect($record->message)->toBe('stock line')
+        ->and($record->context['request_id'])->toBe('log-1')
+        ->and($record->context['channel'])->toBe('ui');
 });
 
 it('T18: Audit::record stores the channel, request id and ip of the request', function () {
@@ -236,6 +323,27 @@ it('T18: Audit::record stores the channel, request id and ip of the request', fu
         ->and($entry->properties['request_id'])->toBe('audit-1')
         ->and($entry->properties['ip'])->not->toBeEmpty()
         ->and($entry->properties['note'])->toBe('x');
+});
+
+it('T18: entries written by the LogsActivity trait are stamped too, without Audit::record', function () {
+    $this->postJson('/api/v1/__foundation/logged', [], ['X-Patty-Channel' => 'ui', 'X-Request-Id' => 'trait-1'])->assertOk();
+
+    $entry = Activity::query()->latest('id')->firstOrFail();
+
+    expect($entry->subject_type)->toBe(FoundationLoggedWidget::class)
+        ->and($entry->properties['channel'])->toBe('ui')
+        ->and($entry->properties['request_id'])->toBe('trait-1')
+        ->and($entry->properties['ip'])->not->toBeEmpty();
+});
+
+it('Audit::record uses the given description and falls back to the event name', function () {
+    $this->postJson('/api/v1/__foundation/describe')->assertOk();
+    expect(Activity::query()->latest('id')->firstOrFail())
+        ->description->toBe('Widget sent to Golden Bakery')
+        ->event->toBe('widget.sent');
+
+    $this->postJson('/api/v1/__foundation/audit')->assertOk();
+    expect(Activity::query()->latest('id')->firstOrFail()->description)->toBe('widget.touched');
 });
 
 it('T18: the audit channel defaults to api, and an unknown channel is not trusted', function () {
@@ -268,7 +376,6 @@ it('reports pagination meta, with has_more false on the last page', function () 
         ->assertJsonPath('meta.pagination', ['page' => 3, 'per_page' => 2, 'total' => 5, 'last_page' => 3, 'has_more' => false])
         ->assertJsonCount(1, 'data');
 
-    // data is a plain list: withoutWrapping() means no data.data.
     expect($last->json('data.0'))->toHaveKeys(['id', 'name']);
     expect($last->json())->assertNoIntegerIds();
 });
@@ -299,7 +406,37 @@ it('applies the pos rate limiter at 120 per minute and renders 429 in the envelo
     $this->getJson('/api/v1/__foundation/limited')
         ->assertStatus(429)
         ->assertJsonPath('code', 'too_many_requests')
+        ->assertJsonPath('success', false)
+        ->assertHeader('Retry-After')
+        ->assertHeader('X-RateLimit-Limit', '120');
+});
+
+it('keeps the Allow header on a 405', function () {
+    $this->postJson('/api/v1/health')->assertStatus(405)->assertHeader('Allow');
+});
+
+it('keeps the real status of other HTTP exceptions instead of a 500', function (int $status, string $code) {
+    $this->getJson("/api/v1/__foundation/status/{$status}")
+        ->assertStatus($status)
+        ->assertJsonPath('code', $code)
         ->assertJsonPath('success', false);
+})->with([
+    [413, 'payload_too_large'],
+    [419, 'page_expired'],
+    [503, 'service_unavailable'],
+    [418, 'http_error'],
+]);
+
+it('renders an AuthorizationException as 403 and lets an HttpResponseException through untouched', function () {
+    $this->getJson('/api/v1/__foundation/forbidden')->assertForbidden()->assertJsonPath('code', 'forbidden');
+
+    $this->getJson('/api/v1/__foundation/custom')->assertStatus(202)->assertExactJson(['custom' => true]);
+});
+
+it('does not wrap a resource a second time (withoutWrapping)', function () {
+    $response = $this->getJson('/api/v1/__foundation/raw')->assertOk();
+
+    expect($response->json('data'))->toHaveKeys(['id', 'name'])->not->toHaveKey('data');
 });
 
 it('assertNoIntegerIds fails on an integer id or *_id and passes on strings', function () {
