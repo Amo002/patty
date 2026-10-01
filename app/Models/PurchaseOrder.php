@@ -21,11 +21,6 @@ class PurchaseOrder extends Model
     use HasFactory, HasPublicUlid, LogsActivity;
 
     /**
-     * Fixed-point scale for progressPercent(): one whole line is 1,000,000,000 units.
-     */
-    private const PROGRESS_SCALE = 1_000_000_000;
-
-    /**
      * Only these events reach the activity log through the trait. The named
      * business events (purchase_order.created and so on) are written by
      * PurchaseOrderService through Audit::record, so recording `created` and
@@ -121,30 +116,23 @@ class PurchaseOrder extends Model
     }
 
     /**
-     * D-030: the average of each line's own completion, floored to a whole percent.
+     * D-030: each line's percent rounded down, then the average rounded down.
      *
-     * Lines are in different units (g, pieces), so quantities are never added
-     * across lines. Each line contributes min(received, ordered) / ordered,
-     * scaled to a fixed-point integer (no float anywhere). Flooring each line
-     * loses less than one unit per line, which would turn an exact 50% (1/3
-     * plus 2/3 of two lines) into 49%, so one unit per line is added back
-     * before the final floor. Complete lines are exact, so 100% stays 100%.
+     * Never sums quantities across lines (they are in different units); never
+     * over-reports; 100 only when every line is fully received (over-received
+     * counts as 100 for its line). 1/3 and 2/3 shows 49 by design.
      */
     public function progressPercent(): int
     {
         $lines = $this->lines;
-        $count = $lines->count();
 
-        if ($count === 0) {
+        if ($lines->isEmpty()) {
             return 0;
         }
 
-        $scaled = $lines->sum(fn (PurchaseOrderLine $line) => intdiv(
-            min($line->received(), $line->quantity_ordered) * self::PROGRESS_SCALE,
-            $line->quantity_ordered,
-        ));
+        $sum = $lines->sum(fn (PurchaseOrderLine $line) => intdiv(min($line->received(), $line->quantity_ordered) * 100, $line->quantity_ordered));
 
-        return intdiv(($scaled + $count) * 100, $count * self::PROGRESS_SCALE);
+        return intdiv($sum, $lines->count());
     }
 
     public function supplier(): BelongsTo

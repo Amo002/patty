@@ -160,7 +160,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 ```
 - `allowed_actions` is a subset of `edit_lines`, `send`, `delete`, `receive`, `short_close`, derived from the status. The UI shows only these buttons.
 - A line is **complete** at `min_to_complete` (under-tolerance), and then `quantity_outstanding` is 0 and any shortfall is `quantity_under_delivered`. `tolerance` is the snapshot taken when the line was created (D-035).
-- `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Quantities of different units (g and pieces) are never added together.
+- `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Each line's percent is rounded down, then the average is rounded down, so it never over-reports and shows 100 only when every line is fully received (1/3 and 2/3 shows 49). Quantities of different units (g and pieces) are never added together.
 
 ### Delivery
 ```json

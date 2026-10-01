@@ -436,7 +436,7 @@ it('reports progress as the average of per-line completion (D-030)', function (i
     expect($response->json('data.progress_percent'))->toBe($expected);
 })->with([
     'half and complete' => [1000, 500, 10, 10, 75],
-    'exact fifty from thirds' => [3, 1, 3, 2, 50],
+    'thirds round down per line then on average' => [3, 1, 3, 2, 49],
     'over-received counts as 100 not more' => [10, 15, 10, 0, 50],
     'nothing received' => [10, 0, 10, 0, 0],
 ]);
