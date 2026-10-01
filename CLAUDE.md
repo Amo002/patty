@@ -18,7 +18,11 @@ The full index is in `docs/README.md`.
 - Purchase order status changes **only** through the transition map in `App\Enums\PurchaseOrderStatus`.
 - Quantities are integers in the ingredient's unit. Never floats.
 - Domain logic lives in `app/Services`. Controllers validate with a FormRequest, call one service method, and return a Resource.
-- Every write that touches stock runs in `DB::transaction`.
+- Every write that touches stock runs in `DB::transaction`, together with its audit entry.
+- API controllers extend `Api\ApiController` and respond only through the `ApiResponse` trait. Rule violations are `App\Exceptions\Domain` exceptions (409 when state forbids, 422 when input is wrong), rendered in `bootstrap/app.php`. Never try/catch in controllers.
+- Audit with `activity()` and a dotted event name. Model events may observe, never change state.
+- Log business events to their domain channel (`stock`, `purchasing`, `pos`, `catalog`). `laravel.log` is for errors.
+- Comments explain why, not what. Every public service method gets a docblock (intent, invariants, throws). Cite the decision for rule-driven code (`// D-011: ...`). No commented-out code. No TODO without a PTY key.
 - No new dependency, table or endpoint that is not in a ticket. Raise it first.
 - No emoji in code, UI, docs, commits or PRs.
 - Commits: `PTY-N: Imperative sentence`, authored by the repo owner, **no AI co-author trailers**. Never push to `main` or `develop`. Never force-push.

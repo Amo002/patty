@@ -9,6 +9,7 @@ AI is used as a team of builders and reviewers under one human owner. **Mohamad 
 | Owner | Mohamad | Answers questions, reviews every line, runs manual QA, merges PRs, cuts releases | |
 | Orchestrator | Main Claude Code session (Fable 5.1, switched with `/model`) | Writes tickets and questions, dispatches builders and reviewers, keeps `progress.md`, `BOARD.md` and `AI_LOG.md` current, reports back after every ticket | Merges PRs, answers BRD questions on Mohamad's behalf |
 | Builder | Sub-agent, model by ticket weight | Implements one ticket on its branch, writes the tests named in the ticket, explains every non-obvious block in the ticket's Builder notes | Touches files outside the ticket, adds dependencies, pushes to `develop`/`main` |
+| Design reviewer | Sub-agent on Fable 5.1 with Claude in Chrome. UI tickets only (PTY-11, PTY-12). | Screenshots every page at 1440 px and 820 px. Reviews against [design.md](design.md): tokens, layout, motion, the user satisfaction rules, WCAG AA contrast, focus, reduced motion, console errors. Findings with screenshots go in the ticket. | Edits code |
 | Reviewer | Sub-agent, **always one tier above the builder** | Reviews the diff against the ticket ACs, [data.md](data.md) invariants and [requirements.md](requirements.md). Records findings with severity and `file:line`. Checks that each test would fail if the logic were removed. | Edits code (it reports, the builder fixes) |
 
 ## Model ladder

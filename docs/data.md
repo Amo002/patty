@@ -101,6 +101,13 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 | created_at | timestamp | System time. No `updated_at`: rows are never updated. |
 | | index(ingredient_id) | On-hand is a sum over this index. |
 
+### activity_log (package table, audit only)
+Created by spatie/laravel-activitylog. One row per field change or named business event (`purchase_order.sent`, `delivery.recorded`, `sale.replayed`, ...). `properties` holds `channel`, `request_id`, `ip`, and before/after values. `causer` is always null, because there are no users. **Not part of the stock truth:** nothing is ever computed from it. Stock movements are not duplicated here (D-021).
+
+### Database-level guards
+- SQLite triggers `stock_movements_no_update` and `stock_movements_no_delete` abort any `UPDATE` or `DELETE` on `stock_movements` (D-024).
+- Foreign keys are enforced (Laravel's SQLite default).
+
 ## Derived values
 
 ```
@@ -110,6 +117,7 @@ outstanding(po_line)    = max(0, quantity_ordered - received(po_line))
 over_received(po_line)  = max(0, received(po_line) - quantity_ordered)
 max_receivable(po_line) = intdiv(quantity_ordered * (100 + tolerance_percent), 100)   -- integers, rounds down
 po fully received       = every line has outstanding == 0
+incoming(ingredient)    = SUM(outstanding(po_line)) over lines of that ingredient on POs in sent | received
 ```
 
 ## Invariants (each one has a test)

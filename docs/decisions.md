@@ -22,6 +22,7 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Rejected:** Vite + Tailwind (the reviewer would need Node and a build); an SPA (hours that belong to tests).
 - **Why:** the reviewer must run the app with PHP and Composer only. Polish comes from the design system, not the toolchain.
 - **Date:** 2026-10-01
+- **Amended by D-026:** Node returns for opt-in browser test tooling only. The app still installs and runs without it.
 
 ## D-004 Stock is a ledger of movements; balances are derived
 - **Chosen:** append-only `stock_movements` with a signed integer delta, reason and a reference to its cause. On-hand = sum of deltas.
@@ -35,6 +36,7 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Rejected:** domain events with listeners; model observers.
 - **Why:** every stock change should be a call you can point at on screen. Events hide control flow and make "what happens when a sale is recorded" a search instead of a read. Revisit only if a requirement needs fan-out.
 - **Date:** 2026-10-01
+- **Clarified by D-021:** model events may be used to *observe* (audit trail), never to *change state*.
 
 ## D-006 No caching of stock; freshness is visible
 - **Chosen:** no server-side cache. A `Cache-Control: no-store` middleware on API and pages, so the browser back button never shows stale stock. The UI refetches on `pageshow`/`visibilitychange` and on a light poll (about 10 s), and shows "updated N s ago".
@@ -94,4 +96,107 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 
 ## D-016 Editing rules (Q-007)
 - **Chosen:** as tabled in Q-007. PO lines and supplier are editable in draft only. Recipes are always editable but affect future sales only. Deliveries, sales and movements are never edited or deleted. Only draft POs can be deleted.
+- **Date:** 2026-10-01
+
+## D-017 No events, queues or scheduler, with the triggers that would change that
+- **Chosen:** synchronous service calls only. `QUEUE_CONNECTION=sync`. No scheduled tasks.
+- **Why:**
+  - **Events:** a listener that fails half-way would break "stock is always right" (D-005).
+  - **Queues:** nothing is slow, and a queued stock change would make the screen stale (D-006).
+  - **Scheduler:** nothing in the brief is time-based.
+- **When each becomes yes:**
+  - **Events:** a side effect outside the stock truth, such as notifying a supplier when a PO is sent. It would be fired after commit (`ShouldDispatchAfterCommit`), with a queued listener.
+  - **Queues:** emailing PDFs to suppliers, or importing a POS day-end file.
+  - **Scheduler:** a nightly low-stock report, or reminders for POs sent but undelivered after N days.
+- **Date:** 2026-10-01
+
+## D-018 No financial pillar; clean seams instead
+- **Chosen:** quantities only. No prices, costs, valuation or journal postings.
+- **Rejected:** unit price on PO lines; weighted-average costing with stock value and cost of sales.
+- **Why:** the brief is "a small inventory and purchasing service" and values correctness over size. Costing brings edge cases (the cost of negative stock, the cost of over-delivered excess) that would need their own tests and defence. The ledger design already maps one-to-one onto journal postings. `architecture.md` section 8 describes how finance, procurement and multi-branch would plug in.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-019 One API response envelope; 409 for state, 422 for input
+- **Chosen:** every API response is `{ success, message, data, meta? }` or `{ success: false, message, code, errors }`, produced by the `ApiResponse` trait. Every exception is rendered in one place (`bootstrap/app.php`).
+- **Status map:**
+
+  | Status | Meaning |
+  |---|---|
+  | 200 | Read or action |
+  | 201 | Created |
+  | 404 | Not found |
+  | 405 | Method not allowed |
+  | **409** | The request is valid but the resource's current state forbids it: `invalid_transition`, `order_not_editable`, `cannot_receive`, `unit_locked` |
+  | **422** | The request content is wrong: `validation_failed`, `over_delivery`, `menu_item_not_sellable` |
+  | 429 | Too many requests |
+  | 500 | Generic message, never a trace |
+
+- **Why:** the UI and the POS get one shape to handle. `code` is stable for machines, and `message` is readable for people. Separating 409 from 422 tells the client whether to fix its input or refresh its view of the resource.
+- **Decided by:** Mohamad (envelope and the 409/422 split).
+- **Date:** 2026-10-01
+
+## D-020 Show Incoming next to On hand
+- **Chosen:** the stock view shows, per ingredient, **Incoming** = sum of outstanding quantities on open POs. It is derived, never stored.
+- **Why:** the brief's goal is to "stop running out". On hand alone answers "what do I have", and Incoming answers "what is already on the way". Together they support the reorder decision without a new table. Reorder levels stay as a next step.
+- **Found by:** the alignment check against the brief's problem statement.
+- **Date:** 2026-10-01
+
+## D-021 Audit trail with spatie/laravel-activitylog
+- **Chosen:** spatie/laravel-activitylog ^5.1.
+  - Field changes come from the `LogsActivity` trait (dirty fields only) on Ingredient, Supplier, MenuItem and PurchaseOrder.
+  - Named business events come from explicit `activity()` calls in services: `purchase_order.sent`, `delivery.recorded`, `recipe.replaced`, `sale.replayed`, and so on.
+  - Every entry carries `channel` (`ui` / `pos` / `api`, from the `X-Patty-Channel` header), `request_id` and `ip`. `causer` stays null because there are no users, and no username is ever invented.
+  - Entries are written inside the same transaction as the change.
+  - `StockMovement` is excluded: the ledger is already its own audit trail.
+- **Rejected:** our own audit table (the orchestrator's recommendation, which is more explicit but more code to own).
+- **Why:** a known, maintained package covers field diffs for free, and explicit calls add the business meaning that field diffs lack.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-022 Log channels per domain
+- **Chosen:**
+  - `laravel.log` holds errors only (daily, 14 days).
+  - Per-domain daily channels: `stock`, `purchasing`, `pos`, `catalog`.
+  - `RequestContext` middleware adds `request_id` and `channel` to every line, and echoes `X-Request-Id` in the response.
+- **Rejected:** a channel per model (about ten mostly empty files that split one story across many places).
+- **Why:** debugging follows a business flow ("what happened in purchasing at 14:02"), not a table.
+- **Logs versus audit:** logs are operational, for developers, and rotated. The audit trail is business history, kept for the manager, and stored in the database.
+- **Date:** 2026-10-01
+
+## D-023 Code comment standard
+- **Chosen:**
+  - comments explain why, not what;
+  - a docblock on every public service method, covering intent, invariants and the exceptions thrown;
+  - rule-driven code cites its decision (`// D-011: ...`);
+  - no commented-out code;
+  - no TODO without a PTY key.
+- **Why:** comments are part of the explanation the owner gives live. Too few and the reasoning is lost; too many and the code is noise.
+- **Date:** 2026-10-01
+
+## D-024 Defence in depth
+- **Chosen:** in addition to validation, domain rules, transactions and locks:
+  - SQLite triggers that block `UPDATE` and `DELETE` on `stock_movements`;
+  - a named rate limiter on `POST /sales` (120 per minute);
+  - a `SecurityHeaders` middleware (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, a minimal `Permissions-Policy`).
+- **Deferred:** Larastan static analysis; optimistic locking for concurrent draft edits. Both are in the README's next steps.
+- **Why:** append-only should be a property of the database, not a promise of the code. A POS integration should not be able to flood the ledger.
+- **Date:** 2026-10-01
+
+## D-025 Icons: Hugeicons free set
+- **Chosen:** `@hugeicons/core-free-icons` 4.3.5 (MIT), stroke-rounded, 1.5 px stroke.
+  - It ships as JS data, so a one-off script converts only the icons we use into plain SVG files, which are committed to `resources/icons`.
+  - A Blade `<x-icon>` component inlines them.
+  - No npm at install or runtime. The license notice is kept with the icons.
+- **Rejected:** a UI kit (Pico, Open Props). Our tokens and motion are custom, and a kit would be overridden more than used.
+- **Decided by:** Mohamad (Hugeicons).
+- **Date:** 2026-10-01
+
+## D-026 Browser tests as an opt-in suite (stretch)
+- **Chosen:** Pest 4 browser tests (Playwright) in `tests/Browser`.
+  - They are excluded from the default `php artisan test` (`defaultTestSuite="Unit,Feature"`) and run with `composer test:browser`.
+  - In CI they run as a separate job.
+  - `package.json` exists for test tooling only.
+- **Why:** they prove the UI flows end to end without making Node a requirement for a reviewer running the app or the core tests.
+- **Priority:** first to cut if time runs short.
 - **Date:** 2026-10-01

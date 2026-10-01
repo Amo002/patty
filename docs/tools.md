@@ -2,13 +2,19 @@
 
 ## AI tooling
 
-| Tool | Used for | Limits |
-|---|---|---|
-| Claude Code (CLI) | Orchestrator, builders and reviewers | See permissions below |
-| Claude Code `/code-review` skill | Second-opinion review of a ticket diff | Findings go into the ticket file |
-| Claude Code `/simplify` skill | Cleanup pass on a finished ticket | Must not change behaviour. Tests must still pass. |
-| Claude in Chrome | Manual QA screenshots of the UI, when useful | Local app only (`127.0.0.1:8000`) |
-| GitHub CLI (`gh`) | Open PRs, read CI status, create releases | Never merges, never approves, never changes branch protection |
+| Tool | Used for | When | Limits |
+|---|---|---|---|
+| Claude Code (CLI) | Orchestrator, builders and reviewers | Always | See permissions below |
+| `/code-review` skill | Reviewer agents review the ticket diff. Level `high` for L tickets, `medium` for S and M. | Every ticket | Findings go into the ticket file |
+| `/security-review` skill | Pass over middleware, input handling and the exposed API | PTY-16, and before v1.0.0 | Findings go into the ticket file |
+| `/simplify` skill | Cleanup pass | After each L ticket | Must not change behaviour. Tests must still pass. |
+| `run` skill | Start the app and confirm a change works for real, not only in tests | UI tickets | Local only |
+| Claude in Chrome | Screenshots at 1440 px and 820 px, console errors, GIF recordings of the main flows for the README | PTY-11, PTY-12, PTY-14 | Local app only (`127.0.0.1:8000`). No other sites. |
+| `dataviz` skill | Chart guidance if the dashboard shows a stock chart | PTY-12 | |
+| `fewer-permission-prompts` skill | Allowlist safe read-only commands so agents stop pausing the owner | Once | Read-only commands only |
+| GitHub CLI (`gh`) | Open PRs, read CI status, create releases after the owner merges | Always | Never merges, never approves, never changes branch protection |
+
+Available in this environment but **not used**: Canva, Shopify, Gmail, Google Calendar and Drive, Cloudflare, DaVinci Resolve, and the Docs connectors. None of them serve this project.
 
 No Laravel Boost, MCP servers or AI packages are added to the project's dependencies.
 

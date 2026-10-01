@@ -2,7 +2,7 @@
 
 Professional, calm, fast. A back-office tool a manager uses during service, so clarity beats decoration. Motion exists to explain change (a number moved, a row arrived, a state advanced), never to entertain.
 
-**No emoji anywhere**: not in the UI, docs, commits or PRs. Icons, where needed, are inline SVG from one consistent set, stroked at 1.5 px.
+**No emoji anywhere**: not in the UI, docs, commits or PRs. Icons come from **Hugeicons free** (MIT, stroke-rounded, 1.5 px), converted once to SVG in `resources/icons` and rendered with `<x-icon name="..." />` in `currentColor` (D-025). No UI kit: components are hand-written from the tokens below.
 
 ## Principles
 
@@ -73,3 +73,16 @@ Techniques, all CSS-native, no animation library:
 ## Components
 
 Button (primary, secondary, ghost, danger), input, select, number input with unit suffix, table, status pill, progress bar, card, dialog, toast (for success; errors stay inline), empty state, "updated N s ago" freshness stamp.
+
+## User satisfaction rules
+
+These are acceptance criteria for every UI page (PTY-12) and are checked in QA-7.
+
+1. **No accidental double actions.** Buttons disable and show a spinner while their request is in flight. A double-click must never record a delivery twice.
+2. **Confirm before irreversible actions.** Recording a delivery, sending a PO and short-closing open a dialog with a plain summary ("Add 600 g Beef and 10 Buns to stock?"). Deliveries and sales are never editable, so this is the last chance to catch a mistake.
+3. **Smart defaults.** The delivery form is prefilled with each line's outstanding quantity and shows the limit ("up to 1,050 g").
+4. **Errors in kitchen language.** Field errors use the ingredient name and unit ("Beef: 1,100 g is above the 1,050 g limit") and sit next to the field. State conflicts (409) appear as a notice and refresh the view, because the data on screen is out of date.
+5. **Guiding empty states.** Every empty list says what to do next, with the action button ("No suppliers yet. Add one to start ordering.").
+6. **Readable numbers.** Thousands separators. Large gram and ml values get a muted hint (`12,500 g` with `12.5 kg` beside it, display only). Negative values in danger colour with the word "Negative".
+7. **Visible freshness.** Live views auto-refresh, values that changed highlight briefly, and "Updated N s ago" is always shown.
+8. **Kitchen-ready.** Usable on a tablet (820 px), tap targets at least 44 px, keyboard navigable with a visible focus ring, WCAG AA contrast, reduced motion respected.
