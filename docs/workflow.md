@@ -26,6 +26,13 @@ The project runs in phases, each with a gate. The journal of every phase (goal, 
 
 Phases 2b and 3a can run at the same time. Every ticket names its phase.
 
+## One ticket, one pull request (rule)
+
+- Every PR contains the changes of **exactly one ticket**, the one in its title. No second ticket, no unrelated housekeeping, no "while I am here" fixes. Anything else gets its own small ticket and its own PR.
+- After each ticket, Mohamad reviews the **full diff** of its PR and approves it by merging. Nothing merges without that.
+- Before a PR is opened, the orchestrator checks `git diff --stat origin/develop..HEAD` contains only that ticket's files.
+- Follow-up commits for a different ticket are never pushed to an open PR's branch.
+
 ## Parallel work
 
 Two tickets can be built at the same time, each in its own git worktree and branch, with one reviewer shared between them (D-040). The board shows which pairs run together.
