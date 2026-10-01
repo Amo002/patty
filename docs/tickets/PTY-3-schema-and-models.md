@@ -106,3 +106,31 @@ Services other than DocumentNumber, controllers, routes, the realistic seed (PTY
 - [ ] `config/patty.php` `tolerance.defaults` per unit: g and ml (over 500, under 500, cap 2000); piece (over 500, under 500, cap null).
 - [ ] `Ingredient::effectiveTolerance(): Tolerance` merges the overrides with the unit default and reports the source (`default` or `ingredient`).
 - [ ] Test: an ingredient with no overrides gets the unit default; a partial override merges per field.
+
+## Builder notes
+
+### What was built, in order
+1. Migrations for all 11 tables (plus a sessions-only migration, see deviations). Quantities are `unsignedInteger`, `quantity_delta` is a signed `integer`, no float or decimal columns. `name` on ingredients, suppliers and menu_items is `NOCASE` with a unique index (G6). `stock_movements` has no `updated_at` and two triggers (`stock_movements_no_update`, `stock_movements_no_delete`) created in `up()` and dropped in `down()`.
+2. Enums `Unit`, `PurchaseOrderStatus` (cases and labels only), `MovementReason`; `config/patty.php` tolerance defaults; the readonly `App\Support\Tolerance` value object (`maxReceivable`, `minToComplete`, integer basis-point arithmetic only).
+3. `HasPublicUlid` trait, 11 models, `Ingredient::effectiveTolerance()` and `PurchaseOrderLine::tolerance()` (reads the line's own snapshot).
+4. `App\Services\DocumentNumber::next()`, factories for every model that needs one, and a minimal `DatabaseSeeder` (6 ingredients, 3 suppliers, 3 menu items with recipes; no POs, sales or movements).
+5. Tests: `tests/Feature/Schema/ConstraintsTest.php`, `DocumentNumberTest.php`, `tests/Unit/PublicUlidTest.php`, `ToleranceTest.php`, `EffectiveToleranceTest.php`.
+
+### ULID approach
+Laravel's `HasUlids` works with an integer primary key. `HasUniqueStringIds` only changes `getKeyType()` and `getIncrementing()` when the primary key itself is listed in `uniqueIds()`. The trait overrides `uniqueIds()` to return `['ulid']`, so `id` stays an auto-increment integer, the `ulid` column is filled on insert, and a malformed route value (including a numeric id) gives a 404 through `resolveRouteBinding`. No hand-rolled `creating` hook was needed. The ULID is filled in `performInsert`, just after the `creating` event fires, so a `creating` observer sees it as null.
+
+`$hidden` is computed in an overridden `getHidden()`: the model's own list plus `id` and every attribute ending in `_id`. A static `$hidden` list would have to be kept in sync with each model's foreign keys by hand.
+
+### What Mohamad must be able to explain
+- Why a ULID column beside an integer key (D-031) and how `uniqueIds()` makes that work.
+- The tolerance arithmetic: `intdiv` rounds the allowance down, so 10 buns get no allowance; the cap clamps large weighed goods (50000 g gets 2000, not 2500). A cap of 0 and a bps of 0 are valid overrides, which is why `effectiveTolerance()` tests for null, not falsy.
+- The triggers are row-level: a `DELETE` on an empty table does not raise. That is expected, and the test inserts a row first.
+- `DocumentNumber::next()` inserts the counter row with `insertOrIgnore`, then reads it with `lockForUpdate`. SQLite ignores the lock (its single writer already serialises); MySQL and Postgres honour it.
+
+### Deviations and things not done
+- **Sessions migration kept.** `.env.example` uses `SESSION_DRIVER=database`, so deleting the whole default users migration would break `php artisan serve`. The users migration, `User` model and `UserFactory` are removed; `0001_01_01_000000_create_sessions_table.php` keeps only the `sessions` table.
+- `config/auth.php` still imports `App\Models\User` for its `AUTH_MODEL` default. It is only a class-name string, so the app boots and tests pass. Left alone (outside my ownership).
+- **No `DocumentSequence` factory.** Only `DocumentNumber` touches that table, and a factory would be unused. There are 11 models rather than the ticket's 10.
+- **No morph map.** `stock_movements.reference_type` stores full class names (`App\Models\Sale`, `App\Models\DeliveryLine`). A morph map belongs in a service provider, which this ticket may not edit.
+- **No test for the "must be inside a transaction" guard** in `DocumentNumber`: `RefreshDatabase` wraps every test in a transaction, so the guard cannot be reached from a test. It is a plain `transactionLevel() < 1` check.
+- `docs/AI_LOG.md` was not touched by this builder.
