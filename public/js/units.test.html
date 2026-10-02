@@ -57,6 +57,14 @@
       check('Input piece: 3', { ok: true, base: 3 }, u.parseInput('3', 'piece'));
       check('Input piece: 1.5', { ok: false, message: 'Pieces must be a whole number' }, u.parseInput('1.5', 'piece'));
 
+      // Zero and negatives (F4)
+      check('Input: 0 refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('0', 'g'));
+      check('Input: 0.000 kg refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('0.000', 'kg'));
+      check('Input: -1 refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-1', 'g'));
+      check('Input: -1.5 kg refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-1.5', 'kg'));
+      check('Input: 0 allowed with allowZero', { ok: true, base: 0 }, u.parseInput('0', 'g', { allowZero: true }));
+      check('Input: negative still refused with allowZero', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-2', 'g', { allowZero: true }));
+
       // Switching the unit keeps the same quantity
       check('Re-express: 2400 as kg text', '2.4', u.toInputText(2400, 'kg'));
       check('Re-express: 1005 as kg text', '1.005', u.toInputText(1005, 'kg'));

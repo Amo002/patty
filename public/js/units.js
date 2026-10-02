@@ -111,8 +111,9 @@
    * Turns what the user typed into integer base units, or says why not.
    * `mode` is the unit the field is currently set to: g, kg, ml, L or piece.
    * Returns { ok: true, base } or { ok: false, message }.
+   * `options.allowZero` accepts 0 (and nothing below it) for fields where zero is meaningful.
    */
-  function parseInput(text, mode) {
+  function parseInput(text, mode, options) {
     var s = String(text == null ? '' : text).trim();
     if (s === '') return { ok: false, message: 'Enter a quantity' };
 
@@ -139,7 +140,14 @@
     }
 
     var base = parseInt(digits, 10);
-    return { ok: true, base: neg && base !== 0 ? -base : base };
+    var signed = neg && base !== 0 ? -base : base;
+
+    // Every quantity field (PO line, delivery, recipe) needs at least 1 base unit, so 0 and negatives are
+    // refused before submit. The server's 422 stays the backstop; a field that allows 0 passes allowZero.
+    if (signed < 0 || (signed === 0 && !(options && options.allowZero))) {
+      return { ok: false, message: 'Enter a quantity above 0' };
+    }
+    return { ok: true, base: signed };
   }
 
   /**
