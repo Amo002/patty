@@ -1,0 +1,6 @@
+/* Purchasing and POS pages (PTY-19). Page-only rules; tokens and components come from app.css. */
+
+.po-tabs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.po-number { font-weight: 600; font-variant-numeric: tabular-nums; }
+.po-progress { flex-wrap: nowrap; min-width: 160px; }
+.po-more { justify-content: center; min-height: 1px; }
