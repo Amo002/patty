@@ -31,7 +31,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `invalid_transition` | The order's status does not allow this move |
 | 409 | `order_not_editable` | Lines can only change while the order is draft |
 | 409 | `cannot_receive` | Deliveries only against sent or partially received orders |
-| 409 | `unit_locked` | The unit cannot change once stock has moved |
+| 409 | `unit_locked` | The unit cannot change once the ingredient is used in stock history, recipes or purchase orders (D-044) |
 | 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
 | 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
 | 422 | `validation_failed` | Input is malformed; `errors` holds `{ field: [messages] }` |
@@ -96,7 +96,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
   "id": "01JA8ZK3W5Y7Q2M4N6P8R0T2V4",
   "name": "Beef",
   "unit": "g",
-  "unit_label": "grams",
+  "unit_label": "Grams",
   "on_hand": 700,
   "incoming": 400,
   "is_negative": false,

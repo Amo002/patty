@@ -13,7 +13,7 @@ Template for each flow:
 - **Actor / screen:** Manager, Ingredients, "Add ingredient" dialog
 - **Request:** E3 `POST /ingredients` `{ "name": "Lettuce", "unit": "g" }`, header `X-Patty-Channel: ui`
 - **Validation:** validation.md, Ingredients
-- **Steps:** 1. `CatalogService::createIngredient` creates the row and a ULID.
+- **Steps:** 1. `IngredientService::create` creates the row and a ULID.
 - **Rows written:** ingredients +1, activity_log +1 (created)
 - **Audit:** `created` on Ingredient (LogsActivity)
 - **Log:** `catalog` info "Ingredient created"
@@ -23,7 +23,7 @@ Template for each flow:
 
 ### F2 Create supplier
 - **Request:** E8 `POST /suppliers` `{ "name": "Fresh Farms", "email": "...", "phone": "..." }`
-- **Steps:** `CatalogService::createSupplier`
+- **Steps:** `SupplierService::create`
 - **Rows written:** suppliers +1, activity_log +1
 - **Response:** 201 Supplier. **UI next:** toast, row appears. **Error paths:** duplicate name, bad email, bad phone (422).
 
