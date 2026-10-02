@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Log;
  */
 class IngredientService
 {
-    public function __construct(private readonly StockLedger $ledger) {}
+    public function __construct(private readonly StockLedger $ledger, private readonly StockQuery $stockQuery) {}
 
     /**
      * A page of ingredients by name (D-032), each carrying its stock figures.
@@ -108,6 +108,7 @@ class IngredientService
     public function withStock(Ingredient $ingredient): Ingredient
     {
         $ingredient->setAttribute('on_hand', $this->ledger->onHand($ingredient));
+        $ingredient->setAttribute('incoming', $this->stockQuery->incomingFor($ingredient));
         $ingredient->setAttribute('unit_locked', $this->usedBy($ingredient) !== null);
 
         return $ingredient;
@@ -145,6 +146,9 @@ class IngredientService
     private function attachStock(iterable $ingredients): void
     {
         $onHand = $this->ledger->onHandForAll();
+
+        // Incoming (D-020) comes from StockQuery so E2, E4 and E27 share one definition.
+        $this->stockQuery->attachIncoming($ingredients);
 
         $inLines = RecipeLine::query()->select('ingredient_id')
             ->union(PurchaseOrderLine::query()->select('ingredient_id'))

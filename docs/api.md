@@ -200,10 +200,11 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 {
   "reason": "delivery", "reason_label": "Delivery",
   "quantity_delta": 600, "balance_after": 600,
-  "reference": { "type": "delivery", "number": "GRN-2026-0003", "label": "GRN-2026-0003 for PO-2026-0002" },
+  "reference": { "type": "delivery", "number": "GRN-2026-0003", "label": "GRN-2026-0003 for PO-2026-0002", "purchase_order_id": "01JA..." },
   "occurred_at": "..."
 }
 ```
+`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A movement reason with no document yet has `number` and `label` null.
 `balance_after` is a running sum computed in SQL with a window function (`SUM(...) OVER (ORDER BY occurred_at, id)`), so it is correct on every page.
 
 ### Dashboard (E28)
