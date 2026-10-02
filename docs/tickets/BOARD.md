@@ -6,11 +6,11 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 
 | Status | Tickets |
 |---|---|
-| Done | PTY-1, PTY-2, PTY-16, PTY-23, PTY-24 |
-| Awaiting Mohamad | PTY-2 |
-| In Review | (none) |
-| In Progress | PTY-3 (PR #9); wave 2 next: PTY-4, PTY-6 |
-| To Do | PTY-3 to PTY-17, PTY-21, PTY-22 |
+| Done | PTY-1 to PTY-12, PTY-15, PTY-16, PTY-18, PTY-19, PTY-22 to PTY-27 |
+| Awaiting Mohamad | PTY-21 Opus pass (PR #26), PTY-28 journal (this PR) |
+| In Progress | PTY-21 Fable pass (Mohamad, Claude Code on the web) |
+| To Do | PTY-13 Postman, then PTY-14 README and release (last) |
+| Deferred | PTY-17 browser tests (Q-012) |
 
 ## By phase
 
@@ -22,14 +22,14 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 ### 1 Specification + 2a Backend design
 | Ticket | Title | Status | Release |
 |---|---|---|---|
-| [PTY-2](PTY-2-project-docs.md) | Project docs, questions, decisions, contract, flows, tickets | Awaiting Mohamad | v0.1.0 |
+| [PTY-2](PTY-2-project-docs.md) | Project docs, questions, decisions, contract, flows, tickets | Done | v0.1.0 |
 
 ### 2b Frontend design (approved 2026-10-01)
 | Ticket | Title | Status | Release |
 |---|---|---|---|
-| [PTY-23](PTY-23-frontend-design.md) | Frontend design: brand, logo, loader, design system | Awaiting Mohamad (PR) | v0.2.0 |
+| [PTY-23](PTY-23-frontend-design.md) | Frontend design: brand, logo, loader, design system | Done | v0.2.0 |
 
-### 3a Build backend
+### 3a Build backend (done)
 
 Run in waves of two parallel builders and one shared reviewer (D-040):
 1. PTY-3 with PTY-16
@@ -50,7 +50,7 @@ Run in waves of two parallel builders and one shared reviewer (D-040):
 | 8 | [PTY-9](PTY-9-pos-sales.md) | POS sales endpoint | L | Sonnet / Opus | v0.3.0 |
 | 9 | [PTY-10](PTY-10-visibility-endpoints.md) | Visibility endpoints | M | Sonnet / Opus | v0.3.0 |
 
-### 3b Build frontend (unblocked: design approved)
+### 3b Build frontend (done)
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |
 |---|---|---|---|---|---|
 | 1 | [PTY-11](PTY-11-design-system.md) | Design system and app shell | M | Sonnet / Opus + design reviewer | v0.4.0 |

@@ -129,20 +129,36 @@ The first file to open every session. It tracks the project phase by phase: what
 
 **Lessons:** approve the system, not every screen, when time is short; screens built from approved parts carry little design risk.
 
-## Phase 3a: Build backend (in progress, started 2026-10-01)
+## Phase 3a: Build backend (done, 2026-10-01 to 2026-10-02)
 
-- v0.1.0 released (tooling and specification).
+- v0.1.0 released (tooling and specification). v0.2.0 to v0.4.0 were not tagged separately; everything ships together as v1.0.0 (PTY-14).
 - The first wave-1 attempt was lost when a session ended before the builders committed anything. Restarted with "commit early and often" in the builder briefs.
 - New rule from Mohamad: **one ticket = one PR**, and he reviews the full diff of each (workflow.md).
-- **Wave 1 done:**
-  - PTY-16 (API foundation) merged as PR #8;
-  - PTY-3 (schema, identifiers, triggers, tolerance) opened as PR #9.
-  - Both went through Opus review with changes requested (2 majors each), then fixes, then mutation checks.
-- **Wave 2 and 3 done:** PTY-4, PTY-5, PTY-6, PTY-7, PTY-9, PTY-11 and PTY-26 merged; PTY-8 in PR #18. Every ticket went through Opus review with mutation checks before its PR.
+- Waves 1 to 3: PTY-3 to PTY-9, PTY-16 and PTY-26, each through an Opus review with mutation checks before its PR (details in AI_LOG.md).
+- PTY-10 (visibility endpoints) merged as PR #22, after its review fixes were finished by the orchestrator (the agents had hit the weekly usage limit).
 - **Process changes:** 4 agents (D-045); "commit after every working piece" after a restart lost unsaved work; verification commands always `cd` explicitly.
-- **Next:** PTY-10 (visibility endpoints) and PTY-22 (realistic seed) once PTY-8 merges; the UI pages PTY-18 and PTY-19 are building; then PTY-12, PTY-13, PTY-21, PTY-14.
-## Phase 3b: Build frontend (not started)
+
+## Phase 3b: Build frontend (done, 2026-10-02)
+
+- PTY-11 (design system and shell), PTY-18 (catalogue pages, PR #20), PTY-19 (purchasing and POS pages, PR #21), PTY-12 (dashboard and activity, PR #23) and PTY-22 (demo data and seed, PR #24), all merged.
+- PTY-18 and PTY-19 had full Opus reviews. **PTY-12 and PTY-22 had only a lighter orchestrator review**, because every agent hit the weekly usage limit. Their tickets say so.
+- Photos dropped: icons only (D-046, Mohamad).
+- Not done: the design reviewer screenshots at 1440 and 820 px. Mohamad checks the pages by hand.
+
 ## Phase 4: Review and testing (continuous)
-## Phase 5: Security (not started)
-## Phase 6: Release and submission (not started)
+
+- Every backend ticket was mutation-checked by its reviewer: each rule broken on purpose, and a test had to fail.
+- Suite at the end of the build: 429 tests, run in CI on every PR (Pint, `composer audit`, the journal check).
+- PTY-15 Docker was verified on Docker Desktop for the first time on 2026-10-02 and needed three build fixes (PR #25).
+- PTY-17 browser tests stay deferred (Q-012).
+
+## Phase 5: Security (in progress, 2026-10-02)
+
+- Opus pass done (PR #26): 8 findings, 4 fixed, 2 accepted with reasons, 2 false positives. The main fixes: API writes must be JSON, CORS turned off, control characters refused in names, Docker bound to localhost.
+- **Next:** the Fable 5.1 pass in Claude Code on the web (Mohamad).
+
+## Phase 6: Release and submission (next)
+
+PTY-13 Postman, then PTY-14: the full README, a check from a fresh clone, the release PR develop to main, and the v1.0.0 tag. Deadline Sunday 4 October, 12:00 Amman.
+
 ## Phase 7: Interview preparation (not started)

@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | 3b Build frontend |
-| Status | To Do |
+| Status | Done |
 | Weight | M |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer with Claude in Chrome |
