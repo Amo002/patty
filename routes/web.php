@@ -13,3 +13,4 @@ if (app()->environment('local')) {
 // PTY-18 catalogue pages
 Route::view('/ingredients', 'pages.ingredients');
 Route::view('/suppliers', 'pages.suppliers');
+Route::view('/menu', 'pages.menu');
