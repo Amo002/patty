@@ -18,7 +18,7 @@ Patty is a single-branch back-office tool. The brief says no authentication. We 
 | S3 | SQL injection | every query | Eloquent and query builder bindings only. No `DB::raw`, `whereRaw` or `selectRaw` with request data. The window-function query uses bindings. | reviewer search | all |
 | S4 | Mass assignment | models | `$fillable` on every model; services receive `validated()` data only (validation.md G1) | review | all |
 | S5 | Cross-site scripting | UI rendering API data | Alpine `x-text` / `textContent` only. **`x-html` and `innerHTML` with data are forbidden.** Blade `{{ }}` escaping. Security headers. | reviewer search for `x-html` and `innerHTML` | PTY-11 onwards |
-| S6 | CSRF | web routes | Pages are GET-only shells. The API is stateless and token-free, with no session cookie on api routes, so a forged cross-site request has no credentials to ride on. Documented rather than mitigated. | review | PTY-16 |
+| S6 | CSRF: a page open in the same browser posts to the local API | every API write | Pages are GET-only shells. Every API write must declare `Content-Type: application/json`, otherwise 415 `unsupported_media_type` (`RequireJsonWrites`). A browser sends a cross-site form post, `text/plain` or header-less request without asking first. A JSON Content-Type forces a CORS preflight, and `config/cors.php` grants no origin (Laravel's default granted `*`, which would have let the preflight pass). The first version of this row said a forged request "has no credentials to ride on". With no login, none are needed, so that reasoning was wrong (found in PTY-22, fixed in PTY-21). | `JsonWritesTest` | PTY-21 |
 | S7 | Clickjacking, MIME sniffing, referrer leaks | responses | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy` | T17 | PTY-16 |
 | S8 | Information leakage in errors | 500s | Generic envelope message. No trace, SQL or path when `APP_DEBUG=false`. Detail goes to `laravel.log` with the request id only. | T15e | PTY-16 |
 | S9 | Enumeration through sequential ids | URLs, API | ULIDs only; numeric ids give 404; document numbers are display-only (D-031) | T25 | PTY-3, PTY-16 |
@@ -29,7 +29,7 @@ Patty is a single-branch back-office tool. The brief says no authentication. We 
 | S14 | Vulnerable dependencies | composer | `composer audit` in CI on every PR | CI | PTY-16 |
 | S15 | Secrets committed | git | `.env` ignored; `.env.example` holds no secrets; the POS key is empty by default | review | all |
 | S16 | Log injection or PII in logs | logs | Structured context arrays, no free-form user strings in messages, no personal data stored at all | review | all |
-| S17 | Third-party images: licence, privacy, availability | seed photos | Only photos whose licence page was checked; credited in CREDITS.md; no people or brands; served from our own `public/`, never hot-linked | review of CREDITS.md | PTY-22 |
+| S17 | Third-party images: licence, privacy, availability | seed photos | No longer applies: no photos ship (D-046). If photos are added: only ones whose licence page was checked, credited in CREDITS.md, served from our own `public/`, never hot-linked. | n/a | PTY-22 |
 
 ## Phase 5: security review (PTY-21)
 
