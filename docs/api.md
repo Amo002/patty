@@ -165,6 +165,9 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 - A line is **complete** at `min_to_complete` (under-tolerance), and then `quantity_outstanding` is 0 and any shortfall is `quantity_under_delivered`. `tolerance` is the snapshot taken when the line was created (D-035).
 - `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Each line's percent is rounded down, then the average is rounded down, so it never over-reports and shows 100 only when every line is fully received (1/3 and 2/3 shows 49). Quantities of different units (g and pieces) are never added together.
 
+### E23 response
+`data` is `{ "delivery": Delivery, "purchase_order": PurchaseOrder }`: the new delivery and the order as it is now, so the UI needs no second request. `received_at` is ISO-8601 only (offset or `Z`) and is stored as UTC.
+
 ### Delivery
 ```json
 {

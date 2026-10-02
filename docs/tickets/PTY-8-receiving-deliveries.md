@@ -96,3 +96,23 @@ The worked example above, plus the "A day at Patty" deliveries (flows.md) for th
 1. Send a PO for Beef 1000 and receive 600. The PO shows "Partially received" with outstanding 400, and `GET /stock` shows beef +600.
 2. Receive 500. 422 `over_delivery`, and the message says 1,100 g is above the 1,050 g limit.
 3. Receive 430. The PO is closed with over-received 30.
+
+## Builder notes
+
+Partial deliveries and tolerance (the interview answer, four lines):
+1. A delivery is a document with lines; each line is one positive stock movement, and that is the only way stock rises. "Received" and "outstanding" are never stored: received is the sum of delivery lines, outstanding is ordered minus received.
+2. Each PO line carries a snapshot of its tolerance (over %, under %, over cap) taken when the order was created or last edited as a draft, so changing an ingredient later cannot change an order already promised to a supplier (D-035).
+3. Over side: a line may receive up to `ordered + min(intdiv(ordered * over_bps, 10000), over_cap)`; beyond that the whole delivery is rejected (422) and nothing is saved. Under side: a line is complete at `max(1, ordered - intdiv(ordered * under_bps, 10000))`, so 960 of 1000 is complete with 40 under-delivered.
+4. The order moves sent to received on the first delivery and to closed in the same transaction when every line is complete. Closing by tolerance is a normal close; `short_closed` is only for a manual close with quantity outstanding.
+
+What was done:
+- `ReceivingService::receive()` in one `DB::transaction`: lock the order, status guard, tolerance check, GRN number, delivery and lines, one movement per line (`occurred_at` = `received_at`), status moves, audit `delivery.recorded` (and `purchase_order.closed`), one `purchasing` info line. A rejected delivery logs a `notice`.
+- The tolerance check runs over all lines first and reports every breach (`errors` keyed `lines.N.quantity`); the message names the first. It re-reads lines inside the lock and keeps a running total per line, so a repeated line cannot slip past the limit even if the request check were bypassed.
+- `StoreDeliveryRequest`: ULIDs lowercased and scoped to the route order with `Rule::exists(...)->where(...)`, `distinct`, `integer:strict` 1 to 1,000,000, static messages with `:position`. `received_at` is ISO-8601 only (`date_format` with offset, `Z` and fractional variants; `date` would accept "yesterday"), parsed with `->utc()` before it reaches the service, and compared with `sent_at` and now in UTC (Carbon::parse keeps the caller's offset and Eloquent stores clock time without converting). The `sent_at` check is skipped when the PO is a draft, because the service answers that with 409.
+- E23 returns `data: { delivery, purchase_order }` so the UI needs no second request (api.md E23 note added). E24 is paginated, newest first by `received_at`, then id.
+- `Tolerance` already exists as `App\Support\Tolerance` with its unit test (`tests/Unit/ToleranceTest.php`); the ticket says `App\Domain\Tolerance`. Kept where it is.
+- The atomicity test forces the audit write to fail after the delivery, lines and movements are written; removing `DB::transaction` makes it fail (verified once, then restored). The over-limit check runs before any write, so a rejected delivery is clean even without the transaction, which is why the atomicity test uses the audit failure.
+
+Deviations:
+- The Delivery resource has no `purchase_order_id` (the api.md Delivery shape has none).
+- `docs/AI_LOG.md` was not appended (outside this ticket's ownership); the coordinator should add the entry.
