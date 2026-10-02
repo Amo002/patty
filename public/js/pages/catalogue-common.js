@@ -16,7 +16,11 @@
 
   var PER_PAGE = 25; // U2
 
-  function pagedList(path) {
+  function pagedList(path, options) {
+    // keyOf(item) names a row. Without it nothing is de-duplicated: E6 movements have no id,
+    // and a made-up key would silently drop real rows.
+    var keyOf = (options && options.keyOf) || null;
+    var queued = null; // { id } for the one refresh that waits while another runs
     var observer = null;
     var sentinel = null;
     var flashTimer = null;
@@ -57,20 +61,29 @@
         this.moreError = '';
         return fetchPage(this.page + 1).then(
           function (result) {
-            // A row can move between pages while we scroll, so never show the same id twice.
-            var known = {};
-            self.items.forEach(function (item) { known[item.id] = true; });
-            self.items = self.items.concat(result.data.filter(function (item) { return !known[item.id]; }));
+            var fresh = result.data;
+            if (keyOf) {
+              // A row can move between pages while we scroll, so never show the same row twice.
+              var known = {};
+              self.items.forEach(function (item) { known[keyOf(item)] = true; });
+              fresh = fresh.filter(function (item) { return !known[keyOf(item)]; });
+            }
+            self.items = self.items.concat(fresh);
             self.afterPage(self.page + 1, result);
           },
           function (e) { self.moreError = (e && e.message) || 'Could not load more.'; }
-        ).then(function () { self.loadingMore = false; self.rewatch(); });
+        ).then(function () { self.loadingMore = false; self.rewatch(); self.runQueued(); });
       },
 
       // Refetches pages 1..page so the list keeps its length and the user keeps their scroll position.
       refresh: function (changedId) {
         var self = this;
-        if (this.status === 'loading' || this.refreshing || this.loadingMore) return Promise.resolve();
+        if (this.refreshing || this.loadingMore) {
+          // Exactly one follow-up: a refresh that started before a save committed may have returned the old list.
+          queued = { id: changedId || (queued && queued.id) || null };
+          return Promise.resolve();
+        }
+        if (this.status === 'loading') return Promise.resolve();
         this.refreshing = true;
         var pages = Math.max(this.page, 1);
         var all = [];
@@ -94,7 +107,14 @@
             // A failed background refresh keeps the data on screen; only an empty page shows the error.
             if (self.status !== 'loaded') self.fail(e);
           }
-        ).then(function () { self.refreshing = false; });
+        ).then(function () { self.refreshing = false; self.runQueued(); });
+      },
+
+      runQueued: function () {
+        if (!queued) return;
+        var next = queued;
+        queued = null;
+        this.refresh(next.id);
       },
 
       afterPage: function (page, result) {
@@ -141,6 +161,9 @@
       },
     };
   }
+
+  // The usual key: rows that carry an id (ingredients, suppliers, menu items).
+  pagedList.byId = function (item) { return item.id; };
 
   root.Patty = root.Patty || {};
   root.Patty.pagedList = pagedList;

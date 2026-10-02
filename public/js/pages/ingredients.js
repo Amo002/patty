@@ -34,7 +34,7 @@ document.addEventListener('alpine:init', function () {
   }
 
   Alpine.data('ingredientsPage', function () {
-    return Object.assign(Patty.pagedList('/ingredients'), {
+    return Object.assign(Patty.pagedList('/ingredients', { keyOf: Patty.pagedList.byId }), {
       busy: false,
       form: blankForm(),
       errors: {},

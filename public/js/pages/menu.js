@@ -15,7 +15,7 @@ document.addEventListener('alpine:init', function () {
   Alpine.data('menuPage', function () {
     var nextKey = 1; // every line row gets its own key, so ids and focus survive adding and removing rows
 
-    return Object.assign(Patty.pagedList('/menu-items'), {
+    return Object.assign(Patty.pagedList('/menu-items', { keyOf: Patty.pagedList.byId }), {
       busy: false,
       form: { id: null, name: '', originalName: '', lines: [] },
       errors: {},

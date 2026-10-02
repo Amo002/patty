@@ -4,7 +4,7 @@
  */
 document.addEventListener('alpine:init', function () {
   Alpine.data('suppliersPage', function () {
-    return Object.assign(Patty.pagedList('/suppliers'), {
+    return Object.assign(Patty.pagedList('/suppliers', { keyOf: Patty.pagedList.byId }), {
       busy: false,
       form: { id: null, name: '', email: '', phone: '' },
       errors: {},
