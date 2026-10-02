@@ -30,6 +30,7 @@ document.addEventListener('alpine:init', function () {
     return {
       id: null, name: '', unit: 'g', originalUnit: 'g', unitLocked: false,
       overPct: '', underPct: '', cap: null, capError: '', notice: '',
+      capShow: false, resetTolerance: false, initial: { overPct: '', underPct: '', cap: null },
     };
   }
 
@@ -76,6 +77,7 @@ document.addEventListener('alpine:init', function () {
         this.form = blankForm();
         this.errors = {};
         this.$refs.dialog.showModal();
+        this.remountCap();
       },
 
       openEdit: function (item) {
@@ -86,9 +88,22 @@ document.addEventListener('alpine:init', function () {
           id: item.id, name: item.name, unit: item.unit, originalUnit: item.unit, unitLocked: Boolean(item.unit_locked),
           overPct: custom ? percentText(t.over_bps) : '', underPct: custom ? percentText(t.under_bps) : '',
           cap: custom && t.over_cap !== undefined ? t.over_cap : null, capError: '', notice: '',
+          capShow: false, resetTolerance: false,
         };
+        // What the dialog opened with. The API shows the effective values (each falls back to the default on its own),
+        // so a field is only sent when it differs from this: renaming must never write a default as an override.
+        this.form.initial = { overPct: this.form.overPct, underPct: this.form.underPct, cap: this.form.cap };
         this.errors = {};
         this.$refs.dialog.showModal();
+        this.remountCap();
+      },
+
+      // The cap's quantity input keeps its own text. Mounting it fresh on every open means a half-typed
+      // value from an earlier open can never reappear (the form's cap would be null while the box still shows text).
+      remountCap: function () {
+        var self = this;
+        this.form.capShow = false;
+        this.$nextTick(function () { self.form.capShow = true; });
       },
 
       closeForm: function () {
@@ -101,8 +116,9 @@ document.addEventListener('alpine:init', function () {
         this.form.capError = '';
       },
 
-      // "Use default" empties all three fields. Saving then sends null for each, which the API reads as "back to the default".
+      // "Use default" empties all three fields and asks for an explicit null on each: the API reads null as "back to the default".
       useDefaultTolerance: function () {
+        this.form.resetTolerance = true;
         this.form.overPct = '';
         this.form.underPct = '';
         this.form.cap = null;
@@ -131,19 +147,23 @@ document.addEventListener('alpine:init', function () {
         this.errors = local;
         if (Object.keys(local).length) return Promise.resolve();
 
-        var body = {
-          name: this.form.name.trim(),
-          over_tolerance_bps: over.bps,
-          under_tolerance_bps: under.bps,
-          over_tolerance_cap: this.form.cap,
-        };
+        var body = { name: this.form.name.trim() };
+        var form = this.form;
         if (!editing) {
-          body.unit = this.form.unit;
+          body.unit = form.unit;
           // On create, a null tolerance just means "not set", so leave it out of the request.
-          ['over_tolerance_bps', 'under_tolerance_bps', 'over_tolerance_cap'].forEach(function (key) {
-            if (body[key] === null) delete body[key];
-          });
-        } else if (!this.form.unitLocked && this.form.unit !== this.form.originalUnit) {
+          if (over.bps !== null) body.over_tolerance_bps = over.bps;
+          if (under.bps !== null) body.under_tolerance_bps = under.bps;
+          if (form.cap !== null) body.over_tolerance_cap = form.cap;
+        } else {
+          // Only what the user touched. An empty touched field is an explicit null (back to the default);
+          // "Use default" touches all three.
+          var reset = form.resetTolerance;
+          if (reset || form.overPct.trim() !== form.initial.overPct) body.over_tolerance_bps = over.bps;
+          if (reset || form.underPct.trim() !== form.initial.underPct) body.under_tolerance_bps = under.bps;
+          if (reset || form.cap !== form.initial.cap) body.over_tolerance_cap = form.cap;
+        }
+        if (editing && !this.form.unitLocked && this.form.unit !== this.form.originalUnit) {
           body.unit = this.form.unit;
         }
 
@@ -190,14 +210,26 @@ document.addEventListener('alpine:init', function () {
         this.$refs.drawer.close();
       },
 
+      // Escape, the backdrop and the close button all end here (the dialog's close event). The list is dropped so the
+      // next ingredient builds a fresh one, with its own scroll observer, instead of reusing this one's.
+      resetHistory: function () {
+        this.history = null;
+        this.historyItem = null;
+      },
+
+      // The drawer's rows can render once more while it is closing and resetting, so never assume an item is set.
+      historyUnit: function () {
+        return this.historyItem ? this.historyItem.unit : 'g';
+      },
+
       // +600 g, -300 g, +2.4 kg: the sign is always written, so direction never depends on colour alone.
       delta: function (movement) {
-        var text = units.display(movement.quantity_delta, this.historyItem.unit).text;
+        var text = units.display(movement.quantity_delta, this.historyUnit()).text;
         return movement.quantity_delta > 0 ? '+' + text : text;
       },
 
       balance: function (movement) {
-        return units.display(movement.balance_after, this.historyItem.unit);
+        return units.display(movement.balance_after, this.historyUnit());
       },
 
       localTime: function (iso) {

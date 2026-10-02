@@ -69,7 +69,7 @@
                                         <span x-flash="item.on_hand" :class="item.is_negative ? 'text-danger' : ''" x-text="show(item).text" :title="show(item).exact"></span>
                                     </span>
                                 </td>
-                                <td x-text="item.unit"></td>
+                                <td x-text="item.unit_label || item.unit"></td>
                                 <td class="tabular">
                                     <span x-text="toleranceText(item)"></span>
                                     <span class="muted text-xs" x-show="item.tolerance && item.tolerance.source === 'default'">default</span>
@@ -116,7 +116,7 @@
                                 <option value="ml">Millilitres (ml)</option>
                                 <option value="piece">Pieces</option>
                             </select>
-                            <p id="ingredient-unit-msg" class="hint" x-show="form.unitLocked">Locked: this ingredient already has stock history in <span x-text="form.originalUnit"></span>.</p>
+                            <p id="ingredient-unit-msg" class="hint" x-show="form.unitLocked">Locked: this ingredient is already used in stock history, recipes or purchase orders, so its unit (<span x-text="form.originalUnit"></span>) cannot change.</p>
                             <p class="inline-error" role="alert" x-show="err('unit')"><x-icon name="alert" /> <span x-text="err('unit')"></span></p>
                         </div>
                     </div>
@@ -141,7 +141,7 @@
 
                         {{-- The quantity input fixes its unit when it renders, so one copy exists per unit and x-if picks the one that matches. --}}
                         @foreach (['g', 'ml', 'piece'] as $unit)
-                            <template x-if="form.unit === '{{ $unit }}'">
+                            <template x-if="form.capShow && form.unit === '{{ $unit }}'">
                                 <x-quantity-input unit="{{ $unit }}" context="purchase" label="Largest over-delivery accepted (optional)" :allow-zero="true"
                                                   x-model="form.cap" @quantity-change="form.capError = $event.detail.error" />
                             </template>
@@ -164,7 +164,7 @@
         </dialog>
 
         {{-- History drawer (E6): every movement of one ingredient, newest first, with the balance after each. --}}
-        <dialog class="dialog drawer" x-ref="drawer" aria-labelledby="history-title" @click="if ($event.target === $el) closeHistory()">
+        <dialog class="dialog drawer" x-ref="drawer" aria-labelledby="history-title" @close="resetHistory()" @click="if ($event.target === $el) closeHistory()">
             <div class="dialog-head row row-between">
                 <div>
                     <h2 id="history-title" x-text="historyItem ? 'History: ' + historyItem.name : 'History'"></h2>
