@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name') }}</title>
-</head>
-<body>
-    <h1>{{ config('app.name') }}</h1>
-    <p>Inventory and purchasing for a single-branch burger restaurant.</p>
-</body>
-</html>
+{{-- Placeholder dashboard so the shell has a home. PTY-12 replaces this file with the real dashboard. --}}
+@extends('layouts.app')
+
+@section('title', 'Dashboard')
+
+@section('content')
+    <x-empty-state title="Dashboard arrives in PTY-12" text="The shell, design system and components are in place. The KPIs, stock table and open orders come with the UI pages." icon="dashboard" />
+@endsection

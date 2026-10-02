@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 #[UseFactory(IngredientFactory::class)]
 class Ingredient extends Model
 {
-    use HasFactory, HasPublicUlid;
+    use HasFactory, HasPublicUlid, LogsActivity;
 
     protected $fillable = [
         'name',
@@ -24,6 +26,17 @@ class Ingredient extends Model
         'over_tolerance_cap',
         'image_path',
     ];
+
+    /**
+     * D-021: every field a manager can edit, dirty fields only, so a rename
+     * stores the old and new name and a no-op PATCH stores nothing.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'unit', 'over_tolerance_bps', 'under_tolerance_bps', 'over_tolerance_cap', 'image_path'])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {
