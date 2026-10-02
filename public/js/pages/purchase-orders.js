@@ -23,6 +23,8 @@ document.addEventListener('alpine:init', function () {
       hasMore: false,
       loading: true,
       loadingMore: false,
+      refreshing: false,
+      pendingRefresh: false,
       error: null,
       // Bumped on every tab change, so a slow response for the old tab cannot overwrite the new one.
       seq: 0,
@@ -71,12 +73,13 @@ document.addEventListener('alpine:init', function () {
 
       loadMore: function () {
         var self = this;
-        if (!this.hasMore || this.loadingMore || this.loading) return;
+        if (!this.hasMore || this.loadingMore || this.loading || this.refreshing) return;
         var seq = this.seq;
         this.loadingMore = true;
         return Patty.api.get('/purchase-orders', { query: this.query(this.page + 1), silent: true }).then(function (result) {
           if (seq !== self.seq) return;
-          self.items = self.items.concat(result.data);
+          // A row created between two page requests shifts the offsets, so a page can repeat a row already shown.
+          self.items = P.mergeById(self.items, result.data);
           self.page += 1;
           self.hasMore = Boolean(result.meta.pagination && result.meta.pagination.has_more);
           self.loadingMore = false;
@@ -84,7 +87,14 @@ document.addEventListener('alpine:init', function () {
         }).catch(function (e) {
           self.loadingMore = false;
           Patty.notify({ tone: 'error', message: (e && e.message) || 'Could not load more orders.', requestId: e && e.requestId });
+        }).then(function () {
+          self.runPendingRefresh();
         });
+      },
+
+      // A poll that arrives while a request is in flight is remembered, not dropped, and runs when that request ends.
+      runPendingRefresh: function () {
+        if (this.pendingRefresh && !this.loading && !this.loadingMore && !this.refreshing) this.refresh();
       },
 
       // An observer only fires on a change, so after new rows land we look again: a tall screen may still show the sentinel.
@@ -100,8 +110,13 @@ document.addEventListener('alpine:init', function () {
       // so the browser keeps the scroll position and only the numbers that changed update.
       refresh: function () {
         var self = this;
-        if (this.loading || this.loadingMore) return Promise.resolve();
+        if (this.loading || this.loadingMore || this.refreshing) {
+          this.pendingRefresh = true;
+          return Promise.resolve();
+        }
+        this.pendingRefresh = false;
         if (this.error) return this.load();
+        this.refreshing = true;
         var seq = this.seq;
         var pages = this.page;
         var fresh = [];
@@ -109,16 +124,27 @@ document.addEventListener('alpine:init', function () {
 
         function next(page) {
           return Patty.api.get('/purchase-orders', { query: self.query(page), silent: true }).then(function (result) {
-            fresh = fresh.concat(result.data);
+            fresh = P.mergeById(fresh, result.data);
             last = result;
             return page < pages ? next(page + 1) : null;
           });
         }
 
+        function done() {
+          self.refreshing = false;
+          self.runPendingRefresh();
+        }
+
         return next(1).then(function () {
-          if (seq !== self.seq || self.loadingMore) return;
-          self.items = fresh;
-          self.hasMore = Boolean(last.meta.pagination && last.meta.pagination.has_more);
+          if (seq === self.seq) {
+            self.items = fresh;
+            self.hasMore = Boolean(last.meta.pagination && last.meta.pagination.has_more);
+            self.recheckSentinel();
+          }
+          done();
+        }, function (e) {
+          done();
+          throw e;
         });
       },
 

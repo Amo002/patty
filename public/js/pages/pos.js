@@ -35,6 +35,8 @@ document.addEventListener('alpine:init', function () {
       recentHasMore: false,
       recentLoading: true,
       recentLoadingMore: false,
+      recentRefreshing: false,
+      pendingRefresh: false,
       recentError: null,
       observer: null,
 
@@ -174,15 +176,18 @@ document.addEventListener('alpine:init', function () {
         }).catch(function (e) {
           self.recentLoading = false;
           self.recentError = P.failure(e);
+        }).then(function () {
+          self.runPendingRefresh();
         });
       },
 
       loadMoreRecent: function () {
         var self = this;
-        if (!this.recentHasMore || this.recentLoadingMore || this.recentLoading) return;
+        if (!this.recentHasMore || this.recentLoadingMore || this.recentLoading || this.recentRefreshing) return;
         this.recentLoadingMore = true;
         return Patty.api.get('/sales', { query: { page: this.recentPage + 1, per_page: 25 }, silent: true }).then(function (response) {
-          self.recent = self.recent.concat(response.data);
+          // A sale made between two page requests shifts the offsets, so a page can repeat a row already shown.
+          self.recent = P.mergeById(self.recent, response.data);
           self.recentPage += 1;
           self.recentHasMore = Boolean(response.meta.pagination && response.meta.pagination.has_more);
           self.recentLoadingMore = false;
@@ -190,7 +195,15 @@ document.addEventListener('alpine:init', function () {
         }).catch(function (e) {
           self.recentLoadingMore = false;
           Patty.notify({ tone: 'error', message: e.message || 'Could not load more sales.', requestId: e.requestId });
+        }).then(function () {
+          self.runPendingRefresh();
         });
+      },
+
+      // A refresh asked for while a request is in flight (the one after a sale, or a poll) is remembered and run
+      // when that request ends. It is never dropped, so a new sale always reaches Recent sales.
+      runPendingRefresh: function () {
+        if (this.pendingRefresh && !this.recentLoading && !this.recentLoadingMore && !this.recentRefreshing) this.refreshRecent();
       },
 
       recheckSentinel: function () {
@@ -204,24 +217,38 @@ document.addEventListener('alpine:init', function () {
       // Refetch every page already loaded, keyed rows stay in place so the scroll position holds.
       refreshRecent: function () {
         var self = this;
-        if (this.recentLoading || this.recentLoadingMore) return Promise.resolve();
+        if (this.recentLoading || this.recentLoadingMore || this.recentRefreshing) {
+          this.pendingRefresh = true;
+          return Promise.resolve();
+        }
+        this.pendingRefresh = false;
         if (this.recentError) return this.loadRecent();
+        this.recentRefreshing = true;
         var pages = this.recentPage;
         var fresh = [];
         var last = null;
 
         function next(page) {
           return Patty.api.get('/sales', { query: { page: page, per_page: 25 }, silent: true }).then(function (response) {
-            fresh = fresh.concat(response.data);
+            fresh = P.mergeById(fresh, response.data);
             last = response;
             return page < pages ? next(page + 1) : null;
           });
         }
 
+        function done() {
+          self.recentRefreshing = false;
+          self.runPendingRefresh();
+        }
+
         return next(1).then(function () {
-          if (self.recentLoadingMore) return;
           self.recent = fresh;
           self.recentHasMore = Boolean(last.meta.pagination && last.meta.pagination.has_more);
+          self.recheckSentinel();
+          done();
+        }, function (e) {
+          done();
+          throw e;
         });
       },
 

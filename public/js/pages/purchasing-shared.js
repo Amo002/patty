@@ -20,6 +20,17 @@
     return next(1);
   }
 
+  /** `extra` rows appended to `list`, skipping ids already there (offset pages repeat a row when one is created between requests). */
+  function mergeById(list, extra) {
+    var seen = {};
+    list.forEach(function (item) { seen[item.id] = true; });
+    return list.concat(extra.filter(function (item) {
+      if (seen[item.id]) return false;
+      seen[item.id] = true;
+      return true;
+    }));
+  }
+
   /** The label a PO shows: the API's own status_label, except a short-closed order, which says so. */
   function poLabel(po) {
     return po.status === 'closed' && po.short_closed ? 'Closed (short)' : po.status_label;
@@ -45,5 +56,5 @@
     return { message: (e && e.message) || 'Something went wrong.', requestId: (e && e.requestId) || null, status: (e && e.status) || 0 };
   }
 
-  Patty.purchasing = { fetchAll: fetchAll, poLabel: poLabel, poTone: poTone, qty: qty, qtyExact: qtyExact, failure: failure };
+  Patty.purchasing = { fetchAll: fetchAll, mergeById: mergeById, poLabel: poLabel, poTone: poTone, qty: qty, qtyExact: qtyExact, failure: failure };
 })(window);
