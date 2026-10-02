@@ -33,7 +33,7 @@ it('creates an ingredient with a ULID id, zero stock and the default tolerance',
     expect($response->json())->assertNoIntegerIds();
 
     expect($response->json('data.id'))->toBe(Ingredient::firstOrFail()->ulid);
-    expect($response->json('data'))->not->toHaveKey('incoming');
+    expect($response->json('data.incoming'))->toBe(0);
 });
 
 it('lists ingredients by name with on_hand from the movements', function () {
