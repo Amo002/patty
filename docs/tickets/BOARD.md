@@ -6,10 +6,10 @@ Updated by the orchestrator whenever a ticket moves. Grouped by phase, in build 
 
 | Status | Tickets |
 |---|---|
-| Done | PTY-1 to PTY-12, PTY-15, PTY-16, PTY-18, PTY-19, PTY-22 to PTY-27 |
-| Awaiting Mohamad | PTY-21 Opus pass (PR #26), PTY-28 journal (this PR) |
-| In Progress | PTY-21 Fable pass (Mohamad, Claude Code on the web) |
-| To Do | PTY-13 Postman, then PTY-14 README and release (last) |
+| Done | PTY-1 to PTY-13, PTY-15, PTY-16, PTY-18, PTY-19, PTY-21 to PTY-28 |
+| Awaiting Mohamad | (none) |
+| In Progress | PTY-14 README and release |
+| To Do | (none) |
 | Deferred | PTY-17 browser tests (Q-012) |
 
 ## By phase
@@ -67,7 +67,7 @@ Run in waves of two parallel builders and one shared reviewer (D-040):
 ### 5 Security
 | Ticket | Title | Wt | Who | Release |
 |---|---|---|---|---|
-| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Mohamad: Opus locally, Fable on the web | v1.0.0 |
+| [PTY-21](PTY-21-security-review.md) | Security review (never cut) | M | Opus locally (Fable dropped, D-047) | v1.0.0 |
 
 ### 6 Release and submission
 | # | Ticket | Title | Wt | Builder / Reviewer | Release |

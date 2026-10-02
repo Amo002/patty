@@ -4,9 +4,9 @@
 |---|---|
 | Type | Task |
 | Phase | 5 Security |
-| Status | In Progress (Opus pass done, Fable pass pending) |
+| Status | Done |
 | Weight | M |
-| Builder | Mohamad: Opus 5.5 locally, then Fable 5.1 in Claude Code on the web (cloud, repo connected) |
+| Builder | Opus 5.5 locally (the Fable pass was dropped, D-047) |
 | Reviewer | Mohamad |
 | Branch | `PTY-21-security-review` |
 | Release | v1.0.0 |
@@ -24,7 +24,7 @@ An independent, high-capability security pass over the finished code, with every
 
 ## Acceptance criteria
 
-- [ ] `/security-review` run on Opus 5.5 locally, then on Fable 5.1 in Claude Code on the web (cloud, repo connected) against `develop`, with security.md supplied as context
+- [x] Security pass run on Opus 5.5 locally against `develop`, checked against security.md. The Fable 5.1 pass was dropped: no credits (D-047).
 - [ ] Optional: `/code-review ultra` run (Mohamad triggers it)
 - [ ] Every finding in the table below triaged
 - [ ] Every "fix" has its own `PTY-21:` commit and, where meaningful, a regression test
@@ -55,9 +55,9 @@ An independent, high-capability security pass over the finished code, with every
 - `APP_DEBUG=false` 500, forced by pointing a throwaway server at a database file that does not exist. The response was `{"success":false,"message":"Something went wrong on our side.","code":"server_error","errors":{}}` with an `X-Request-Id`, and no path, SQL or trace (S8).
 - S4: every model declares `$fillable`. S15: no `.env`, `.sqlite`, key or pem file is tracked.
 
-### Still to do (Mohamad)
+### Fable pass: dropped
 
-The Fable 5.1 pass in Claude Code on the web, and optionally `/code-review ultra`. Add any new findings to the table above.
+Mohamad has no Fable credits, so the second, independent pass on Fable 5.1 did not run (D-047). The Opus pass above is the security review of record. `/code-review ultra` was optional and was not run.
 
 ## Done means
 

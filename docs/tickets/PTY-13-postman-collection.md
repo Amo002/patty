@@ -4,7 +4,7 @@
 |---|---|
 | Type | Task |
 | Phase | 6 Release and submission |
-| Status | Awaiting Mohamad |
+| Status | Done |
 | Weight | S |
 | Builder | Opus 5.5 (orchestrator; agents at the usage limit) |
 | Reviewer | Opus 5.5 |
