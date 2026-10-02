@@ -18,20 +18,20 @@ The README the brief asks for, verified from a clean clone.
 
 ## Acceptance criteria
 
-- [ ] README sections, as the brief lists them:
+- [x] README sections, as the brief lists them:
   1. how to run and test;
   2. data model;
   3. decisions where the brief was unclear, and why;
   4. how AI was used (link to AI_LOG);
   5. what next.
-- [ ] Decisions section summarises Q-001 to Q-007 and the key engineering decisions (D-004 ledger, D-006 freshness, D-017 no async, D-018 no finance, D-019 envelope, D-020 incoming, D-021 audit, D-024 defence in depth) in plain sentences
-- [ ] Section "How Patty joins the ERP", from architecture.md section 8
-- [ ] Section "Logs versus audit trail": where each lives and who it is for
-- [ ] GIFs from `docs/media/` embedded under "What it looks like"
-- [ ] `/security-review` run on the final branch, findings recorded
-- [ ] "What next" has four concrete items. Candidates: reorder levels and suggested POs, stock take with variance, waste, purchase unit conversion, roles and permissions, accounting postings, multi-branch, Larastan, optimistic locking on draft edits.
-- [ ] Clean-clone check: clone into a temp folder, follow the README word for word, and the app and tests run. Record the result in the ticket.
-- [ ] AI_LOG tidied. Nothing removed, summaries added.
+- [x] Decisions section summarises Q-001 to Q-007 and the key engineering decisions (D-004 ledger, D-006 freshness, D-017 no async, D-018 no finance, D-019 envelope, D-020 incoming, D-021 audit, D-024 defence in depth) in plain sentences
+- [x] Section "How Patty joins the ERP", from architecture.md section 8
+- [x] Section "Logs versus audit trail": where each lives and who it is for
+- [ ] GIFs from `docs/media/` embedded under "What it looks like". **Dropped:** Mohamad did not ask for the browser recordings; the README describes the screens instead.
+- [x] Security review on the final code: the PTY-21 Opus pass (#26), 8 findings triaged. The Fable pass was dropped (D-047).
+- [x] "What next" has four concrete items. Candidates: reorder levels and suggested POs, stock take with variance, waste, purchase unit conversion, roles and permissions, accounting postings, multi-branch, Larastan, optimistic locking on draft edits.
+- [x] Clean-clone check: clone into a temp folder, follow the README word for word, and the app and tests run. Record the result in the ticket.
+- [x] AI_LOG tidied: a summary added at the top, and every entry left unchanged.
 - [ ] Release PR `develop` into `main`, tag `v1.0.0`, GitHub Release notes
 
 ## Progress
@@ -50,9 +50,6 @@ Done so far: the README sections, the decisions section, "How Patty joins the ER
 
 ### Not done yet
 
-- **GIFs under "What it looks like":** they need a browser recording against a throwaway copy of the app. Waiting for Mohamad's go-ahead.
-- **`/security-review` on the final branch:** the PTY-21 Opus pass ran on 2026-10-02 (#26). The Fable pass is Mohamad's.
-- **AI_LOG summary:** added after #27 merges, to avoid editing the same file in two PRs.
 - **Release:** a PR from `develop` into `main`, the `v1.0.0` tag and the GitHub Release notes, after everything is merged.
 
 ### Fact checks made while writing
