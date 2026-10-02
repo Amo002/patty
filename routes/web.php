@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// Placeholder dashboard (PTY-11). PTY-12 swaps the view for the real page.
+Route::view('/', 'welcome');
+
+// A review aid, not a feature: every component in every state. Absent outside local, so it never ships (D-041).
+if (app()->environment('local')) {
+    Route::view('/_styleguide', 'styleguide');
+}
