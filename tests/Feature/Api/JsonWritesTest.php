@@ -39,6 +39,17 @@ it('refuses a body-less state change with no Content-Type, and the order stays a
     expect($order->refresh()->status)->toBe(PurchaseOrderStatus::Sent);
 });
 
+it('gives a preflight from another origin no permission, so the browser never sends the write', function () {
+    // The JSON rule above only helps because this preflight is refused. Laravel's default allowed `*`.
+    $response = $this->call('OPTIONS', '/api/v1/suppliers', server: [
+        'HTTP_ORIGIN' => 'https://evil.example',
+        'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
+        'HTTP_ACCESS_CONTROL_REQUEST_HEADERS' => 'content-type',
+    ]);
+
+    expect($response->headers->has('Access-Control-Allow-Origin'))->toBeFalse();
+});
+
 it('leaves reads alone', function () {
     $this->get('/api/v1/suppliers')->assertOk();
 });
