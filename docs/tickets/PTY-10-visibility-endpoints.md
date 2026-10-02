@@ -60,3 +60,21 @@ F17, F18, F19, and "A day at Patty" (T8).
 
 - [ ] Incoming (E27) and outstanding (E16) use `is_complete`. A line completed within under-tolerance contributes 0 incoming, and its shortfall is not "coming".
 - [ ] T16 extended: a PO line of 1000 with 960 received contributes incoming 0.
+
+## Builder notes
+
+### What was built, in order
+1. `App\Services\StockQuery`: `stock()`, `attachStock()`, `attachIncoming()`, `incomingFor()`, `dashboard()`, `movements()`, `activity()`. Read-only; on-hand always comes from `StockLedger::onHandForAll()` (no second formula).
+2. E27, E28, E29 and E6 controllers, requests, resources and routes in `routes/api/v1/visibility.php`. E6 lives there, not in catalog.php, because it is a stock view of an ingredient.
+3. `incoming` added to `IngredientResource` (E2, E4) through `IngredientService`, which now takes `StockQuery`. `meta.generated_at` on E27, E28 and E16 `?status=open` (the PurchaseOrderController one-liner).
+4. Tests in `tests/Feature/Visibility/`: `DayAtPattyTest` (T8), `IncomingTest` (T16), `OpenOrdersTest` (T11), `MovementsTest`, `ActivityTest`, `StockAndDashboardTest`.
+
+### How the numbers are computed (what to say on the call)
+- **Incoming** = for every line of a sent or received order, `PurchaseOrderLine::outstanding()`, summed per ingredient. It runs in PHP over ONE query (open lines with `withSum` for the received total), not in SQL, because "complete" depends on each line's tolerance snapshot (D-035, D-036) and that rule already exists in the model. A second copy in SQL could drift. A line completed within under-tolerance contributes 0. Draft and closed orders are excluded. The query count does not grow with the number of ingredients.
+- **balance_after** = `SUM(quantity_delta) OVER (PARTITION BY ingredient_id ORDER BY occurred_at, id)`. The database computes the window over the whole filtered set before LIMIT/OFFSET, so page 2 continues the balance from page 1. The newest row therefore equals on-hand. The reference label comes from eager-loaded relations (`morphWith`), so there is no N+1.
+- **Activity**: subject resolved from the morph alias to `{type, ulid, label}`. `changes` come from spatie v5's `attribute_changes` (`{attributes, old}` turned into `{field: [old, new]}`), with `id` and `*_id` keys dropped. A deleted subject keeps its label from `properties.number` and has `id: null`. An unknown ULID gives an empty page, not 404.
+
+### Decisions and notes
+- The existing placeholder assertion in `IngredientsTest` (`not->toHaveKey('incoming')`) was changed to `incoming === 0`, because this ticket adds the field.
+- The `activity` filter accepts uppercase ULIDs (lowercased in `prepareForValidation`, as G4 does elsewhere).
+- `NoStoreCache` already covers every API response, so E27 needed no extra header code; a test pins it.
