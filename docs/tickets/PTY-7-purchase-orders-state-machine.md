@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | 3a Build backend |
-| Status | To Do |
+| Status | Done |
 | Weight | L |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 |

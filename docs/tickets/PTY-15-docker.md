@@ -4,7 +4,7 @@
 |---|---|
 | Type | Task |
 | Phase | 6 Release and submission |
-| Status | Awaiting Mohamad |
+| Status | Done |
 | Weight | S |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 |
