@@ -15,3 +15,5 @@ if (app()->environment('local')) {
 // constrained to Crockford base32 so "new" and any junk value never reach the view.
 Route::view('/purchase-orders', 'pages.purchase-orders');
 Route::view('/purchase-orders/new', 'pages.purchase-order-new');
+Route::get('/purchase-orders/{ulid}', fn (string $ulid) => view('pages.purchase-order', ['ulid' => $ulid]))
+    ->where('ulid', '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}');
