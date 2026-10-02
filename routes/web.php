@@ -9,3 +9,6 @@ Route::view('/', 'welcome');
 if (app()->environment('local')) {
     Route::view('/_styleguide', 'styleguide');
 }
+
+// PTY-18 catalogue pages
+Route::view('/suppliers', 'pages.suppliers');

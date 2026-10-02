@@ -1,0 +1,18 @@
+/* Catalogue pages (PTY-18): ingredients, suppliers, menu. Only what app.css does not already cover. */
+
+/* Left-aligned numbers (phone numbers): digits still line up, but the cell is not right-aligned like .num. */
+.tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* The changed row or card, after a save (design.md: flash on change). */
+@keyframes row-changed {
+  0% { background: var(--accent-subtle); }
+  100% { background: transparent; }
+}
+
+.row-changed { animation: row-changed 1600ms var(--ease-out); }
+.table tbody tr.row-changed > td { animation: row-changed 1600ms var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .row-changed,
+  .table tbody tr.row-changed > td { animation: none; background: var(--accent-subtle); }
+}
