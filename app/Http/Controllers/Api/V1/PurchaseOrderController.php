@@ -30,17 +30,17 @@ class PurchaseOrderController extends ApiController
         $status = $request->validated('status');
 
         $orders = PurchaseOrder::query()
-            ->when($status === ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->whereIn('status', [
-                PurchaseOrderStatus::Sent->value,
-                PurchaseOrderStatus::Received->value,
-            ]))
+            ->when($status === ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->whereIn('status', PurchaseOrderStatus::open()))
             ->when($status !== null && $status !== ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->where('status', $status))
             ->withDetails()
             // id breaks ties between orders created in the same second.
             ->latest()->latest('id')
             ->paginate($request->perPage());
 
-        return $this->paginated($orders, PurchaseOrderResource::class);
+        // The open list is the live "what is outstanding" view, so it says when it was computed.
+        $meta = $status === ListPurchaseOrdersRequest::OPEN ? ['generated_at' => now()->utc()->toIso8601ZuluString()] : [];
+
+        return $this->paginated($orders, PurchaseOrderResource::class, meta: $meta);
     }
 
     /**
