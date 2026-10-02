@@ -1,0 +1,54 @@
+/* Dashboard and Activity (PTY-12). Tokens and components come from app.css; this file only lays them out. */
+
+/* Stock and open orders side by side where there is room; stacked below that. */
+.dash-grid { display: grid; gap: var(--sp-5); grid-template-columns: minmax(0, 1fr); align-items: start; }
+
+@media (min-width: 1280px) {
+  .dash-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+}
+
+.card-header > div { display: flex; flex-direction: column; gap: 2px; }
+.panel-error { margin: var(--sp-4); }
+.list-end { display: flex; justify-content: center; padding: var(--sp-4); border-top: 1px solid var(--border); }
+
+.progress-cell { flex-wrap: nowrap; min-width: 140px; }
+.progress-cell .progress { flex: 1; }
+.outstanding { color: var(--muted); max-width: 28ch; }
+
+/* Guided "Try it" card */
+.tour { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.tour-steps { list-style: none; margin: 0; padding: var(--sp-2) var(--sp-5); display: grid; gap: var(--sp-1); }
+.tour-step { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) 0; }
+.tour-text { display: flex; flex-direction: column; min-width: 0; }
+.tour-text a { font-weight: 600; }
+
+.tour-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tour-step[data-done="true"] .tour-mark { background: var(--ok); border-color: var(--ok); color: var(--on-accent); }
+.tour-step[data-done="true"] .tour-text a { color: var(--muted); font-weight: 500; text-decoration: line-through; }
+.tour-foot { padding: 0 var(--sp-5) var(--sp-4); }
+
+/* Activity timeline */
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline-item { padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border); display: grid; gap: var(--sp-1); }
+.timeline-item:first-child { border-top: 0; }
+.timeline-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.timeline-desc { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.timeline-time { color: var(--muted); font-size: var(--fs-12); white-space: nowrap; }
+.timeline-meta { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-14); color: var(--muted); }
+.timeline-changes { margin: var(--sp-2) 0 0; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-sm); display: grid; gap: var(--sp-1); font-size: var(--fs-14); }
+.timeline-changes dt { display: inline; font-weight: 600; }
+.timeline-changes dd { display: inline; margin: 0; }
+.filter-bar { display: flex; align-items: flex-end; gap: var(--sp-4); flex-wrap: wrap; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border); }
+.filter-bar .field { min-width: 220px; }

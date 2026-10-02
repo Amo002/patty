@@ -9,7 +9,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * security headers, a styleguide that exists only in local, and the S5 rule against x-html.
  */
 
-it('renders the dashboard placeholder inside the shared layout', function () {
+it('renders the dashboard inside the shared layout', function () {
     $response = $this->get('/');
 
     $response->assertOk()
@@ -17,7 +17,7 @@ it('renders the dashboard placeholder inside the shared layout', function () {
         ->assertSee('/brand/favicon-32.png', false)
         ->assertSee('/brand/apple-touch-icon.png', false)
         ->assertSee('/css/app.css', false)
-        ->assertSee('Dashboard arrives in PTY-12')
+        ->assertSee('x-data="dashboard"', false)
         ->assertSee('id="confirm-dialog"', false);
 
     // The sidebar lists every page of the inventory and marks the current one.
