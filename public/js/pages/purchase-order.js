@@ -353,7 +353,14 @@ document.addEventListener('alpine:init', function () {
           timeError: '',
           sent: [],
         };
-        this.$refs.receiveDialog.showModal();
+        // Alpine builds the new rows in a microtask. Opening the dialog after that means the browser's initial
+        // focus does not land on the previous opening's inputs, which are being removed. Then focus the first quantity.
+        var dialog = this.$refs.receiveDialog;
+        this.$nextTick(function () {
+          dialog.showModal();
+          var first = dialog.querySelector('input.qty-field:not([disabled])');
+          if (first) first.focus();
+        });
       },
 
       closeReceive: function () {
