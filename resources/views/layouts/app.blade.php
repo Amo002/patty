@@ -154,7 +154,7 @@
         <div class="dialog-body stack stack-sm">
             <p x-text="$store.confirm.message" x-show="$store.confirm.message"></p>
             <ul x-show="$store.confirm.lines.length">
-                <template x-for="line in $store.confirm.lines" :key="line">
+                <template x-for="(line, index) in $store.confirm.lines" :key="index + ':' + line">
                     <li x-text="line"></li>
                 </template>
             </ul>
@@ -164,10 +164,10 @@
             </p>
         </div>
         <div class="dialog-foot">
-            <button type="button" class="btn btn-secondary" @click="$store.confirm.cancel()">Cancel</button>
+            <button type="button" class="btn btn-secondary" :disabled="$store.confirm.busy" @click="$store.confirm.cancel()">Cancel</button>
             <button type="button" class="btn"
                     :class="$store.confirm.tone === 'danger' ? 'btn-danger' : 'btn-primary'"
-                    :aria-busy="$store.confirm.busy" @click="$store.confirm.accept()">
+                    :disabled="$store.confirm.busy" :aria-busy="$store.confirm.busy" @click="$store.confirm.accept()">
                 <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span x-text="$store.confirm.confirmLabel"></span>
             </button>
