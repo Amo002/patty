@@ -3,8 +3,12 @@
 namespace App\Enums;
 
 /**
- * Cases only. The transition map (and the only code allowed to change a
- * status) is added with the purchase order service in PTY-7.
+ * The purchase order lifecycle, and the one place its rules are written down.
+ *
+ * Nothing else in the codebase may decide whether a move is legal:
+ * PurchaseOrder::transitionTo() asks canTransitionTo(), and the API's
+ * `allowed_actions` is derived from the same states. To add a state (for
+ * example `cancelled`), add a case and its row in allowedTransitions().
  */
 enum PurchaseOrderStatus: string
 {
@@ -12,6 +16,39 @@ enum PurchaseOrderStatus: string
     case Sent = 'sent';
     case Received = 'received';
     case Closed = 'closed';
+
+    /**
+     * The statuses reachable from this one in a single move (D-012, D-013).
+     *
+     * Closed is terminal: it maps to nothing, so a closed order can never reopen.
+     *
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Draft => [self::Sent],
+            self::Sent => [self::Received],
+            self::Received => [self::Closed],
+            self::Closed => [],
+        };
+    }
+
+    public function canTransitionTo(self $to): bool
+    {
+        return in_array($to, $this->allowedTransitions(), true);
+    }
+
+    /**
+     * The statuses that mean "still waiting on the supplier": the one definition
+     * behind E16 `?status=open` and the incoming quantity (D-020), so the two can never disagree.
+     *
+     * @return array<int, self>
+     */
+    public static function open(): array
+    {
+        return [self::Sent, self::Received];
+    }
 
     public function label(): string
     {

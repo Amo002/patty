@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | 3b Build frontend |
-| Status | To Do |
+| Status | Awaiting Mohamad |
 | Weight | M |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer with Claude in Chrome |
@@ -61,3 +61,30 @@ NFR-5, FR-1 to FR-6 from the UI side. Manual QA-1 to QA-7.
 - [ ] Menu: photos.
 - [ ] PO lines show max receivable, min to complete and the under-delivered or over-received tags. The receive dialog shows each line's limit in the user's chosen unit.
 - [ ] Every quantity uses `<x-quantity-input>` and the `units.js` formatter.
+
+## Builder notes
+
+Built by Sonnet 5.5. The builder stopped at the weekly usage limit after its three commits; the orchestrator (Opus 5.5) checked the branch was complete, merged develop and ran the suite.
+
+- Dashboard (`/`): KPI row (E28), stock with Incoming and a Negative tag (E27), open orders with progress and outstanding (E16 `status=open`), freshness stamp, one 10 s poll for all panels. Open orders load when scrolled near (U2).
+- Activity (`/activity`): the E29 trail with channel tags, expandable changes, a type select, and `?subject_type=&subject_id=` for one record. Entries have no id (D-031), so rows are keyed by their own fields.
+- `public/js/pages/live-list.js`: one paged list shared by both pages. Every request goes through one queue, so a refresh asked for during a load waits instead of being dropped (the bug found in the PTY-18 review).
+- Try it card (D-027): five steps, ticked from E29 events after the tour started (server clock, from E27 `generated_at`), a number change seen between two polls, and an Activity visit. Read only; progress is kept in localStorage.
+- `welcome.blade.php` placeholder removed.
+
+## Review
+
+The Opus 5.5 code reviewer could not run (weekly usage limit), so this is a lighter orchestrator review, not the full mutation pass the backend tickets had. Checked:
+
+- Every field the pages read exists in the API: E27 `ingredient.id`, `on_hand`, `incoming`, `is_negative`; E16 `progress_percent`, `short_closed`, `lines.*.quantity_outstanding`; E29 `event`, `channel`, `subject`, `changes`, `created_at`.
+- The tour's event names match `Audit::record` (`purchase_order.sent`, `delivery.recorded`, `sale.recorded`), and the POS page sends `X-Patty-Channel: pos`, so step 3 can tick.
+- No `x-html`, `{!! !!}` or `innerHTML` in either page (S5).
+- With a type filter that matches nothing loaded yet, the list keeps loading pages through the scroll sentinel until it finds matches or ends, then shows the empty state. Accepted: E29 has no type-only filter.
+
+No defects found. Not done, and why:
+
+- Design reviewer pass with screenshots at 1440 px and 820 px: not run (no agent budget). Mohamad checks the pages by hand in the browser before merging.
+- GIFs for the README: moved to PTY-14.
+- The rest of the acceptance criteria above belong to PTY-18 and PTY-19 after Q-012.
+
+Depends on PTY-10 (PR #22): E27, E28 and E29 exist only once it is merged. Merge #22 first.

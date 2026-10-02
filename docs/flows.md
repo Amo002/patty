@@ -13,7 +13,7 @@ Template for each flow:
 - **Actor / screen:** Manager, Ingredients, "Add ingredient" dialog
 - **Request:** E3 `POST /ingredients` `{ "name": "Lettuce", "unit": "g" }`, header `X-Patty-Channel: ui`
 - **Validation:** validation.md, Ingredients
-- **Steps:** 1. `CatalogService::createIngredient` creates the row and a ULID.
+- **Steps:** 1. `IngredientService::create` creates the row and a ULID.
 - **Rows written:** ingredients +1, activity_log +1 (created)
 - **Audit:** `created` on Ingredient (LogsActivity)
 - **Log:** `catalog` info "Ingredient created"
@@ -23,7 +23,7 @@ Template for each flow:
 
 ### F2 Create supplier
 - **Request:** E8 `POST /suppliers` `{ "name": "Fresh Farms", "email": "...", "phone": "..." }`
-- **Steps:** `CatalogService::createSupplier`
+- **Steps:** `SupplierService::create`
 - **Rows written:** suppliers +1, activity_log +1
 - **Response:** 201 Supplier. **UI next:** toast, row appears. **Error paths:** duplicate name, bad email, bad phone (422).
 
@@ -93,7 +93,7 @@ Template for each flow:
 
 ### F9 Completing delivery (auto-close)
 - As F8, but after step 6 every line is complete (received at or above `min_to_complete`), so step 8 moves the order from received to closed in the **same transaction** and sets `closed_at`.
-- **Rows written (extra):** activity_log +1 (`purchase_order.closed`)
+- **Rows written (extra):** activity_log +2: the named `purchase_order.closed` event, plus the status field-change row (received to closed) written by `LogsActivity`, as F8 counts for sent to received
 - **Response:** the PO with `status: "closed"`, `allowed_actions: []`. **UI next:** status pill morphs to Closed; the PO leaves the open-orders list.
 - A single delivery covering everything goes sent to received to closed in one transaction.
 
@@ -133,7 +133,7 @@ Template for each flow:
   9. Commit.
   10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F15 or F16.
 - **Rows written:** sales +1, stock_movements +3 (beef -900, bun -6, cheese -120), activity_log +1, document_sequences updated
-- **Log:** `pos` info "SALE-2026-000001 Classic Burger x6"; `stock` info per movement
+- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, menu_item, quantity, pos_reference), written after commit; `stock` info per movement
 - **Response:** 201 Sale with `deductions` and `on_hand_after`
 - **UI next (Simulator):** the deductions animate in; the dashboard updates on its next refresh
 - **Error paths:**
@@ -151,13 +151,13 @@ Template for each flow:
 ### F15 POS replay (same reference, same payload)
 - **Steps:** find the existing sale by `pos_reference`; `menu_item_id` and `quantity` match.
 - **Rows written:** none except activity_log +1 (`sale.replayed`)
-- **Log:** `pos` notice "Replay of till-1:000101"
+- **Log:** `pos` notice "Sale replayed" with context (sale ulid, pos_reference)
 - **Response:** **200** with the original sale, `replayed: true`. Stock is unchanged.
 
 ### F16 POS idempotency conflict (same reference, different payload)
 - **Steps:** an existing sale is found, but the item or quantity differs. Throw `IdempotencyConflict`.
 - **Rows written:** none
-- **Log:** `pos` **warning** "pos_reference till-1:000101 reused with a different payload"
+- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted menu item and quantity
 - **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it.
 
 ## Visibility

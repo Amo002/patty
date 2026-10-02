@@ -138,7 +138,9 @@ The first file to open every session. It tracks the project phase by phase: what
   - PTY-16 (API foundation) merged as PR #8;
   - PTY-3 (schema, identifiers, triggers, tolerance) opened as PR #9.
   - Both went through Opus review with changes requested (2 majors each), then fixes, then mutation checks.
-- **Next:** wave 2, PTY-4 (stock ledger, plus the morph map) with PTY-6 (menu and recipes API), once PR #9 is merged.
+- **Wave 2 and 3 done:** PTY-4, PTY-5, PTY-6, PTY-7, PTY-9, PTY-11 and PTY-26 merged; PTY-8 in PR #18. Every ticket went through Opus review with mutation checks before its PR.
+- **Process changes:** 4 agents (D-045); "commit after every working piece" after a restart lost unsaved work; verification commands always `cd` explicitly.
+- **Next:** PTY-10 (visibility endpoints) and PTY-22 (realistic seed) once PTY-8 merges; the UI pages PTY-18 and PTY-19 are building; then PTY-12, PTY-13, PTY-21, PTY-14.
 ## Phase 3b: Build frontend (not started)
 ## Phase 4: Review and testing (continuous)
 ## Phase 5: Security (not started)

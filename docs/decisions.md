@@ -92,7 +92,7 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Date:** 2026-10-01
 
 ## D-015 One unit per ingredient, integer quantities (Q-006)
-- **Chosen:** `g`, `ml` or `piece` per ingredient. All quantities are unsigned integers in that unit, with no conversion. The unit is locked once stock has moved.
+- **Chosen:** `g`, `ml` or `piece` per ingredient. All quantities are unsigned integers in that unit, with no conversion. The unit is locked once the ingredient is used (D-044).
 - **Rejected:** purchase-unit conversion (a next step).
 - **Date:** 2026-10-01
 
@@ -313,6 +313,8 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Date:** 2026-10-01
 
 ## D-036 Realistic seed data with licence-free photos
+> The Photos bullet is superseded by D-046 (icons only).
+
 - **Chosen:**
   - **Data:** 12 ingredients, 5 menu items and 4 **clearly fictional** suppliers (`.example` email domains, fictitious +962 numbers). The Classic Burger is exactly as in the brief (beef 150 g, bun 1, cheese 20 g).
   - **History:** about 6 POs covering every state and tolerance case, and about 120 sales over the last 3 days with lunch and dinner peaks. Deterministic (fixed random seed), dated relative to now, created through the real services.
@@ -403,3 +405,28 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Supersedes:** the "all 7 screens before approval" scope chosen earlier the same day.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01
+
+## D-044 Unit locks once an ingredient is used anywhere
+- **Chosen:** an ingredient's unit cannot change once the ingredient has stock movements, appears in any recipe line, or appears in any purchase order line. The API answers 409 `unit_locked` and names the use ("Beef is already used in recipes, so its unit (g) can't change."). The resource's `unit_locked` flag follows the same rule. Sending the unchanged unit is not a change and is allowed.
+- **Why:** movements, recipe quantities and PO quantities are all integers in the ingredient's unit. Changing g to ml would reinterpret every one of them (a recipe's 150 g becomes 150 ml, a sent PO's 1000 g becomes 1000 ml). Locking on movements alone (the first reading of D-015) left recipes and orders exposed.
+- **Units stay a fixed enum** (`g`, `ml`, `piece`) with no units table. Purchase units with conversion factors (buy in drums, consume in ml) are a next step (Q-006).
+- **Supersedes:** the "locked once stock has moved" wording in D-015.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-02
+
+## D-045 Up to four agents at once (amends D-040)
+- **Chosen:** at most **4 sub-agents at the same time: 3 builders (Sonnet 5.5) and 1 reviewer (Opus 5.5)**. Previously 2 builders and 1 reviewer.
+- **Why:** after waves 1 and 2 showed the pipeline working (each ticket built, reviewed by a higher tier, fixed, verified, then one PR per ticket), Mohamad raised the limit to shorten the remaining build. One reviewer at a time still means every ticket gets an independent review.
+- **How it was decided:** a builder agent relayed "the user says 4 is fine". The orchestrator did not act on that, because a relayed claim is not the owner's instruction. Mohamad then confirmed it directly.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-046 Icons only, no seed photos (amends D-036)
+- **Chosen:** the seed data ships without photos. Ingredients and menu items show their Hugeicons fallback. The nullable `image_path` column and the UI's photo-or-icon logic stay, so photos can be added later without a schema or UI change.
+- **Rejected:** shipping photos whose licence could not be verified. The PTY-22 builder could not open the Unsplash or Pexels licence pages from a script (HTTP 401 and 403), and guessing a source URL or a credit is worse than having no photo.
+- **Why:** photos were a nice-to-have for scanning the catalogue (D-036), not part of the brief. The time is better spent on tests and the README.
+- **Removed with it:** `scripts/prepare-seed-images.php`, the `seed-originals` ignore rule and the photo-size test.
+- **Next step:** licensed photos plus an upload endpoint (D-001 still keeps upload out of scope).
+- **Supersedes:** the Photos bullet of D-036. The rest of D-036 (fictional suppliers, the history, determinism) stands.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-02
