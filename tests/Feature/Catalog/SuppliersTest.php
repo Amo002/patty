@@ -43,7 +43,7 @@ it('lists suppliers by name and shows one', function () {
     $show = $this->getJson("/api/v1/suppliers/{$bakery->ulid}")->assertOk()->assertJsonPath('data.name', 'Corner Bakery');
     expect($show->json())->assertNoIntegerIds();
 
-    $this->getJson('/api/v1/suppliers/1')->assertNotFound();
+    expect($this->getJson('/api/v1/suppliers/1')->assertNotFound()->json())->assertNoIntegerIds();
 });
 
 it('paginates suppliers', function () {
@@ -86,7 +86,7 @@ it('updates a supplier, keeps its own name valid, and rejects another supplier n
 it('clears email and phone with null and leaves unsent fields alone', function () {
     $supplier = Supplier::factory()->create(['name' => 'Corner Bakery', 'email' => 'a@b.example', 'phone' => '123']);
 
-    $this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['email' => null])->assertOk();
+    expect($this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['email' => null])->assertOk()->json())->assertNoIntegerIds();
 
     $fresh = $supplier->fresh();
     expect($fresh->email)->toBeNull();
@@ -111,12 +111,12 @@ it('rejects a bad phone and accepts the allowed characters', function () {
         expect($response->json('errors'))->toHaveKey('phone');
     }
 
-    $this->postJson('/api/v1/suppliers', ['name' => 'Corner Bakery', 'phone' => '+962 (6) 555-0101'])->assertCreated();
+    expect($this->postJson('/api/v1/suppliers', ['name' => 'Corner Bakery', 'phone' => '+962 (6) 555-0101'])->assertCreated()->json())->assertNoIntegerIds();
 });
 
 it('accepts supplier names at the length boundaries and rejects outside them', function () {
-    $this->postJson('/api/v1/suppliers', ['name' => 'ab'])->assertCreated();
-    $this->postJson('/api/v1/suppliers', ['name' => str_repeat('c', 120)])->assertCreated();
+    expect($this->postJson('/api/v1/suppliers', ['name' => 'ab'])->assertCreated()->json())->assertNoIntegerIds();
+    expect($this->postJson('/api/v1/suppliers', ['name' => str_repeat('c', 120)])->assertCreated()->json())->assertNoIntegerIds();
 
     foreach (['a', str_repeat('d', 121), ['x']] as $name) {
         $response = $this->postJson('/api/v1/suppliers', ['name' => $name])->assertStatus(422);
@@ -131,12 +131,28 @@ it('audits a contact change with the dirty fields only, and stays silent on a no
     Activity::query()->delete();
     $messages = fn () => array_map(fn ($r) => $r->message, Log::channel('catalog')->getLogger()->getHandlers()[0]->getRecords());
 
-    $this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['name' => 'Corner Bakery', 'phone' => '123'])->assertOk();
+    $same = $this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['name' => 'Corner Bakery', 'phone' => '123'])->assertOk();
+    expect($same->json())->assertNoIntegerIds();
     expect(Activity::count())->toBe(0);
     expect($messages())->toBe([]);
 
-    $this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['email' => 'new@b.example'])->assertOk();
+    $changed = $this->patchJson("/api/v1/suppliers/{$supplier->ulid}", ['email' => 'new@b.example'])->assertOk();
+    expect($changed->json())->assertNoIntegerIds();
     $entry = Activity::where('event', 'updated')->sole();
     expect($entry->attribute_changes->toArray())->toBe(['attributes' => ['email' => 'new@b.example'], 'old' => ['email' => 'a@b.example']]);
     expect($messages())->toBe(['Supplier updated']);
+});
+
+it('writes one created activity row and one catalog log line on create', function () {
+    config(['logging.channels.catalog' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+
+    $response = $this->postJson('/api/v1/suppliers', ['name' => 'Corner Bakery', 'email' => 'a@b.example'])->assertCreated();
+    expect($response->json())->assertNoIntegerIds();
+
+    $entry = Activity::where('event', 'created')->sole();
+    expect($entry->subject_id)->toBe(Supplier::firstOrFail()->id);
+    expect($entry->attribute_changes->toArray()['attributes'])->toMatchArray(['name' => 'Corner Bakery', 'email' => 'a@b.example']);
+
+    $records = Log::channel('catalog')->getLogger()->getHandlers()[0]->getRecords();
+    expect(array_map(fn ($r) => $r->message, $records))->toBe(['Supplier created']);
 });

@@ -2,6 +2,8 @@
 
 use App\Enums\Unit;
 use App\Models\Ingredient;
+use App\Models\PurchaseOrderLine;
+use App\Models\RecipeLine;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -71,7 +73,7 @@ it('returns 404 for a numeric id', function () {
 
     $response = $this->getJson('/api/v1/ingredients/1')->assertNotFound();
     expect($response->json())->assertNoIntegerIds();
-    $this->patchJson('/api/v1/ingredients/1', ['name' => 'Mince'])->assertNotFound();
+    expect($this->patchJson('/api/v1/ingredients/1', ['name' => 'Mince'])->assertNotFound()->json())->assertNoIntegerIds();
 });
 
 it('rejects a duplicate name regardless of case or padding', function () {
@@ -109,8 +111,8 @@ it('rejects an invalid or missing unit', function () {
 });
 
 it('accepts names at the length boundaries and rejects outside them', function () {
-    $this->postJson('/api/v1/ingredients', ['name' => 'ab', 'unit' => 'g'])->assertCreated();
-    $this->postJson('/api/v1/ingredients', ['name' => str_repeat('c', 100), 'unit' => 'g'])->assertCreated();
+    expect($this->postJson('/api/v1/ingredients', ['name' => 'ab', 'unit' => 'g'])->assertCreated()->json())->assertNoIntegerIds();
+    expect($this->postJson('/api/v1/ingredients', ['name' => str_repeat('c', 100), 'unit' => 'g'])->assertCreated()->json())->assertNoIntegerIds();
 
     foreach (['a', str_repeat('d', 101)] as $name) {
         $response = $this->postJson('/api/v1/ingredients', ['name' => $name, 'unit' => 'g'])->assertStatus(422);
@@ -135,13 +137,13 @@ it('allows a unit change before any movement and locks it after', function () {
         ->assertJsonPath('data.unit_label', 'Millilitres');
     expect($open->json())->assertNoIntegerIds();
 
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'g'])->assertOk();
+    expect($this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'g'])->assertOk()->json())->assertNoIntegerIds();
     addMovement($beef, 100);
 
     $locked = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'ml'])
         ->assertStatus(409)
         ->assertJsonPath('code', 'unit_locked')
-        ->assertJsonPath('message', "Beef already has stock history in g, so its unit can't change.");
+        ->assertJsonPath('message', "Beef is already used in stock history, so its unit (g) can't change.");
     expect($locked->json())->assertNoIntegerIds();
     expect($beef->fresh()->unit)->toBe(Unit::Gram);
 });
@@ -163,8 +165,11 @@ it('keeps a locked unit locked after the stock nets to zero', function () {
     addMovement($beef, -100);
 
     // The lock follows history, not the balance.
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'ml'])->assertStatus(409)->assertJsonPath('code', 'unit_locked');
-    expect($this->getJson("/api/v1/ingredients/{$beef->ulid}")->json('data.unit_locked'))->toBeTrue();
+    $locked = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'ml'])->assertStatus(409)->assertJsonPath('code', 'unit_locked');
+    expect($locked->json())->assertNoIntegerIds();
+    $show = $this->getJson("/api/v1/ingredients/{$beef->ulid}");
+    expect($show->json())->assertNoIntegerIds();
+    expect($show->json('data.unit_locked'))->toBeTrue();
 });
 
 it('stores a tolerance override, reads it back as source ingredient, and resets it with null', function () {
@@ -192,9 +197,10 @@ it('stores a tolerance override, reads it back as source ingredient, and resets 
 it('accepts tolerance values at their bounds and rejects values outside them', function () {
     $beef = Ingredient::factory()->create(['name' => 'Beef']);
 
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", [
+    $bounds = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", [
         'over_tolerance_bps' => 10000, 'under_tolerance_bps' => 0, 'over_tolerance_cap' => 1000000,
     ])->assertOk();
+    expect($bounds->json())->assertNoIntegerIds();
 
     $bad = [
         ['over_tolerance_bps' => 10001],
@@ -230,7 +236,7 @@ it('writes an activity row with the old and new name on a rename', function () {
     $beef = Ingredient::factory()->create(['name' => 'Beef']);
     Activity::query()->delete();
 
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Minced Beef'])->assertOk();
+    expect($this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Minced Beef'])->assertOk()->json())->assertNoIntegerIds();
 
     $entry = Activity::where('event', 'updated')->sole();
     expect($entry->subject_id)->toBe($beef->id);
@@ -243,23 +249,88 @@ it('writes no activity row and no log line for a no-op update', function () {
     Activity::query()->delete();
     $messages = fn () => array_map(fn ($r) => $r->message, Log::channel('catalog')->getLogger()->getHandlers()[0]->getRecords());
 
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", [])->assertOk();
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Beef', 'unit' => 'g', 'over_tolerance_bps' => null])->assertOk();
+    expect($this->patchJson("/api/v1/ingredients/{$beef->ulid}", [])->assertOk()->json())->assertNoIntegerIds();
+    $same = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Beef', 'unit' => 'g', 'over_tolerance_bps' => null])->assertOk();
+    expect($same->json())->assertNoIntegerIds();
 
     expect(Activity::count())->toBe(0);
     expect($messages())->toBe([]);
 
-    $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Mince'])->assertOk();
+    expect($this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['name' => 'Mince'])->assertOk()->json())->assertNoIntegerIds();
     expect($messages())->toBe(['Ingredient updated']);
 });
 
 it('logs one catalog line on create', function () {
     config(['logging.channels.catalog' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
 
-    $this->postJson('/api/v1/ingredients', ['name' => 'Lettuce', 'unit' => 'g'])->assertCreated();
+    $response = $this->postJson('/api/v1/ingredients', ['name' => 'Lettuce', 'unit' => 'g'])->assertCreated();
+    expect($response->json())->assertNoIntegerIds();
 
     $records = Log::channel('catalog')->getLogger()->getHandlers()[0]->getRecords();
     expect(array_map(fn ($r) => $r->message, $records))->toBe(['Ingredient created']);
+});
+
+it('writes one created activity row on create', function () {
+    $response = $this->postJson('/api/v1/ingredients', ['name' => 'Lettuce', 'unit' => 'g'])->assertCreated();
+    expect($response->json())->assertNoIntegerIds();
+
+    $entry = Activity::where('event', 'created')->sole();
+    expect($entry->subject_id)->toBe(Ingredient::firstOrFail()->id);
+    expect($entry->attribute_changes->toArray()['attributes'])->toMatchArray(['name' => 'Lettuce', 'unit' => 'g']);
+});
+
+it('locks the unit when only a recipe line uses the ingredient', function () {
+    $beef = Ingredient::factory()->create(['name' => 'Beef', 'unit' => Unit::Gram]);
+    RecipeLine::factory()->create(['ingredient_id' => $beef->id, 'quantity' => 150]);
+    expect(StockMovement::count())->toBe(0);
+
+    $locked = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'ml'])
+        ->assertStatus(409)
+        ->assertJsonPath('code', 'unit_locked')
+        ->assertJsonPath('message', "Beef is already used in recipes, so its unit (g) can't change.");
+    expect($locked->json())->assertNoIntegerIds();
+    expect($beef->fresh()->unit)->toBe(Unit::Gram);
+
+    $show = $this->getJson("/api/v1/ingredients/{$beef->ulid}")->assertOk();
+    expect($show->json())->assertNoIntegerIds();
+    expect($show->json('data.unit_locked'))->toBeTrue();
+});
+
+it('locks the unit when only a purchase order line uses the ingredient', function () {
+    $beef = Ingredient::factory()->create(['name' => 'Beef', 'unit' => Unit::Gram]);
+    PurchaseOrderLine::factory()->create(['ingredient_id' => $beef->id, 'quantity_ordered' => 1000]);
+    expect(StockMovement::count())->toBe(0);
+
+    $locked = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'ml'])
+        ->assertStatus(409)
+        ->assertJsonPath('code', 'unit_locked')
+        ->assertJsonPath('message', "Beef is already used in purchase orders, so its unit (g) can't change.");
+    expect($locked->json())->assertNoIntegerIds();
+
+    $list = $this->getJson('/api/v1/ingredients')->assertOk();
+    expect($list->json())->assertNoIntegerIds();
+    expect($list->json('data.0.unit_locked'))->toBeTrue();
+});
+
+it('keeps the unit free for an unused ingredient while another one is locked', function () {
+    $used = Ingredient::factory()->create(['name' => 'Beef', 'unit' => Unit::Gram]);
+    $free = Ingredient::factory()->create(['name' => 'Bun', 'unit' => Unit::Piece]);
+    RecipeLine::factory()->create(['ingredient_id' => $used->id, 'quantity' => 150]);
+
+    $list = $this->getJson('/api/v1/ingredients')->assertOk();
+    expect($list->json())->assertNoIntegerIds();
+    expect(collect($list->json('data'))->pluck('unit_locked', 'name')->all())->toBe(['Beef' => true, 'Bun' => false]);
+
+    $changed = $this->patchJson("/api/v1/ingredients/{$free->ulid}", ['unit' => 'g'])->assertOk()->assertJsonPath('data.unit', 'g');
+    expect($changed->json())->assertNoIntegerIds();
+});
+
+it('allows resending the same unit for an ingredient used in a recipe', function () {
+    $beef = Ingredient::factory()->create(['name' => 'Beef', 'unit' => Unit::Gram]);
+    RecipeLine::factory()->create(['ingredient_id' => $beef->id, 'quantity' => 150]);
+
+    $response = $this->patchJson("/api/v1/ingredients/{$beef->ulid}", ['unit' => 'g'])->assertOk();
+    expect($response->json())->assertNoIntegerIds();
 });
 
 it('paginates: 30 ingredients at per_page 25 leave 5 on page 2', function () {
@@ -277,14 +348,14 @@ it('paginates: 30 ingredients at per_page 25 leave 5 on page 2', function () {
     expect($two->json('meta.pagination.has_more'))->toBeFalse();
     expect($two->json('data.0.name'))->toBe('Item 26');
 
-    $this->getJson('/api/v1/ingredients?per_page=101')->assertStatus(422);
+    expect($this->getJson('/api/v1/ingredients?per_page=101')->assertStatus(422)->json())->assertNoIntegerIds();
 });
 
 it('lists 11 ingredients in the same number of queries as 1', function () {
     $countQueries = function (): int {
         DB::flushQueryLog();
         DB::enableQueryLog();
-        $this->getJson('/api/v1/ingredients')->assertOk();
+        expect($this->getJson('/api/v1/ingredients')->assertOk()->json())->assertNoIntegerIds();
         $count = count(DB::getQueryLog());
         DB::disableQueryLog();
 
@@ -298,6 +369,9 @@ it('lists 11 ingredients in the same number of queries as 1', function () {
     foreach (range(1, 10) as $n) {
         $ingredient = Ingredient::factory()->create(['name' => sprintf('Item %02d', $n)]);
         addMovement($ingredient, 10);
+        // Lines too, so the recipe and PO lookups are exercised at 11 rows.
+        RecipeLine::factory()->create(['ingredient_id' => $ingredient->id, 'quantity' => 5]);
+        PurchaseOrderLine::factory()->create(['ingredient_id' => $ingredient->id, 'quantity_ordered' => 5]);
     }
 
     expect($countQueries())->toBe($one);
