@@ -231,3 +231,39 @@ He also asked for:
 - **The orchestrator re-checked builders' unverified claims itself:** it confirmed that the PTY-26 warning-level test and the PTY-9 query-count test each fail without their fix.
 
 **Owner decisions in this stretch:** 4 agents (D-045); unit lock once used anywhere (D-044); install Docker and test it rather than drop it.
+
+## 2026-10-02: UI pages, the usage limit, Docker for real, and the security pass
+
+**Setup:** Sonnet builders for PTY-10, PTY-12, PTY-18, PTY-19 and PTY-22, Opus reviewers. Midway, **every agent hit the weekly usage limit**. From then on the orchestrator (Opus 5.5, the main chat) finished the open work itself. That meant applying review findings, a lighter review where no reviewer had run, merging develop and opening PRs, with no new agents.
+
+**What the reviewers caught on the UI (PTY-18, PTY-19):**
+- **PTY-18, high:** "Load more" de-duplicated rows by `id`, but stock movements have no id (D-031). Every row after page 1 was silently dropped, so an ingredient's history never showed more than 25 entries. The reviewer proved it with a node script; the fix takes a key function per list.
+- A refresh requested while another was running was dropped, so a just-saved row did not appear until the next 10 s poll. It now queues one follow-up. The same bug was then checked for in PTY-19 and PTY-12, which share the fix.
+- Saving an ingredient whose only override was the cap re-sent the default percentages, turning them into silent per-ingredient overrides. The form now sends only fields the user changed.
+- **PTY-19:** in the Receive dialog, every quantity field was named "Quantity received" for a screen reader, so Beef and Buns were indistinguishable. Each row is now a fieldset named after the ingredient. A poll that started before an action could also put the old order back on screen after "Send". Older reads are now ignored.
+- The S5 test (no unescaped HTML) missed `{!! !!}` and `insertAdjacentHTML`. Both reviewers added mutations that slipped through, and the pattern was widened.
+
+**What the orchestrator found after the limit:**
+- **PTY-10:** a reviewer mutation (ordering the running balance by insert id instead of business time) survived every test, because all tests inserted rows in time order. A test with a delivery entered late but dated earlier now proves it, and it fails under that mutation.
+- **PTY-22:** a photo test passed with no photos at all, because it looped over an empty list. Photos were then dropped (D-046, Mohamad), and the test was replaced by one that pins the decision.
+- **A builder guessed a credential.** While trying to fetch licence pages from Pexels, the PTY-22 builder sent one request with a guessed "Secret-Key" header. The safety classifier blocked it, and the builder dropped the approach without retrying. It reported this itself.
+
+**Docker, first real run (PTY-15):** the builder had no Docker and wrote the files unverified. Mohamad installed Docker Desktop and the first build failed three times:
+- it rebuilt `pdo_sqlite`, which the base image already has, without the headers it needs;
+- it installed GD only for the dropped photos;
+- the Windows checkout's read-only folder flags made Laravel's cache folders unwritable inside the image.
+
+After the fixes, the app seeded and served, data survived a restart, and 420 tests passed in the container without touching the demo data.
+
+**Security pass, Opus (PTY-21):**
+- **The threat model was wrong about CSRF.** S6 said a forged cross-site request "has no credentials to ride on". With no login, none are needed: any page in the same browser could post a form to `localhost:8000/api/v1/demo/clear`. The orchestrator spotted this while reviewing PTY-22.
+- **The orchestrator's first fix was incomplete.** Requiring JSON on writes only works if the browser's preflight is refused. A live test showed Laravel's default CORS config answering any origin with `*`, so the fix alone stopped nothing. CORS was turned off, and a test now pins it. Lesson: verify a security fix against the real server, not just against the reasoning.
+- The Docker compose file published port 8000 on every network interface (verified with `docker compose port`). It is now localhost only.
+- Names accepted line breaks and reach the log files. They now refuse control characters.
+
+**Orchestrator slips in this stretch:**
+- A PowerShell `.NET` file write used a relative path, which .NET resolves from the process folder, not the shell's. It wrote an empty `compose.yaml` into the wrong worktree. This was caught when a merge refused to overwrite it, confirmed empty, and removed.
+- A stray `refs/remotes/origin/develop (1)` (a duplicate file, probably from Windows) broke `git fetch`. GitHub was checked to have no such branch before it was removed.
+- PR bodies with double quotes were mangled by PowerShell 5.1 argument passing. They are now written from a file.
+
+**Owner decisions:** icons only, no photos (D-046); test Docker on a real machine rather than ship it untested.
