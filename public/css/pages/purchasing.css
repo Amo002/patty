@@ -72,3 +72,19 @@
 @media (max-width: 640px) {
   .rcv-line { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* POS Simulator */
+.pos-qty { max-width: 160px; font-variant-numeric: tabular-nums; text-align: right; }
+.pos-preview { padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-sm); }
+.pos-preview ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-5); }
+.pos-retry { padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.pos-notice {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.pos-notice[data-tone="danger"] { background: var(--danger-subtle); border-color: var(--danger); }
+.pos-notice[data-tone="warn"] { border-color: var(--warn-text); }
