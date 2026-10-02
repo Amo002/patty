@@ -49,8 +49,11 @@ it('renders API data only with text bindings in the catalogue files (S5)', funct
         ...File::allFiles(public_path('js/pages')),
     ]);
 
+    // Every way to turn text into markup: Alpine's x-html, the DOM setters, and Blade's unescaped echo.
+    $needles = ['x-html', 'innerHTML', 'outerHTML', 'insertAdjacentHTML', '{!!'];
+
     $offenders = $files
-        ->filter(fn ($file) => str_contains($file->getContents(), 'x-html') || str_contains($file->getContents(), 'innerHTML'))
+        ->filter(fn ($file) => collect($needles)->contains(fn ($needle) => str_contains($file->getContents(), $needle)))
         ->map(fn ($file) => $file->getFilename());
 
     expect($files)->not->toBeEmpty();
