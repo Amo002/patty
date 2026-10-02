@@ -33,7 +33,7 @@ Patty is a single-branch back-office tool. The brief says no authentication. We 
 
 ## Phase 5: security review (PTY-21)
 
-Run by Mohamad against the final `develop` (D-039): first with **Opus 5.5** locally, then with **Fable 5.1 in Claude Code on the web** (the cloud version, with the repository connected):
+Run against the final `develop` with **Opus 5.5** locally on 2026-10-02. The planned second pass with Fable 5.1 in Claude Code on the web was dropped for lack of credits (D-047). The steps as planned:
 1. `/security-review` over the whole codebase, with this file as context.
 2. Optionally, `/code-review ultra`: the multi-agent cloud review. Mohamad triggers and pays for it himself.
 3. Every finding is triaged in `docs/tickets/PTY-21-security-review.md` as **fix**, **accept with reason**, or **false positive**.
