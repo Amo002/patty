@@ -32,6 +32,8 @@ document.addEventListener('alpine:init', function () {
       notFound: false,
       error: null,
       nextKey: 1,
+      // Bumped each time an action's own response is adopted. See fetchPo.
+      actionSeq: 0,
 
       // Inline line editing (draft only, E19).
       editing: false,
@@ -70,8 +72,11 @@ document.addEventListener('alpine:init', function () {
 
       fetchPo: function () {
         var self = this;
+        // A read that started before the latest action may come back after it. It describes the order as it was
+        // before the action, so it is dropped rather than put back on screen (for example "Send order" reappearing).
+        var started = this.actionSeq;
         return Patty.api.get('/purchase-orders/' + this.ulid, { silent: true }).then(function (result) {
-          self.adopt(result.data);
+          if (started === self.actionSeq) self.adopt(result.data);
         });
       },
 
@@ -208,6 +213,7 @@ document.addEventListener('alpine:init', function () {
 
       // An action returns the order it produced. If a response ever lacks lines, fetch it instead of guessing.
       adoptResult: function (result) {
+        this.actionSeq += 1;
         if (result.data && result.data.lines) this.adopt(result.data);
         else this.fetchPo();
         this.loadActivity(true);
@@ -473,6 +479,7 @@ document.addEventListener('alpine:init', function () {
       // E23 returns { delivery, purchase_order }: the order refreshes from the response, with no second request.
       adoptDelivery: function (result) {
         var data = result.data || {};
+        this.actionSeq += 1;
         if (data.purchase_order && data.purchase_order.lines) this.adopt(data.purchase_order);
         else this.fetchPo();
         this.loadActivity(true);
