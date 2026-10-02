@@ -42,6 +42,8 @@
 
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="{{ $asset('css/app.css') }}">
+    {{-- PTY-18: page stylesheets --}}
+    @stack('styles')
 
     {{-- Order matters: deferred scripts run in document order, and Alpine must start last (D-003). --}}
     <script defer src="{{ $asset('js/units.js') }}"></script>
