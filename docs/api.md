@@ -31,14 +31,18 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `invalid_transition` | The order's status does not allow this move |
 | 409 | `order_not_editable` | Lines can only change while the order is draft |
 | 409 | `cannot_receive` | Deliveries only against sent or partially received orders |
-| 409 | `unit_locked` | The unit cannot change once stock has moved |
+| 409 | `unit_locked` | The unit cannot change once the ingredient is used in stock history, recipes or purchase orders (D-044) |
 | 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
 | 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
+| 409 | `conflict` | A unique index rejected the write: a concurrent request created the same record after validation passed. Refresh and retry. |
+| 415 | `unsupported_media_type` | A write (POST, PUT, PATCH, DELETE) without `Content-Type: application/json`, even when it has no body (S6) |
 | 422 | `validation_failed` | Input is malformed; `errors` holds `{ field: [messages] }` |
 | 422 | `over_delivery` | The quantity would take the line above `max_receivable` (over % or absolute cap, D-035); `errors` names the line |
 | 422 | `menu_item_not_sellable` | The menu item has no recipe |
 | 429 | `too_many_requests` | Rate limit on sales exceeded |
 | 500 | `server_error` | Unexpected. Generic message, never details. |
+
+Any write guarded by a unique index can return 409 `conflict` if a concurrent request created the same record first (PTY-26).
 
 ## Versioning policy
 
@@ -96,7 +100,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
   "id": "01JA8ZK3W5Y7Q2M4N6P8R0T2V4",
   "name": "Beef",
   "unit": "g",
-  "unit_label": "grams",
+  "unit_label": "Grams",
   "on_hand": 700,
   "incoming": 400,
   "is_negative": false,
@@ -160,7 +164,10 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 ```
 - `allowed_actions` is a subset of `edit_lines`, `send`, `delete`, `receive`, `short_close`, derived from the status. The UI shows only these buttons.
 - A line is **complete** at `min_to_complete` (under-tolerance), and then `quantity_outstanding` is 0 and any shortfall is `quantity_under_delivered`. `tolerance` is the snapshot taken when the line was created (D-035).
-- `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Quantities of different units (g and pieces) are never added together.
+- `progress_percent` is the **average of each line's own completion**, `min(received, ordered) / ordered`, floored. Each line's percent is rounded down, then the average is rounded down, so it never over-reports and shows 100 only when every line is fully received (1/3 and 2/3 shows 49). Quantities of different units (g and pieces) are never added together.
+
+### E23 response
+`data` is `{ "delivery": Delivery, "purchase_order": PurchaseOrder }`: the new delivery and the order as it is now, so the UI needs no second request. `received_at` is ISO-8601 only (offset or `Z`) and is stored as UTC.
 
 ### Delivery
 ```json
@@ -194,10 +201,11 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 {
   "reason": "delivery", "reason_label": "Delivery",
   "quantity_delta": 600, "balance_after": 600,
-  "reference": { "type": "delivery", "number": "GRN-2026-0003", "label": "GRN-2026-0003 for PO-2026-0002" },
+  "reference": { "type": "delivery", "number": "GRN-2026-0003", "label": "GRN-2026-0003 for PO-2026-0002", "purchase_order_id": "01JA..." },
   "occurred_at": "..."
 }
 ```
+`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A movement reason with no document yet has `number` and `label` null.
 `balance_after` is a running sum computed in SQL with a window function (`SUM(...) OVER (ORDER BY occurred_at, id)`), so it is correct on every page.
 
 ### Dashboard (E28)

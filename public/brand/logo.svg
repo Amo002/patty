@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 236 64" role="img" aria-label="Patty">
+  <path d="M10 31a22 19 0 0 1 44 0v1.5a2.5 2.5 0 0 1-2.5 2.5h-39A2.5 2.5 0 0 1 10 32.5z" fill="#18181B"/>
+  <ellipse cx="25" cy="22" rx="2.2" ry="1.2" fill="#FAFAFA" transform="rotate(-20 25 22)"/>
+  <ellipse cx="32" cy="18" rx="2.2" ry="1.2" fill="#FAFAFA"/>
+  <ellipse cx="39" cy="22" rx="2.2" ry="1.2" fill="#FAFAFA" transform="rotate(20 39 22)"/>
+  <rect x="7" y="38" width="50" height="9" rx="4.5" fill="#4F46E5"/>
+  <path d="M9 36.5h46v2.5H40.5l-3.5 5-3.5-5H9z" fill="#F59E0B"/>
+  <rect x="10" y="50" width="44" height="7" rx="3.5" fill="#18181B"/>
+  <text x="70" y="49" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="40" font-weight="650" letter-spacing="-1.6" fill="#18181B">Patty</text>
+</svg>

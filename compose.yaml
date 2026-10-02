@@ -1,0 +1,15 @@
+# Optional: run Patty without PHP installed. `docker compose up --build`.
+# No `environment:` block on purpose; see the note in docker/entrypoint.sh.
+services:
+  app:
+    build: .
+    ports:
+      # Localhost only, like `php artisan serve`. The app has no login, and a bare "8000:8000" would
+      # publish it on every network interface, so anyone on the same Wi-Fi could reach it (S2, PTY-21).
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Only the SQLite file lives here, so the code and migrations stay in the image.
+      - patty-data:/data
+
+volumes:
+  patty-data:

@@ -25,6 +25,8 @@ stock_movements *---------------------------------------------------+
 
 All tables have `id` and `created_at`/`updated_at` unless noted. All quantities are **unsigned integers in the ingredient's unit**, except `stock_movements.quantity_delta`, which is signed.
 
+**What the database does and does not enforce.** Quantity columns are declared unsigned, **but SQLite does not enforce UNSIGNED**, so it will accept a negative value. The `> 0` and `!= 0` rules in the tables below are enforced by validation (validation.md G3) and by the services and `StockLedger` (a zero delta is rejected), not by the schema. The database does enforce foreign keys, unique constraints and the append-only triggers.
+
 **Identifiers (D-031):**
 - `id` is an internal integer primary key, used for joins and foreign keys only. It is never exposed.
 - Addressable tables (ingredients, suppliers, menu_items, purchase_orders, purchase_order_lines, deliveries, sales) also have **`ulid`** (char 26, unique). It is the public identifier and route key.
@@ -44,7 +46,7 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 | Column | Type | Notes |
 |---|---|---|
 | name | string, unique | |
-| unit | string | enum `Unit`: `g`, `ml`, `piece`. Locked once movements exist. |
+| unit | string | enum `Unit`: `g`, `ml`, `piece`. Locked once the ingredient has movements, recipe lines or PO lines (D-015, D-044). |
 | over_tolerance_bps | unsigned smallint, nullable | Over-delivery % in basis points (500 = 5%). Null means the unit default (D-035). |
 | under_tolerance_bps | unsigned smallint, nullable | Under-delivery % in basis points. Null means the unit default. |
 | over_tolerance_cap | unsigned int, nullable | Absolute over-delivery cap in the ingredient unit. Null means the unit default (2,000 for g and ml, none for piece). |
@@ -138,7 +140,7 @@ on_hand(ingredient)     = SUM(stock_movements.quantity_delta) WHERE ingredient_i
 received(po_line)       = SUM(delivery_lines.quantity_received) WHERE purchase_order_line_id = ?
 over_allowance(line)    = min(intdiv(ordered * over_bps, 10000), over_cap)   -- over_cap ignored when null
 max_receivable(line)    = ordered + over_allowance(line)
-min_to_complete(line)   = ordered - intdiv(ordered * under_bps, 10000)
+min_to_complete(line)   = max(1, ordered - intdiv(ordered * under_bps, 10000))   -- floor of 1: never complete with nothing received
 is_complete(line)       = received(line) >= min_to_complete(line)
 outstanding(line)       = is_complete ? 0 : ordered - received(line)
 under_delivered(line)   = is_complete and received < ordered ? ordered - received : 0
