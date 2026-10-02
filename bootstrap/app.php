@@ -9,6 +9,7 @@ use App\Http\Middleware\RequestContext;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +17,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -46,6 +48,10 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
+        // A lost unique race is expected, not a fault: report it once, at warning level, with full detail (D-022
+        // keeps laravel.log errors-only in meaning, so an error line there always means something broke).
+        $exceptions->level(UniqueConstraintViolationException::class, LogLevel::WARNING);
+
         // D-019: the one place where an exception becomes an HTTP response for the API.
         // Returning null for non-API requests leaves web pages on Laravel's default rendering.
         // Reporting (laravel.log) is separate and still runs for every exception.
@@ -62,6 +68,14 @@ return Application::configure(basePath: dirname(__DIR__))
             $response = match (true) {
                 $e instanceof DomainException => ApiResponse::error($e->getMessage(), $e->errorCode(), $e->status(), $e->errors()),
                 $e instanceof ValidationException => ApiResponse::error('The given data was invalid.', 'validation_failed', 422, $e->errors()),
+                // G6 / D-024: Rule::unique gives the friendly 422 and the NOCASE unique index is the backstop.
+                // Reaching the index means another request won the race after this one passed validation. The input
+                // was valid but the current state forbids it, so 409 (not 422). Never echo the SQL or constraint name.
+                $e instanceof UniqueConstraintViolationException => ApiResponse::error(
+                    'This record already exists or was just created by another request. Refresh and try again.',
+                    'conflict',
+                    409,
+                ),
                 $e instanceof AuthenticationException => ApiResponse::error('Unauthorized.', 'unauthorized', 401),
                 $e instanceof ModelNotFoundException,
                 $e instanceof NotFoundHttpException => ApiResponse::error('Resource not found.', 'not_found', 404),
