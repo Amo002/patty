@@ -408,10 +408,32 @@ svg { display: block; max-width: 100%; }
 .btn:disabled,
 .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 
-/* Busy state (rule 1, D-042): the button stays the same size, the label is kept, and the stack bobs. */
+/*
+ * Busy state (rule 1, D-042). Always pair aria-busy with the disabled attribute:
+ *   <button :disabled="busy" :aria-busy="busy">
+ * Disabled is what stops Enter and Space from firing a second click. The label turns transparent instead of
+ * being removed, so the button keeps its width, and the stack bobs on top of it.
+ */
 .btn .stack-spinner { display: none; }
-.btn[aria-busy="true"] { cursor: progress; pointer-events: none; }
-.btn[aria-busy="true"] .stack-spinner { display: inline-flex; }
+
+.btn[aria-busy="true"] {
+  color: transparent;
+  cursor: progress;
+  opacity: 1; /* busy is a working state, not a dimmed disabled one */
+}
+
+.btn[aria-busy="true"] .stack-spinner {
+  display: inline-flex;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 15px;
+}
+
+.btn-primary[aria-busy="true"] .stack-spinner,
+.btn-danger[aria-busy="true"] .stack-spinner { color: var(--on-accent); }
+.btn-secondary[aria-busy="true"] .stack-spinner { color: var(--text); }
+.btn-ghost[aria-busy="true"] .stack-spinner { color: var(--accent-text); }
 
 .stack-spinner {
   flex-direction: column;
