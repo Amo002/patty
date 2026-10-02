@@ -133,7 +133,7 @@ Template for each flow:
   9. Commit.
   10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F15 or F16.
 - **Rows written:** sales +1, stock_movements +3 (beef -900, bun -6, cheese -120), activity_log +1, document_sequences updated
-- **Log:** `pos` info "SALE-2026-000001 Classic Burger x6"; `stock` info per movement
+- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, menu_item, quantity, pos_reference), written after commit; `stock` info per movement
 - **Response:** 201 Sale with `deductions` and `on_hand_after`
 - **UI next (Simulator):** the deductions animate in; the dashboard updates on its next refresh
 - **Error paths:**
@@ -151,13 +151,13 @@ Template for each flow:
 ### F15 POS replay (same reference, same payload)
 - **Steps:** find the existing sale by `pos_reference`; `menu_item_id` and `quantity` match.
 - **Rows written:** none except activity_log +1 (`sale.replayed`)
-- **Log:** `pos` notice "Replay of till-1:000101"
+- **Log:** `pos` notice "Sale replayed" with context (sale ulid, pos_reference)
 - **Response:** **200** with the original sale, `replayed: true`. Stock is unchanged.
 
 ### F16 POS idempotency conflict (same reference, different payload)
 - **Steps:** an existing sale is found, but the item or quantity differs. Throw `IdempotencyConflict`.
 - **Rows written:** none
-- **Log:** `pos` **warning** "pos_reference till-1:000101 reused with a different payload"
+- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted menu item and quantity
 - **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it.
 
 ## Visibility
