@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | 3b Build frontend |
-| Status | To Do |
+| Status | Awaiting Mohamad |
 | Weight | M |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 (code) + Opus 5.5 design reviewer |
@@ -53,7 +53,10 @@ F20, F22, and F5 to F16 and F21 as run by the seeder.
 - [ ] **Sales:** about 120 over the last 3 days, with lunch (12 to 15) and dinner (19 to 23) peaks, POS references `seed-till-1:00001` onwards, one replay, and Cheese ending negative.
 - [ ] Every activity entry has channel `api` and property `seed: true`.
 
-### Photos (D-036)
+### Photos (D-036), dropped by D-046
+
+> Not built. Mohamad chose icons only (D-046) after the licences could not be verified. The criteria below are kept for the record.
+
 - [ ] About 17 photos: one per ingredient and one per menu item.
   - Source: Unsplash or Pexels.
   - **The licence page must be checked for each one.**
@@ -128,10 +131,26 @@ Sales: 120 over today and the two days before, 60% lunch (12:00 to 14:59) and 40
 
 ### Decisions and deviations
 
-- **Photos are not included.** unsplash.com and pexels.com refuse scripted page requests (HTTP 401 and 403), so the licence page of a candidate photo could not be opened and checked, and the brief says not to guess URLs or credits. `images.unsplash.com` answers, but without a verified photo id and licence page that is not enough. No images and no `CREDITS.md` were created. The seeder sets `image_path` only when the file exists, so everything works today and photos can be added later. To finish: put originals in `storage/app/seed-originals/{ingredients,menu}/<slug>.jpg`, run `php scripts/prepare-seed-images.php` (written and runnable), write `CREDITS.md`, commit. Slugs: beef, bun, cheese, lettuce, tomato, onion, pickles, burger-sauce, potatoes, frying-oil, ketchup, chicken-breast; classic-burger, patty-deluxe, double-patty, crispy-chicken, fries.
+- **Photos are not included** (then dropped for good by D-046; the script and the steps below were removed or no longer apply). unsplash.com and pexels.com refuse scripted page requests (HTTP 401 and 403), so the licence page of a candidate photo could not be opened and checked, and the brief says not to guess URLs or credits. `images.unsplash.com` answers, but without a verified photo id and licence page that is not enough. No images and no `CREDITS.md` were created. The seeder sets `image_path` only when the file exists, so everything works today and photos can be added later. To finish: put originals in `storage/app/seed-originals/{ingredients,menu}/<slug>.jpg`, run `php scripts/prepare-seed-images.php` (written and runnable), write `CREDITS.md`, commit. Slugs: beef, bun, cheese, lettuce, tomato, onion, pickles, burger-sauce, potatoes, frying-oil, ketchup, chicken-breast; classic-burger, patty-deluxe, double-patty, crispy-chicken, fries.
 - **`seed: true` on every activity row** without touching `Audit`: the seeder swaps the spatie before-logging hook for its own (which calls `Audit::stamp`, then forces channel `api` and `seed: true`) and restores the normal hook in a `finally`. Tested both ways.
-- **Menu item photos** are set with `MenuItem::update` after `MenuService::create`, because the service has no image argument. Display field only.
 - **Demo logic lives in `App\Support\DemoTools`** (clear, seed, reset, counts, `isEmpty`, `enabled`), shared by the controller, the commands and the layout flags, so they cannot disagree.
 - **UI:** `public/js/demo.js` (new, loaded only in local) holds the three actions; `layouts/app.blade.php` has marked `PTY-22` edits (flags, script tag, menu section, banner button). The banner button is always "Reset demo data" in local.
 - **Tests and SQLite:** `migrate:fresh` ends with `VACUUM`, which SQLite refuses inside a transaction, so the demo test files roll back the `RefreshDatabase` transaction first. Each test boots its own in-memory database, so nothing leaks.
 - **T24:** the suite boots as `testing`, where the routes are not registered at all (asserted); a second test loads `routes/api/v1/demo.php` as `production` (404) and a third as `local` (200), so the guard in that file is what is proven.
+
+## Review
+
+The Opus 5.5 code reviewer could not run (weekly usage limit), so this is a lighter orchestrator review.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| 1 | Medium | The photo test passed with no photos at all: with no `image_path` set, it looped over nothing and summed zero bytes. A test that cannot fail. | Fixed: photos dropped (D-046). The test now pins the decision (no record has an `image_path`). |
+| 2 | Low | The photo code paths were unused once photos were dropped: `image()` in the seeder, the menu `update`, `scripts/prepare-seed-images.php` and the `seed-originals` ignore rule. | Fixed: removed. |
+| 3 | Medium (security) | E31 `demo/clear` is an unauthenticated POST that wipes the database. The API checks neither Content-Type nor Origin. A web page open in the same browser can therefore send a plain form POST to `http://localhost:8000/api/v1/demo/clear`, with no preflight needed, and the data is gone. The same applies to every API write. S6 says a forged request "has no credentials to ride on". With no auth, none are needed. | Moved to PTY-21: one rule for all API writes (reject non-JSON bodies with 415, which forces a CORS preflight), plus S6 rewritten. Not fixed here, because it touches every write, not only this ticket's endpoints. |
+
+Checked and fine:
+- The seeder goes through the real services only.
+- The clock and the activity hook are restored in `finally`.
+- The demo routes are absent outside local, with the guard proven in the route file itself.
+- `Patty.confirm` with `run` keeps the dialog busy until the request ends.
+- `demo.js` loads only in local.
