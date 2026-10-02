@@ -83,7 +83,7 @@ document.addEventListener('alpine:init', function () {
         // A read that started before the latest action may come back after it. It describes the order as it was
         // before the action, so it is dropped rather than put back on screen (for example "Send order" reappearing).
         var started = this.actionSeq;
-        return Patty.api.get('/purchase-orders/' + this.ulid, { silent: true }).then(function (result) {
+        return Patty.api.get('/purchase-orders/' + encodeURIComponent(this.ulid), { silent: true }).then(function (result) {
           if (started === self.actionSeq) self.adopt(result.data);
         });
       },
@@ -178,7 +178,7 @@ document.addEventListener('alpine:init', function () {
           message: "Lines can't be changed after this.",
           confirmLabel: 'Send order',
           run: function () {
-            return Patty.api.post('/purchase-orders/' + self.ulid + '/send').then(function (result) { self.adoptResult(result); });
+            return Patty.api.post('/purchase-orders/' + encodeURIComponent(self.ulid) + '/send').then(function (result) { self.adoptResult(result); });
           },
           onConflict: function () { self.afterConflict(); },
         }).then(function (yes) {
@@ -194,7 +194,7 @@ document.addEventListener('alpine:init', function () {
           message: 'The draft and its lines are removed. This cannot be undone.',
           confirmLabel: 'Delete draft',
           tone: 'danger',
-          run: function () { return Patty.api.delete('/purchase-orders/' + self.ulid); },
+          run: function () { return Patty.api.delete('/purchase-orders/' + encodeURIComponent(self.ulid)); },
           onConflict: function () { self.afterConflict(); },
         }).then(function (yes) {
           if (yes) location.href = '/purchase-orders';
@@ -212,7 +212,7 @@ document.addEventListener('alpine:init', function () {
           confirmLabel: 'Close order',
           tone: 'danger',
           run: function () {
-            return Patty.api.post('/purchase-orders/' + self.ulid + '/close').then(function (result) { self.adoptResult(result); });
+            return Patty.api.post('/purchase-orders/' + encodeURIComponent(self.ulid) + '/close').then(function (result) { self.adoptResult(result); });
           },
           onConflict: function () { self.afterConflict(); },
         }).then(function (yes) {
@@ -325,7 +325,7 @@ document.addEventListener('alpine:init', function () {
         edit.lines.forEach(function (line, index) { modes['lines.' + index + '.quantity_ordered'] = line.mode; });
 
         edit.busy = true;
-        Patty.api.put('/purchase-orders/' + this.ulid + '/lines', {
+        Patty.api.put('/purchase-orders/' + encodeURIComponent(this.ulid) + '/lines', {
           lines: edit.lines.map(function (line) { return { ingredient_id: line.ingredient_id, quantity_ordered: line.quantity }; }),
         }, { onConflict: function () { self.afterConflict(); } }).then(function (result) {
           edit.busy = false;
@@ -466,7 +466,7 @@ document.addEventListener('alpine:init', function () {
             if (note) body.note = note;
             recv.sent = items.map(function (line) { return line.key; });
 
-            return Patty.api.post('/purchase-orders/' + self.ulid + '/deliveries', body).then(function (result) {
+            return Patty.api.post('/purchase-orders/' + encodeURIComponent(self.ulid) + '/deliveries', body).then(function (result) {
               self.adoptDelivery(result);
             }).catch(function (e) {
               if (e.status === 422) {

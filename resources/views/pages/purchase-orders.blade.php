@@ -68,7 +68,7 @@
                 <tbody>
                     <template x-for="po in items" :key="po.id">
                         <tr>
-                            <td><a class="po-number" :href="'/purchase-orders/' + po.id" x-text="po.number"></a></td>
+                            <td><a class="po-number" :href="'/purchase-orders/' + encodeURIComponent(po.id)" x-text="po.number"></a></td>
                             <td x-text="po.supplier.name"></td>
                             <td><span class="pill" :data-tone="tone(po)" x-text="label(po)"></span></td>
                             <td>

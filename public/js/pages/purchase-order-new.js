@@ -132,7 +132,7 @@ document.addEventListener('alpine:init', function () {
           }),
         }, { silent: false }).then(function (result) {
           // Stay busy while the browser navigates, so a second click cannot draft a second order.
-          location.href = '/purchase-orders/' + result.data.id;
+          location.href = '/purchase-orders/' + encodeURIComponent(result.data.id);
         }).catch(function (e) {
           self.busy = false;
           if (e.status === 422) {
