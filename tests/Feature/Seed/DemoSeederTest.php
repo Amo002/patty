@@ -173,15 +173,9 @@ it('stops marking audit entries as seed once the seeder has finished', function 
     expect($entry->properties->has('seed'))->toBeFalse();
 });
 
-it('points every image_path at a file that exists, and keeps the photos under 1 MB in total', function () {
-    $paths = Ingredient::query()->pluck('image_path')->merge(MenuItem::query()->pluck('image_path'))->filter();
-
-    foreach ($paths as $path) {
-        expect(is_file(public_path($path)))->toBeTrue("{$path} is missing");
-    }
-
-    $bytes = collect(glob(public_path('images/seed/*/*.webp')) ?: [])->sum(fn ($file) => filesize($file));
-    expect($bytes)->toBeLessThan(1_000_000);
+it('seeds no photos, so every record shows its icon (D-046)', function () {
+    expect(Ingredient::query()->whereNotNull('image_path')->count())->toBe(0)
+        ->and(MenuItem::query()->whereNotNull('image_path')->count())->toBe(0);
 });
 
 it('gives the same counts and the same final stock on every run', function () {

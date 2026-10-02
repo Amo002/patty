@@ -98,10 +98,10 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($ingredients as $slug => [$name, $unit, $extra]) {
+            // No photos (D-046): image_path stays null and the UI shows the ingredient icon.
             $this->ingredients[$slug] = $ingredientService->create([
                 'name' => $name,
                 'unit' => $unit->value,
-                'image_path' => $this->image('ingredients', $slug),
             ] + $extra);
         }
 
@@ -134,15 +134,7 @@ class DemoSeeder extends Seeder
                 $lines[] = ['ingredient' => $this->ingredients[$ingredientSlug], 'quantity' => $quantity];
             }
 
-            $item = $menuService->create($name, $lines);
-
-            // MenuService::create has no image argument (the API has no upload, D-001), so the photo path is set
-            // directly: it is a display field, not stock or state.
-            if (($path = $this->image('menu', $slug)) !== null) {
-                $item->update(['image_path' => $path]);
-            }
-
-            $this->menu[$slug] = $item;
+            $this->menu[$slug] = $menuService->create($name, $lines);
         }
     }
 
@@ -278,15 +270,5 @@ class DemoSeeder extends Seeder
         }
 
         $receiving->receive($po, $lines, Carbon::now());
-    }
-
-    /**
-     * The photo path when the file exists, otherwise null (the UI shows the icon). D-036.
-     */
-    private function image(string $folder, string $slug): ?string
-    {
-        $path = "images/seed/{$folder}/{$slug}.webp";
-
-        return is_file(public_path($path)) ? $path : null;
     }
 }
