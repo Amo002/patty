@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\ViewException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /*
@@ -13,6 +14,8 @@ it('renders the dashboard placeholder inside the shared layout', function () {
 
     $response->assertOk()
         ->assertSee('/brand/favicon.svg', false)
+        ->assertSee('/brand/favicon-32.png', false)
+        ->assertSee('/brand/apple-touch-icon.png', false)
         ->assertSee('/css/app.css', false)
         ->assertSee('Dashboard arrives in PTY-12')
         ->assertSee('id="confirm-dialog"', false);
@@ -84,4 +87,21 @@ it('has an svg for every icon the layout and components use', function () {
 
 it('refuses an icon name that could escape the icons folder', function () {
     expect(fn () => view('components.icon', ['name' => '../../.env'])->render())->toThrow(HttpException::class);
+});
+
+it('fails loudly on an unknown icon outside production', function () {
+    expect(fn () => view('components.icon', ['name' => 'not-an-icon'])->render())
+        ->toThrow(ViewException::class, 'Unknown icon [not-an-icon]');
+});
+
+it('renders nothing, without failing, for an unknown icon in production', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    expect(trim(view('components.icon', ['name' => 'not-an-icon'])->render()))->toBe('');
+});
+
+it('gives each quantity input its own Alpine id scope instead of a render-time id', function () {
+    $html = view('components.quantity-input', ['unit' => 'g', 'label' => 'Beef'])->render();
+
+    expect($html)->toContain('x-id="[\'qty\']"')->toContain(':for="$id(\'qty\')"')->toContain(':id="$id(\'qty\')"');
 });
