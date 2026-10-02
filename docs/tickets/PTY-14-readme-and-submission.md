@@ -4,9 +4,9 @@
 |---|---|
 | Type | Task |
 | Phase | 6 Release and submission |
-| Status | To Do |
+| Status | In Progress |
 | Weight | S |
-| Builder | Sonnet 5.5 |
+| Builder | Opus 5.5 (orchestrator; agents at the usage limit) |
 | Reviewer | Opus 5.5 |
 | Branch | `PTY-14-readme-and-submission` |
 | Release | v1.0.0 |
@@ -33,3 +33,29 @@ The README the brief asks for, verified from a clean clone.
 - [ ] Clean-clone check: clone into a temp folder, follow the README word for word, and the app and tests run. Record the result in the ticket.
 - [ ] AI_LOG tidied. Nothing removed, summaries added.
 - [ ] Release PR `develop` into `main`, tag `v1.0.0`, GitHub Release notes
+
+## Progress
+
+### Clean-clone check, 2026-10-02 (branch `PTY-14-readme-and-submission`, before #26 to #28 merged)
+
+The repository was cloned from GitHub into a temp folder on Windows 11, and the README was followed word for word:
+- `composer setup`: exit 0 in 153 s, mostly the dependency download. It ended with "DemoSeeder ... DONE".
+- `php artisan serve`: `/`, `/ingredients`, `/purchase-orders`, `/pos`, `/activity` and `/api/v1/dashboard` all return 200. The dashboard shows 12 ingredients, 1 negative (cheese), 2 open orders and 3 outstanding lines, which matches the seed.
+- `php artisan test`: 420 passed.
+- The Windows read-only folder problem seen in agent worktrees did not occur on a fresh clone.
+
+The check is repeated on `develop` after the open PRs merge, before the release PR.
+
+Done so far: the README sections, the decisions section, "How Patty joins the ERP", "Logs versus audit trail", the four "What next" items, and the clean-clone check above.
+
+### Not done yet
+
+- **GIFs under "What it looks like":** they need a browser recording against a throwaway copy of the app. Waiting for Mohamad's go-ahead.
+- **`/security-review` on the final branch:** the PTY-21 Opus pass ran on 2026-10-02 (#26). The Fable pass is Mohamad's.
+- **AI_LOG summary:** added after #27 merges, to avoid editing the same file in two PRs.
+- **Release:** a PR from `develop` into `main`, the `v1.0.0` tag and the GitHub Release notes, after everything is merged.
+
+### Fact checks made while writing
+
+- A first draft said pieces get "no rounding room" on over-delivery. That is wrong: the 5% applies to pieces too (the demo receives 315 buns for 300). Pieces only lack the absolute cap. It was corrected before commit.
+- Every test path in the "Test it" table was checked to exist. The below-zero and trigger claims were checked against `SalesTest` (T7) and `ConstraintsTest` (T19).
