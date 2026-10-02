@@ -75,3 +75,25 @@ Decisions and notes for review:
 - Pieces display as `pc` for exactly 1 and `pcs` otherwise (ui.md only shows the plural).
 - The status mapping exists twice (PHP in `<x-status-pill>`, JS in `Patty.statusMeta`) because Alpine templates cannot call Blade.
 - I could not drive the pages in a browser from this environment (Chrome could not reach the local server), so visual review and Alpine behaviour (x-modelable prefill, dialog transitions) still need the design reviewer's pass on `/_styleguide`.
+
+## Reviewer findings
+
+Code review by Opus 5.5, 2026-10-02. Verdict: approve once F1 to F3 are fixed (all small; PTY-12 copies these patterns). Pint passes, 83 tests pass, all 36 `units.test.html` checks pass under node, the tokens match design.md in light and dark exactly, Alpine matches upstream 3.14.9 byte for byte, and running `build-brand-pngs.php` again leaves the PNGs unchanged.
+
+| # | Severity | File:line | Finding | Resolution |
+|---|---|---|---|---|
+| F1 | Medium | public/js/ui.js:292 | The page cannot re-express a server 422 in the unit the user typed (D-038, ui.md last row): `quantity-change` sends `{ base, error }` but not `mode`, and nothing calls `units.rewriteError`. Add `mode` to the event detail (or a `rewrite(message)` method on the component) and show it in the styleguide. | open |
+| F2 | Medium | resources/views/components/quantity-input.blade.php:9 | The id comes from `Str::random` when the Blade renders, so a component inside an Alpine `x-for` (delivery and PO lines in PTY-12) gives every row the same id: the label `for` and `aria-describedby` all point at the first row. Allow a bound id (`x-bind:id`) or build the id in Alpine. | open |
+| F3 | Medium | public/css/app.css:413 | The busy state stops pointer clicks only (`pointer-events: none`). Enter or Space on a focused busy button still fires `click`. The confirm dialog guards this in `accept()`, but the styleguide pattern (`:aria-busy="busy"` alone) does not, and rule 1 says buttons *disable*. Document and use `:disabled="busy"` together with `:aria-busy`. | open |
+| F4 | Low | public/js/ui.js:300 | `parseInput` accepts `-1`, `-1.5` and `0`, so the quantity input reports no error for them. Every quantity field (PO line, delivery, recipe) needs at least 1. Refuse values of 0 or below before submit (the server's 422 is still the backstop). | open |
+| F5 | Low | public/css/app.css:529 | `.segmented button` is 40 px tall, under the 44 px tap target in rule 8 (unit switch and theme switch). | open |
+| F6 | Low | public/css/app.css:334 | `max-width: 820px` collapses the sidebar at exactly 820 px. ui.md says "below 820 px". Either use 819.98px or record the call (a drawer may well be the better choice on an 820 px iPad). | open |
+| F7 | Low | public/js/ui.js:157 | Confirm with `run`: a 409 or 500 is reported twice (a toast from api.js plus the inline error), and after a 409 the dialog stays open on stale data. When `e.handled` is true, close the dialog instead of showing the error. | open |
+| F8 | Low | resources/views/layouts/app.blade.php:157 | `x-for` uses `:key="line"`, so two identical summary lines collide. Key by index. | open |
+| F9 | Low | resources/views/components/photo.blade.php:10 | `onerror="this.hidden = true"` is never undone, so a later valid `src` (after a refetch) stays hidden. Clear `hidden` on `load`. | open |
+| F10 | Low | resources/views/components/icon.blade.php:10 | A misspelled icon name renders nothing, silently. Fail loudly outside production. | open |
+| F11 | Info | public/js/ui.js:25 | The duplicated status map is acceptable. The API already returns `status_label` (api.md), so Alpine pills could show that and map only the tone, which leaves one copy of the wording. | open |
+| F12 | Info | tests/Feature/Web/ShellTest.php:15 | Mutation check: removing the PNG favicon and apple-touch-icon links still passes. Assert `/brand/favicon-32.png` and `/brand/apple-touch-icon.png` too. | open |
+| F13 | Info | public/js/api.js:163 | `poll` refetches on `visibilitychange` but not on window `focus` (U3 says "on focus"), which matters with two windows side by side. Optional. | open |
+
+Accepted deviations: the `menu-toggle` icon; `Restaurant01` and `CreditCardPos`; `pc` and `pcs`; `pageshow` only when `persisted`; one ApiError path with 422 unhandled; the `rewriteError` regex (it matches api.md's "Beef: 1,100 g is above the 1,050 g limit." and the longer "receiving 500 g would bring the total to 1,100 g" form); no reset button until PTY-22; the loader mechanics; `SESSION_DRIVER=database` (unchanged from develop, needs `migrate` before the first page view, which the README already requires).
