@@ -7,11 +7,13 @@ use App\Exceptions\Domain\IdempotencyConflict;
 use App\Exceptions\Domain\MenuItemNotSellable;
 use App\Models\MenuItem;
 use App\Models\Sale;
+use App\Models\StockMovement;
 use App\Support\Audit;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -94,21 +96,27 @@ class SaleService
      *
      * Movements are read back from the ledger rather than recomputed from the
      * recipe, so a recipe changed after the sale cannot change what is shown
-     * (Q-007). `on_hand_after` is the CURRENT on-hand, from one grouped query:
-     * stock after this sale and everything since. For a sale just recorded that
-     * is exactly "after this sale".
+     * (Q-007). `on_hand_after` is the balance AT each movement: the sum of that
+     * ingredient's movements up to and including it. It is therefore the same
+     * figure whenever the sale is read (a replay answers exactly as the first
+     * response did) and equals the current on-hand only while nothing newer exists.
      *
-     * @param  Collection<int, Sale>|iterable<Sale>  $sales
+     * Costs a fixed number of queries however many sales are passed: one eager
+     * load per relation plus one balance query for every movement.
+     *
+     * @param  iterable<Sale>  $sales
      * @return Collection<int, Sale>
      */
     public function withDeductions(iterable $sales): Collection
     {
-        $sales = collect($sales)->each->load(['menuItem', 'stockMovements' => fn ($q) => $q->orderBy('id'), 'stockMovements.ingredient']);
-        $onHand = $this->ledger->onHandForAll();
+        // Collection::load() eager-loads once for the whole set. Iterating and calling load() per model
+        // would repeat every query per sale.
+        $sales = (new Collection($sales))->load(['menuItem', 'stockMovements' => fn ($q) => $q->orderBy('id'), 'stockMovements.ingredient']);
+        $balances = $this->balancesAt($sales->pluck('stockMovements')->flatten()->pluck('id')->all());
 
         foreach ($sales as $sale) {
-            $sale->setRelation('deductions', $sale->stockMovements->map(function ($movement) use ($onHand) {
-                $after = $onHand->get($movement->ingredient_id, 0);
+            $sale->setRelation('deductions', $sale->stockMovements->map(function ($movement) use ($balances) {
+                $after = (int) $balances->get($movement->id, 0);
 
                 return [
                     'ingredient' => $movement->ingredient,
@@ -121,6 +129,35 @@ class SaleService
         }
 
         return $sales;
+    }
+
+    /**
+     * The ingredient's balance right after each given movement, keyed by movement id, in ONE query.
+     *
+     * Same arithmetic as StockLedger::onHand() (SUM of quantity_delta), limited to movements with
+     * an id up to the one asked about. Ids grow in insertion order, so "up to this id" is "as of
+     * this movement". A correlated subquery keeps it to one round trip for any number of movements.
+     *
+     * @param  array<int, int>  $movementIds
+     * @return SupportCollection<int, int>
+     */
+    private function balancesAt(array $movementIds): SupportCollection
+    {
+        if ($movementIds === []) {
+            return collect();
+        }
+
+        $upToThisMovement = StockMovement::query()
+            ->from('stock_movements as earlier')
+            ->selectRaw('SUM(earlier.quantity_delta)')
+            ->whereColumn('earlier.ingredient_id', 'stock_movements.ingredient_id')
+            ->whereColumn('earlier.id', '<=', 'stock_movements.id');
+
+        return StockMovement::query()
+            ->whereIn('id', $movementIds)
+            ->select('id')
+            ->selectSub($upToThisMovement, 'balance')
+            ->pluck('balance', 'id');
     }
 
     /**

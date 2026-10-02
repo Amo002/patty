@@ -18,6 +18,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Monolog\Handler\TestHandler;
@@ -269,6 +270,51 @@ it('accepts a sold_at in the past and stamps the movements with it', function ()
 
     expect(Sale::firstOrFail()->sold_at->equalTo($when))->toBeTrue()
         ->and(StockMovement::where('reason', 'sale')->first()->occurred_at->equalTo($when))->toBeTrue();
+});
+
+it('reports on_hand_after as the balance at that sale, so a replay and the list match the first answer', function () {
+    $i = saleSetup(1000, 10, 100);
+
+    $a = postSale($i, ['pos_reference' => 'till-1:A'])->assertCreated();
+    postSale($i, ['pos_reference' => 'till-1:B', 'quantity' => 3])->assertCreated();
+    $replayA = postSale($i, ['pos_reference' => 'till-1:A'])->assertOk()->assertJsonPath('data.replayed', true);
+
+    $figures = fn (array $deductions) => collect($deductions)
+        ->mapWithKeys(fn ($d) => [$d['ingredient']['name'] => [$d['on_hand_after'], $d['is_negative']]])->all();
+    $first = $figures($a->json('data.deductions'));
+
+    // After A alone: beef 700, bun 8, cheese 60. Sale B has since taken them lower (beef 250, bun 5, cheese 0).
+    expect($first)->toBe(['Beef' => [700, false], 'Bun' => [8, false], 'Cheese' => [60, false]])
+        ->and($figures($replayA->json('data.deductions')))->toBe($first)
+        ->and(onHandOf($i['beef']))->toBe(250);
+
+    $list = $this->getJson('/api/v1/sales')->assertOk();
+    expect($list->json())->assertNoIntegerIds();
+    $rowA = collect($list->json('data'))->firstWhere('number', $a->json('data.number'));
+    expect($figures($rowA['deductions']))->toBe($first);
+    // B is the newest sale and shows the later balances.
+    expect($list->json('data.0.deductions.0.on_hand_after'))->toBe(250);
+});
+
+it('uses the same number of queries to list one sale as ten', function () {
+    $i = saleSetup(1000000, 1000000, 1000000);
+    $queries = function () {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        test()->getJson('/api/v1/sales?per_page=100')->assertOk();
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    };
+
+    postSale($i)->assertCreated();
+    $one = $queries();
+    foreach (range(1, 9) as $n) {
+        postSale($i)->assertCreated();
+    }
+
+    expect(Sale::count())->toBe(10)->and($queries())->toBe($one);
 });
 
 it('stores a sold_at sent with a UTC offset as the same instant in UTC', function () {

@@ -8,7 +8,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * api.md "Sale". Expects menuItem and the `deductions` relation, which
- * SaleService::withDeductions() sets, so a list of sales costs a fixed number of queries.
+ * SaleService::withDeductions() sets for the whole page at once, so a list of
+ * sales costs the same number of queries whether it holds one sale or a hundred.
  *
  * @mixin Sale
  */
