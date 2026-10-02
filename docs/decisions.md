@@ -92,7 +92,7 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Date:** 2026-10-01
 
 ## D-015 One unit per ingredient, integer quantities (Q-006)
-- **Chosen:** `g`, `ml` or `piece` per ingredient. All quantities are unsigned integers in that unit, with no conversion. The unit is locked once stock has moved.
+- **Chosen:** `g`, `ml` or `piece` per ingredient. All quantities are unsigned integers in that unit, with no conversion. The unit is locked once the ingredient is used (D-044).
 - **Rejected:** purchase-unit conversion (a next step).
 - **Date:** 2026-10-01
 
@@ -401,5 +401,20 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Chosen:** Mohamad approved the brand board and the design system (light and dark) on 2026-10-01. The 7 screens are **not** drawn as separate mockups. They are built directly in code (PTY-12, PTY-18, PTY-19) from the approved tokens and components, and reviewed in the browser by the design reviewer.
 - **Why:** about 8 hours of build time remain. Drawing 7 screens in 4 states would cost hours of usage and review before any feature exists. The design system already fixes every component and state the screens use, so the screens are compositions of approved parts.
 - **Supersedes:** the "all 7 screens before approval" scope chosen earlier the same day.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
+
+## D-044 Unit locks once an ingredient is used anywhere
+- **Chosen:** an ingredient's unit cannot change once the ingredient has stock movements, appears in any recipe line, or appears in any purchase order line. The API answers 409 `unit_locked` and names the use ("Beef is already used in recipes, so its unit (g) can't change."). The resource's `unit_locked` flag follows the same rule. Sending the unchanged unit is not a change and is allowed.
+- **Why:** movements, recipe quantities and PO quantities are all integers in the ingredient's unit. Changing g to ml would reinterpret every one of them (a recipe's 150 g becomes 150 ml, a sent PO's 1000 g becomes 1000 ml). Locking on movements alone (the first reading of D-015) left recipes and orders exposed.
+- **Units stay a fixed enum** (`g`, `ml`, `piece`) with no units table. Purchase units with conversion factors (buy in drums, consume in ml) are a next step (Q-006).
+- **Supersedes:** the "locked once stock has moved" wording in D-015.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-02
+
+## D-045 Up to four agents at once (amends D-040)
+- **Chosen:** at most **4 sub-agents at the same time: 3 builders (Sonnet 5.5) and 1 reviewer (Opus 5.5)**. Previously 2 builders and 1 reviewer.
+- **Why:** after waves 1 and 2 showed the pipeline working (each ticket built, reviewed by a higher tier, fixed, verified, then one PR per ticket), Mohamad raised the limit to shorten the remaining build. One reviewer at a time still means every ticket gets an independent review.
+- **How it was decided:** a builder agent relayed "the user says 4 is fine". The orchestrator did not act on that, because a relayed claim is not the owner's instruction. Mohamad then confirmed it directly.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01

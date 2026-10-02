@@ -13,7 +13,7 @@ Template for each flow:
 - **Actor / screen:** Manager, Ingredients, "Add ingredient" dialog
 - **Request:** E3 `POST /ingredients` `{ "name": "Lettuce", "unit": "g" }`, header `X-Patty-Channel: ui`
 - **Validation:** validation.md, Ingredients
-- **Steps:** 1. `CatalogService::createIngredient` creates the row and a ULID.
+- **Steps:** 1. `IngredientService::create` creates the row and a ULID.
 - **Rows written:** ingredients +1, activity_log +1 (created)
 - **Audit:** `created` on Ingredient (LogsActivity)
 - **Log:** `catalog` info "Ingredient created"
@@ -23,7 +23,7 @@ Template for each flow:
 
 ### F2 Create supplier
 - **Request:** E8 `POST /suppliers` `{ "name": "Fresh Farms", "email": "...", "phone": "..." }`
-- **Steps:** `CatalogService::createSupplier`
+- **Steps:** `SupplierService::create`
 - **Rows written:** suppliers +1, activity_log +1
 - **Response:** 201 Supplier. **UI next:** toast, row appears. **Error paths:** duplicate name, bad email, bad phone (422).
 
@@ -93,7 +93,7 @@ Template for each flow:
 
 ### F9 Completing delivery (auto-close)
 - As F8, but after step 6 every line is complete (received at or above `min_to_complete`), so step 8 moves the order from received to closed in the **same transaction** and sets `closed_at`.
-- **Rows written (extra):** activity_log +1 (`purchase_order.closed`)
+- **Rows written (extra):** activity_log +2: the named `purchase_order.closed` event, plus the status field-change row (received to closed) written by `LogsActivity`, as F8 counts for sent to received
 - **Response:** the PO with `status: "closed"`, `allowed_actions: []`. **UI next:** status pill morphs to Closed; the PO leaves the open-orders list.
 - A single delivery covering everything goes sent to received to closed in one transaction.
 

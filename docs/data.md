@@ -46,7 +46,7 @@ All tables have `id` and `created_at`/`updated_at` unless noted. All quantities 
 | Column | Type | Notes |
 |---|---|---|
 | name | string, unique | |
-| unit | string | enum `Unit`: `g`, `ml`, `piece`. Locked once movements exist. |
+| unit | string | enum `Unit`: `g`, `ml`, `piece`. Locked once the ingredient has movements, recipe lines or PO lines (D-015, D-044). |
 | over_tolerance_bps | unsigned smallint, nullable | Over-delivery % in basis points (500 = 5%). Null means the unit default (D-035). |
 | under_tolerance_bps | unsigned smallint, nullable | Under-delivery % in basis points. Null means the unit default. |
 | over_tolerance_cap | unsigned int, nullable | Absolute over-delivery cap in the ingredient unit. Null means the unit default (2,000 for g and ml, none for piece). |

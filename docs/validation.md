@@ -22,9 +22,9 @@ The single source of truth for what input is accepted. Every rule here has a tes
 ### Ingredients (E3 POST, E5 PATCH): `StoreIngredientRequest`, `UpdateIngredientRequest`
 | Field | Rules | Example failure |
 |---|---|---|
-| name | required (POST), `string`, `min:2`, `max:100`, unique (G6) | "An ingredient called Beef already exists." |
+| name | required (POST), `string`, `min:2`, `max:100`, unique (G6) | "An ingredient with this name already exists." |
 | unit | required (POST), `Rule::enum(Unit::class)` (`g`, `ml`, `piece`) | "Unit must be one of g, ml, piece." |
-| unit change when movements exist | service: `UnitLocked` | 409 `unit_locked`: "Beef already has stock history in g, so its unit can't change." |
+| unit change when the ingredient is used | service: `UnitLocked` | 409 `unit_locked`: "Beef is already used in recipes, so its unit (g) can't change." Used means stock movements, recipe lines or PO lines (D-044). Resending the same unit is allowed. |
 | over_tolerance_bps | `nullable`, `integer`, `min:0`, `max:10000` (0% to 100%, basis points) | "Over-delivery tolerance must be between 0% and 100%." |
 | under_tolerance_bps | `nullable`, `integer`, `min:0`, `max:10000` | |
 | over_tolerance_cap | `nullable`, `integer`, `min:0`, `max:1000000`, in the ingredient unit | |
