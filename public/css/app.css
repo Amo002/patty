@@ -535,7 +535,7 @@ svg { display: block; max-width: 100%; }
   border-left: 1px solid var(--border);
 }
 
-.qty .segmented { border: 0; border-left: 1px solid var(--border); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.qty .segmented { padding: 0; gap: 0; border: 0; border-left: 1px solid var(--border); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
 
 /* Segmented control: unit switch and theme switch */
 .segmented {
@@ -548,7 +548,7 @@ svg { display: block; max-width: 100%; }
 }
 
 .segmented button {
-  min-height: 40px;
+  min-height: var(--tap);
   min-width: 44px;
   padding: 0 var(--sp-3);
   border: 0;
