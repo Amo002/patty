@@ -73,7 +73,7 @@ it('never renders API data as HTML in the purchasing pages (S5)', function () {
     ])->map(fn ($file) => $file instanceof SplFileInfo ? $file : new SplFileInfo($file));
 
     $offenders = $files
-        ->filter(fn (SplFileInfo $file) => preg_match('/x-html|innerHTML|outerHTML|insertAdjacentHTML|document\.write/', file_get_contents($file->getPathname())) === 1)
+        ->filter(fn (SplFileInfo $file) => preg_match('/x-html|\{!!|innerHTML|outerHTML|insertAdjacentHTML|document\.write/', file_get_contents($file->getPathname())) === 1)
         ->map(fn (SplFileInfo $file) => $file->getFilename());
 
     expect($files->count())->toBeGreaterThan(5);
