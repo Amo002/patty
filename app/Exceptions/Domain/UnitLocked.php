@@ -5,20 +5,21 @@ namespace App\Exceptions\Domain;
 use App\Models\Ingredient;
 
 /**
- * An ingredient's unit cannot change once stock has moved (Q-007, D-019).
+ * An ingredient's unit cannot change once it is used anywhere (D-044, D-019).
  *
- * Existing movements are plain integers in the old unit. Relabelling them
- * from g to ml would silently turn 500 g into 500 ml, so the stock history
- * would stop being true. Hence 409: the state forbids it, the input is fine.
+ * Stock movements, recipe lines and purchase order lines are plain integers
+ * in the ingredient's unit. Relabelling them from g to ml would silently turn
+ * 500 g into 500 ml. Hence 409: the state forbids it, the input is fine.
  */
 class UnitLocked extends DomainException
 {
     /**
-     * @param  Ingredient  $ingredient  with its stored (old) unit, which the message names
+     * @param  Ingredient  $ingredient  with its stored (old) unit
+     * @param  string  $usedBy  which use holds the lock: `stock history`, `recipes` or `purchase orders`
      */
-    public static function for(Ingredient $ingredient): self
+    public static function for(Ingredient $ingredient, string $usedBy): self
     {
-        return new self("{$ingredient->name} already has stock history in {$ingredient->unit->value}, so its unit can't change.");
+        return new self("{$ingredient->name} is already used in {$usedBy}, so its unit ({$ingredient->unit->value}) can't change.");
     }
 
     public function status(): int
