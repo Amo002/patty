@@ -4,6 +4,37 @@ How AI was used to build Patty: the main prompts, what came back, what was wrong
 
 Setup: Claude Code (CLI) as orchestrator, with builder and reviewer sub-agents per [agents.md](agents.md). Mohamad reviews and merges everything.
 
+## Summary (added at release, 2026-10-02; the entries below are unchanged)
+
+**How the work was split:**
+- Mohamad answered every unclear point in the brief (Q-001 to Q-016) and set the working rules: one ticket per pull request, every commit his with no AI co-author lines, no emoji, docs first.
+- He reviewed and merged every pull request.
+- Claude Code (Opus 5.5) planned, wrote the docs and briefed the agents. Sonnet 5.5 agents built the tickets in separate git worktrees. Opus 5.5 agents reviewed each backend ticket before its pull request.
+- When the agents hit the weekly usage limit, the orchestrator finished the remaining work itself.
+
+**What worked:**
+- **A reviewer one tier above the builder, using mutation checks.** It broke each rule on purpose and required a test to fail. It caught real bugs that a green suite missed:
+  - sale times stored three hours wrong;
+  - stock log lines written for movements that were rolled back;
+  - `integer` validation accepting `true` as 1;
+  - an ingredient history that never showed more than 25 movements;
+  - a running balance that would have been wrong for backdated entries.
+- **Checking claims against the running system, not the reasoning.** This is how the CORS hole behind the first CSRF fix was found, and how three Docker build failures surfaced in files that had never been run.
+
+**What had to be fixed in the AI's own work:**
+- tests that could not fail (they are listed in the entries below);
+- a design board showing a metric the system does not compute;
+- a rationale attributed to Mohamad that he had not given (D-011);
+- a test run in the wrong folder;
+- a file written to the wrong worktree;
+- a factual error in the first README draft (the over-delivery rule for pieces);
+- the incomplete first CSRF fix.
+
+**Limits that changed the plan:**
+- machine restarts lost uncommitted agent work twice, so builders committed after every working piece from then on;
+- the weekly usage limit ended agent use on 2026-10-02;
+- no Fable credits, so the planned second security pass was dropped (D-047).
+
 ---
 
 ## 2026-10-01: Planning
