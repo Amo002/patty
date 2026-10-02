@@ -139,10 +139,12 @@
     var timer = null;
     var running = false;
     var stopped = false;
+    var lastRun = 0;
 
     function run() {
       if (stopped || running) return;
       running = true;
+      lastRun = Date.now();
       Promise.resolve()
         .then(fn)
         .then(function () {
@@ -160,8 +162,18 @@
       if (!document.hidden) run();
     }
 
+    // Switching windows fires visibilitychange and focus together (U3). Whichever comes second finds a run
+    // that just started and does nothing, so one switch is one fetch.
+    function runSoon() {
+      if (!document.hidden && Date.now() - lastRun > 1000) run();
+    }
+
     function onVisibility() {
-      if (!document.hidden) run();
+      runSoon();
+    }
+
+    function onFocus() {
+      runSoon();
     }
 
     // A normal load also fires pageshow, and the page has just fetched its own data, so only a restore counts.
@@ -172,6 +184,7 @@
     timer = root.setInterval(tick, ms);
     document.addEventListener('visibilitychange', onVisibility);
     root.addEventListener('pageshow', onPageShow);
+    root.addEventListener('focus', onFocus);
 
     return {
       refresh: run,
@@ -180,6 +193,7 @@
         root.clearInterval(timer);
         document.removeEventListener('visibilitychange', onVisibility);
         root.removeEventListener('pageshow', onPageShow);
+        root.removeEventListener('focus', onFocus);
       },
     };
   }
