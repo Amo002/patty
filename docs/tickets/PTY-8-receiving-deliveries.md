@@ -116,3 +116,33 @@ What was done:
 Deviations:
 - The Delivery resource has no `purchase_order_id` (the api.md Delivery shape has none).
 - `docs/AI_LOG.md` was not appended (outside this ticket's ownership); the coordinator should add the entry.
+
+## Reviewer findings
+
+Reviewer: Opus 5.5. Verdict: approve after the Low items are resolved or accepted. No blockers. Pint clean, 233 tests pass, and 11 of 12 mutations are killed (the survivor is finding 2).
+
+| # | Severity | File:line | Finding | Resolution |
+|---|---|---|---|---|
+| 1 | Low | app/Services/ReceivingService.php:109 | The `purchase_order.closed` description says "every line fully received". That is false for an under-tolerance close (T9e: 960 of 1000 closes with 40 under-delivered), and the manager sees this sentence in the audit trail. Say "every line complete" instead. | open |
+| 2 | Low | app/Http/Requests/V1/StoreDeliveryRequest.php:111-124 | The docblock says the comparisons must be normalised to UTC. They do not need to be: Carbon's `isFuture()` and `lt()` compare instants, so removing `->utc()` at :124 still passes every test (mutation M9a survives). The `->utc()` that matters is at :154, before storage, because Eloquent writes the clock time without converting. Fix the comment, and optionally the redundant calls, so the explanation given live is the right one. | open |
+| 3 | Low | app/Exceptions/Domain/OverDelivery.php:49,56 | For pieces the message reads "Bun: 11 piece is above the 10 piece limit". ui.md shows pieces as "pcs". `units.js` does not exist yet (PTY-11), so `rewriteError` cannot be checked yet. Either use the unit's display label in the message, or write the message format into PTY-11 ("<number with commas> <unit value>", unit being g, ml or piece). | open |
+| 4 | Low | app/Http/Requests/V1/StoreDeliveryRequest.php:95-103 | validation.md G7 asks for "Line 2 (Beef): ..." and an `attributes()` mapping. The messages use "Line :position:" with no ingredient name, and this is not listed as a deviation. That is defensible, because the name is unknown when the ULID itself is invalid, but record it as a deviation. | open |
+| 5 | Low | tests/Feature/Purchasing/ReceivingTest.php | The ticket says to call `assertNoIntegerIds()` in every test. It is called in 5 tests, which cover every response shape (201, 422 `over_delivery`, 409, E24), but not the 422 validation responses or the T9 tests. That is a reasonable call; record it as a deviation, or add the call. | open |
+| 6 | Info | docs/flows.md (F9) | F9 says a close adds 1 activity_log row. The code adds 2: the named `purchase_order.closed` and the LogsActivity `updated` row for the status change. That matches how F8 counts the received move. The flows doc is wrong, not the code. | open |
+| 7 | Info | app/Services/StockLedger.php (PTY-6) | The stock log's `reference` falls back to the integer key for delivery lines, which have no ULID. Deliveries are the first code path that reaches this. It is a log, not the API or the audit trail, so D-031 is arguably not breached, but the owner should decide. | open |
+| 8 | Info | app/Http/Requests/V1/StoreDeliveryRequest.php:126 | `isFuture()` is strict. A browser clock a few seconds ahead that sends `toISOString()` for "now" would get a 422. PTY-12 should omit `received_at` when the user means now. | open |
+| 9 | Info | docs/AI_LOG.md | The PTY-8 entry is still owed by the coordinator (the builder noted this). | open |
+
+Mutation results (full suite after each mutation, then restored):
+- M1, live ingredient tolerance instead of the snapshot: killed (3 tests fail).
+- M2, cap dropped: killed (4).
+- M3, the percentage rounded up: killed (2).
+- M4, the `max(1)` floor removed: killed (1, the unit test; there is no feature test).
+- M5, close when ANY line is complete: killed (1).
+- M6, no sent-to-received move: killed (15).
+- M7, receiving on a draft allowed: killed (1).
+- M8, the line-belongs-to-this-PO scope dropped: killed (1).
+- M9a, `->utc()` removed in `after()`: **survived** (finding 2).
+- M9b, `->utc()` removed in `passedValidation()`: killed.
+- M9c, every `->utc()` removed: killed.
+- M10, `DB::transaction` dropped: killed (the audit-failure test).
