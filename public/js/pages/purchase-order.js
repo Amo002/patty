@@ -32,6 +32,7 @@ document.addEventListener('alpine:init', function () {
       notFound: false,
       error: null,
       nextKey: 1,
+      poller: null,
       // Bumped each time an action's own response is adopted. See fetchPo.
       actionSeq: 0,
 
@@ -50,7 +51,14 @@ document.addEventListener('alpine:init', function () {
         var self = this;
         this.load();
         this.loadActivity();
-        Patty.api.poll(function () { return self.refresh(); }, 10000);
+        this.poller = Patty.api.poll(function () { return self.refresh(); }, 10000);
+      },
+
+      // A deleted or unknown order will not come back, so polling stops and the empty state stays put.
+      markNotFound: function () {
+        this.po = null;
+        this.notFound = true;
+        if (this.poller) this.poller.stop();
       },
 
       /* ---------- loading ---------- */
@@ -65,8 +73,8 @@ document.addEventListener('alpine:init', function () {
           Patty.markFresh();
         }).catch(function (e) {
           self.loading = false;
-          self.notFound = e.status === 404;
-          if (!self.notFound) self.error = P.failure(e);
+          if (e.status === 404) self.markNotFound();
+          else self.error = P.failure(e);
         });
       },
 
@@ -91,10 +99,11 @@ document.addEventListener('alpine:init', function () {
       // Used by the poll and after a 409. The order and its activity are both stale after a conflict.
       refresh: function () {
         var self = this;
+        if (this.notFound) return Promise.resolve();
         if (!this.po) return this.load();
         this.loadActivity(true);
         return this.fetchPo().catch(function (e) {
-          if (e.status === 404) { self.po = null; self.notFound = true; }
+          if (e.status === 404) self.markNotFound();
           throw e;
         });
       },
