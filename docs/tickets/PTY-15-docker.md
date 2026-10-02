@@ -4,7 +4,7 @@
 |---|---|
 | Type | Task |
 | Phase | 6 Release and submission |
-| Status | In Review |
+| Status | Awaiting Mohamad |
 | Weight | S |
 | Builder | Sonnet 5.5 |
 | Reviewer | Opus 5.5 |
@@ -18,13 +18,13 @@ Run Patty on a machine without PHP: `docker compose up`, open the browser. Reque
 
 ## Acceptance criteria
 
-- [ ] `Dockerfile`: official `php:8.4-cli` image, with pdo_sqlite and composer. Installs dependencies at build time.
-- [ ] `compose.yaml`: one service `app`, port 8000, SQLite file on a named volume
-- [ ] An entrypoint prepares `.env` and the key, migrates and seeds on first run, then runs `php artisan serve --host=0.0.0.0`
-- [ ] `docker compose run --rm app php artisan test` runs the suite
-- [ ] `.dockerignore` excludes `vendor`, `.env`, `database/*.sqlite` and `.git`
-- [ ] README documents it as the alternative path. Composer remains the primary path.
-- [ ] Verified on Mohamad's machine (Docker Desktop)
+- [x] `Dockerfile`: official `php:8.4-cli` image, with pdo_sqlite (bundled in the image) and composer. Installs dependencies at build time.
+- [x] `compose.yaml`: one service `app`, port 8000, SQLite file on a named volume
+- [x] An entrypoint prepares `.env` and the key, migrates and seeds on first run, then runs `php artisan serve --host=0.0.0.0`
+- [x] `docker compose run --rm app php artisan test` runs the suite
+- [x] `.dockerignore` excludes `vendor`, `.env`, `database/*.sqlite` and `.git`
+- [x] README documents it as the alternative path. Composer remains the primary path.
+- [x] Verified on Mohamad's machine (Docker Desktop)
 
 ## Out of scope
 
@@ -48,3 +48,20 @@ nginx, php-fpm, MySQL, Redis, multi-stage production images.
 - `php artisan package:discover` in the build after a `--no-scripts` first install: expected to work, unverified.
 - The seeders must not need anything missing in the image.
 - `.env` lives in the container layer, not the volume, so `compose run --rm` creates a fresh one with a new key each time. Harmless: nothing encrypted is stored.
+
+## Verification (orchestrator, Docker Desktop on Mohamad's machine, engine 29.8.1)
+
+The first real build failed three times. Each failure was fixed and is described in the Dockerfile comments:
+
+| # | Failure | Cause | Fix |
+|---|---|---|---|
+| 1 | `configure: error: Package requirements (sqlite3 >= 3.7.7) were not met` | `docker-php-ext-install pdo_sqlite` rebuilds an extension the official image already has compiled in, and the sqlite headers are not installed | Removed pdo_sqlite from the install list (`php -m` on `php:8.4-cli` shows `pdo_sqlite` and `sqlite3`) |
+| 2 | (not a failure) GD with WebP built for seed photos | Photos were dropped by D-046 | Removed GD and its libraries: a smaller, faster image |
+| 3 | `package:discover`: `bootstrap/cache directory must be present and writable`, log file permission denied | The Windows checkout's read-only folder attributes reach the image as non-writable modes | The Dockerfile creates `storage/*` and `bootstrap/cache` and sets owner and modes itself, so the image no longer depends on how the host stores the files |
+
+Then, all checked:
+- `docker compose up --build`: migrates, seeds (DemoSeeder 1.4 s), serves. E28 answered with 12 ingredients and 1 negative within about 4 s of start.
+- `/`, `/purchase-orders`, `/pos`, `app.css`, `api.js` and the favicon return 200.
+- A supplier created through the API survives `docker compose restart`, and the seed does not run again (marker file).
+- `docker compose run --rm app php artisan test`: 420 passed. The demo database still had the same rows afterwards, which confirms the no-`environment:` reasoning above.
+- A rebuild with no code change takes about 2 s (cached layers).
