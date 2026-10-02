@@ -104,9 +104,12 @@
 
     /*
      * Confirm dialog (U6). One shared <dialog id="confirm-dialog"> lives in the layout.
-     * confirm({ title, message, lines, confirmLabel, tone, run }) resolves true or false.
-     * With `run`, the dialog stays open and the button shows the busy state until the request ends,
-     * and a failure is shown inside the dialog. That is what stops a double-click recording twice (rule 1).
+     * confirm({ title, message, lines, confirmLabel, tone, run, onConflict }) resolves true or false.
+     * With `run`, the dialog stays open and the button is disabled and busy until the request ends.
+     * That is what stops a double-click recording twice (rule 1). Failures:
+     *   - 422 and plain errors (not yet shown to the user) appear once, inline in the dialog;
+     *   - an error api.js already reported with a notice (e.handled) closes the dialog, so nothing shows twice;
+     *   - a 409 also runs `onConflict`, because the data behind the dialog is out of date (U7).
      */
     Alpine.store('confirm', {
       title: '',
@@ -117,6 +120,7 @@
       busy: false,
       error: '',
       run: null,
+      onConflict: null,
       resolve: null,
 
       open: function (options) {
@@ -127,6 +131,7 @@
         this.confirmLabel = options.confirmLabel || 'Confirm';
         this.tone = options.tone || 'primary';
         this.run = options.run || null;
+        this.onConflict = options.onConflict || null;
         this.busy = false;
         this.error = '';
         var self = this;
@@ -156,6 +161,12 @@
           })
           .catch(function (e) {
             self.busy = false;
+            if (e && e.handled) {
+              self.settle(false);
+              dialog.close();
+              if (e.status === 409 && self.onConflict) self.onConflict(e);
+              return;
+            }
             self.error = (e && e.message) || 'That did not work. Please try again.';
           });
       },
