@@ -99,6 +99,7 @@
                         <strong x-text="notice && notice.title"></strong>
                         <p class="text-sm" x-text="notice && notice.text"></p>
                         <p class="text-xs muted" x-show="notice && notice.detail" x-text="notice && notice.detail"></p>
+                        <p class="text-xs muted" x-show="notice && notice.requestId" x-text="'Request id: ' + (notice && notice.requestId)"></p>
                     </div>
                 </div>
 

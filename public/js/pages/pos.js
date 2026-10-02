@@ -140,20 +140,21 @@ document.addEventListener('alpine:init', function () {
 
       fail: function (e) {
         if (e.status === 401) {
-          this.notice = { tone: 'danger', title: 'This server requires a POS key', text: 'POS_API_KEY is set on this server, so a sale needs the X-POS-Key header. The simulator does not send one. Unset POS_API_KEY in .env to use it.' };
+          this.notice = { tone: 'danger', title: 'This server requires a POS key', text: 'POS_API_KEY is set on this server, so a sale needs the X-POS-Key header. The simulator does not send one. Unset POS_API_KEY in .env to use it.', requestId: e.requestId };
         } else if (e.status === 429) {
-          this.notice = { tone: 'warn', title: 'Too many sales too quickly', text: 'The till is rate limited. Wait a few seconds and sell again.' };
+          this.notice = { tone: 'warn', title: 'Too many sales too quickly', text: 'The till is rate limited. Wait a few seconds and sell again.', requestId: e.requestId };
         } else if (e.status === 409 && e.code === 'idempotency_conflict') {
           this.notice = {
             tone: 'warn',
             title: 'Refused: same reference, different sale',
             text: 'That reference was already used for a different item or quantity, so the server will not guess which one is right. Nothing moved in stock. A real till retries the exact same sale, which is a safe replay.',
             detail: e.message,
+            requestId: e.requestId,
           };
         } else if (e.status === 422) {
           var quantity = e.errors && e.errors.quantity;
           if (quantity) this.quantityError = quantity[0];
-          else this.notice = { tone: 'danger', title: 'The sale was not recorded', text: e.message };
+          else this.notice = { tone: 'danger', title: 'The sale was not recorded', text: e.message, requestId: e.requestId };
           if (e.code === 'menu_item_not_sellable') this.loadItems();
         } else {
           Patty.notify({ tone: 'error', message: e.message, requestId: e.requestId });
