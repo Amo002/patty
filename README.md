@@ -23,6 +23,18 @@ php artisan serve     # http://127.0.0.1:8000
 php artisan test
 ```
 
+## Run with Docker (optional)
+
+An alternative for a machine without PHP. The Composer path above stays the main one. Requires Docker with Compose.
+
+```sh
+docker compose up --build     # first start builds, migrates and seeds; then open http://127.0.0.1:8000
+docker compose run --rm app php artisan test
+docker compose down -v        # stop and delete the database volume (next start re-seeds)
+```
+
+The SQLite file lives on the named volume `patty-data`, so data survives `docker compose down` and restarts.
+
 ## Project docs
 
 | Doc | What |
