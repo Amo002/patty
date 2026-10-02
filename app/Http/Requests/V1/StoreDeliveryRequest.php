@@ -108,9 +108,10 @@ class StoreDeliveryRequest extends FormRequest
     }
 
     /**
-     * Time checks that need the order and the clock. Everything is compared in UTC:
-     * Carbon::parse keeps the caller's offset and Eloquent stores the clock time without
-     * converting, so +03:00 input must be normalised before it goes anywhere.
+     * Time checks that need the order and the clock. Carbon compares instants, so
+     * the caller's offset does not change these comparisons. The conversion that matters
+     * is in passedValidation(): Carbon::parse keeps the caller's offset and Eloquent stores
+     * the clock time without converting, so the value is put into UTC before it is saved.
      *
      * @return array<int, callable(Validator): void>
      */
@@ -121,7 +122,7 @@ class StoreDeliveryRequest extends FormRequest
                 return;
             }
 
-            $receivedAt = CarbonImmutable::parse($this->input('received_at'))->utc();
+            $receivedAt = CarbonImmutable::parse($this->input('received_at'));
             $order = $this->order();
 
             if ($receivedAt->isFuture()) {

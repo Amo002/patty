@@ -47,18 +47,18 @@ class OverDelivery extends DomainException
 
         foreach ($breaches as $b) {
             $errors["lines.{$b['index']}.quantity"][] = sprintf(
-                '%s: %s %s is above the %s %s limit.',
-                $b['ingredient'], number_format($b['attempted']), $b['unit'], number_format($b['limit']), $b['unit'],
+                '%s: %s is above the %s limit.',
+                $b['ingredient'], self::quantity($b['attempted'], $b['unit']), self::quantity($b['limit'], $b['unit']),
             );
         }
 
         $first = $breaches[0];
         $message = sprintf(
-            '%s: receiving %s %s would bring the total to %s %s, above the %s %s limit.',
+            '%s: receiving %s would bring the total to %s, above the %s limit.',
             $first['ingredient'],
-            number_format($first['attempted'] - $first['received']), $first['unit'],
-            number_format($first['attempted']), $first['unit'],
-            number_format($first['limit']), $first['unit'],
+            self::quantity($first['attempted'] - $first['received'], $first['unit']),
+            self::quantity($first['attempted'], $first['unit']),
+            self::quantity($first['limit'], $first['unit']),
         );
 
         if (count($breaches) > 1) {
@@ -66,5 +66,17 @@ class OverDelivery extends DomainException
         }
 
         return new self($message, $errors);
+    }
+
+    /**
+     * "1,100 g", "10 pcs", "1 pc": pieces read as pcs (pc for exactly 1), matching the UI (ui.md).
+     */
+    private static function quantity(int $amount, string $unit): string
+    {
+        if ($unit === 'piece') {
+            $unit = $amount === 1 ? 'pc' : 'pcs';
+        }
+
+        return number_format($amount).' '.$unit;
     }
 }

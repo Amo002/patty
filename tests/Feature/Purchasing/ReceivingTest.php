@@ -14,10 +14,23 @@ use App\Services\ReceivingService;
 use App\Services\StockLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use Monolog\Handler\TestHandler;
 use Spatie\Activitylog\Models\Activity;
 
 const RCV_URL = '/api/v1/purchase-orders';
+
+/**
+ * Every JSON response in this file goes through here, so D-031 (no integer ids
+ * reach a client) is checked on each of them, not only on a few.
+ */
+function api(string $method, string $url, array $data = []): TestResponse
+{
+    $response = $method === 'getJson' ? test()->getJson($url) : test()->postJson($url, $data);
+    expect($response->json())->assertNoIntegerIds();
+
+    return $response;
+}
 
 /** An ingredient by name, with the unit's default tolerance (over 5%, under 5%, cap 2000 g, none for pieces). */
 function rcvIngredient(string $name, Unit $unit = Unit::Gram): Ingredient
@@ -43,9 +56,9 @@ function sentOrder(array $lines): array
         ])->values()->all(),
     ];
 
-    $created = test()->postJson(RCV_URL, $payload)->assertCreated();
+    $created = api('postJson', RCV_URL, $payload)->assertCreated();
     $id = $created->json('data.id');
-    test()->postJson(RCV_URL."/$id/send")->assertOk();
+    api('postJson', RCV_URL."/$id/send")->assertOk();
 
     return [
         'id' => $id,
@@ -73,7 +86,7 @@ function deliveryBody(array $order, array $quantities, array $extra = []): array
 
 function receiveOn(array $order, array $quantities, array $extra = [])
 {
-    return test()->postJson(RCV_URL.'/'.$order['id'].'/deliveries', deliveryBody($order, $quantities, $extra));
+    return api('postJson', RCV_URL.'/'.$order['id'].'/deliveries', deliveryBody($order, $quantities, $extra));
 }
 
 function onHand(string $name): int
@@ -225,7 +238,10 @@ it('T9c: the 2000 g cap beats the 5% on a large order', function () {
 it('T9d: 10 buns allow 10 and not 11, and 9 leaves one outstanding', function () {
     $order = sentOrder(['Bun' => 10]);
 
-    receiveOn($order, ['Bun' => 11])->assertStatus(422);
+    $rejected = receiveOn($order, ['Bun' => 11])->assertStatus(422);
+
+    expect($rejected->json('message'))->toBe('Bun: receiving 11 pcs would bring the total to 11 pcs, above the 10 pcs limit.')
+        ->and($rejected->json('errors')['lines.0.quantity'][0])->toBe('Bun: 11 pcs is above the 10 pcs limit.');
 
     $response = receiveOn($order, ['Bun' => 9])->assertCreated();
 
@@ -284,7 +300,7 @@ it('T5: a delivery on a draft gives 409 cannot_receive and no movements', functi
         'supplier_id' => Supplier::factory()->create()->ulid,
         'lines' => [['ingredient_id' => rcvIngredient('Beef')->ulid, 'quantity_ordered' => 1000]],
     ];
-    $created = $this->postJson(RCV_URL, $payload)->assertCreated();
+    $created = api('postJson', RCV_URL, $payload)->assertCreated();
     $order = ['id' => $created->json('data.id'), 'lines' => ['Beef' => $created->json('data.lines.0.id')]];
 
     $response = receiveOn($order, ['Beef' => 100])->assertStatus(409);
@@ -313,7 +329,7 @@ it('moves no stock when a received order is short-closed', function () {
     $order = sentOrder(['Beef' => 1000, 'Bun' => 10]);
     receiveOn($order, ['Beef' => 600])->assertCreated();
 
-    $closed = $this->postJson(RCV_URL.'/'.$order['id'].'/close')->assertOk();
+    $closed = api('postJson', RCV_URL.'/'.$order['id'].'/close')->assertOk();
 
     expect($closed->json('data.short_closed'))->toBeTrue()
         ->and($closed->json('data.status'))->toBe('closed')
@@ -329,7 +345,7 @@ it('rejects a line that belongs to another order', function () {
     $mine = sentOrder(['Beef' => 1000]);
     $other = sentOrder(['Cheese' => 500]);
 
-    $response = $this->postJson(RCV_URL.'/'.$mine['id'].'/deliveries', [
+    $response = api('postJson', RCV_URL.'/'.$mine['id'].'/deliveries', [
         'lines' => [['purchase_order_line_id' => $other['lines']['Cheese'], 'quantity' => 10]],
     ])->assertStatus(422);
 
@@ -345,7 +361,7 @@ it('rejects the same order line twice in one delivery', function () {
 
     $body = deliveryBody($order, ['Beef' => 100]);
     $body['lines'][] = $body['lines'][0];
-    $duplicate = $this->postJson(RCV_URL.'/'.$order['id'].'/deliveries', $body)->assertStatus(422);
+    $duplicate = api('postJson', RCV_URL.'/'.$order['id'].'/deliveries', $body)->assertStatus(422);
 
     expect($duplicate->json('errors'))->toHaveKey('lines.0.purchase_order_line_id')
         ->and(StockMovement::count())->toBe(1);
@@ -401,7 +417,7 @@ it('rejects quantity true, 0, a string number and a missing quantity', function 
     $lineId = $order['lines']['Beef'];
 
     foreach ([true, 0, '5', null] as $bad) {
-        $response = $this->postJson(RCV_URL.'/'.$order['id'].'/deliveries', [
+        $response = api('postJson', RCV_URL.'/'.$order['id'].'/deliveries', [
             'lines' => [['purchase_order_line_id' => $lineId, 'quantity' => $bad]],
         ])->assertStatus(422);
 
@@ -415,11 +431,11 @@ it('rejects an empty lines list and array input for a scalar field', function ()
     $order = sentOrder(['Beef' => 1000]);
     $url = RCV_URL.'/'.$order['id'].'/deliveries';
 
-    $this->postJson($url, ['lines' => []])->assertStatus(422);
-    $this->postJson($url, [])->assertStatus(422);
-    $this->postJson($url, ['lines' => [['purchase_order_line_id' => ['x'], 'quantity' => 1]]])->assertStatus(422);
-    $this->postJson($url, [...deliveryBody($order, ['Beef' => 1]), 'received_at' => ['2026-01-01']])->assertStatus(422);
-    $this->postJson($url, [...deliveryBody($order, ['Beef' => 1]), 'note' => str_repeat('x', 256)])->assertStatus(422);
+    api('postJson', $url, ['lines' => []])->assertStatus(422);
+    api('postJson', $url, [])->assertStatus(422);
+    api('postJson', $url, ['lines' => [['purchase_order_line_id' => ['x'], 'quantity' => 1]]])->assertStatus(422);
+    api('postJson', $url, [...deliveryBody($order, ['Beef' => 1]), 'received_at' => ['2026-01-01']])->assertStatus(422);
+    api('postJson', $url, [...deliveryBody($order, ['Beef' => 1]), 'note' => str_repeat('x', 256)])->assertStatus(422);
 
     expect(StockMovement::count())->toBe(0);
 });
@@ -557,14 +573,14 @@ it('E24: lists the deliveries of an order newest first and paginates', function 
         receiveOn($order, ['Beef' => $qty])->assertCreated();
     }
 
-    $first = $this->getJson(RCV_URL.'/'.$order['id'].'/deliveries?per_page=2')->assertOk();
+    $first = api('getJson', RCV_URL.'/'.$order['id'].'/deliveries?per_page=2')->assertOk();
 
     expect($first->json())->assertNoIntegerIds();
     expect(collect($first->json('data'))->pluck('lines.0.quantity')->all())->toBe([300, 200])
         ->and($first->json('meta.pagination.total'))->toBe(3)
         ->and($first->json('meta.pagination.has_more'))->toBeTrue();
 
-    $second = $this->getJson(RCV_URL.'/'.$order['id'].'/deliveries?per_page=2&page=2')->assertOk();
+    $second = api('getJson', RCV_URL.'/'.$order['id'].'/deliveries?per_page=2&page=2')->assertOk();
     expect(collect($second->json('data'))->pluck('lines.0.quantity')->all())->toBe([100]);
 });
 
@@ -574,10 +590,10 @@ it('E24: shows only the deliveries of that order, and 404s for an unknown order'
     receiveOn($a, ['Beef' => 100])->assertCreated();
     receiveOn($b, ['Cheese' => 50])->assertCreated();
 
-    $response = $this->getJson(RCV_URL.'/'.$a['id'].'/deliveries')->assertOk();
+    $response = api('getJson', RCV_URL.'/'.$a['id'].'/deliveries')->assertOk();
 
     expect($response->json('data'))->toHaveCount(1)
         ->and($response->json('data.0.lines.0.ingredient.name'))->toBe('Beef');
 
-    $this->getJson(RCV_URL.'/01jzzzzzzzzzzzzzzzzzzzzzzz/deliveries')->assertNotFound();
+    api('getJson', RCV_URL.'/01jzzzzzzzzzzzzzzzzzzzzzzz/deliveries')->assertNotFound();
 });

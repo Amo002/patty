@@ -106,7 +106,7 @@ class ReceivingService
                 Audit::record('purchase_order.closed', $po, [
                     'number' => $po->number,
                     'delivery' => $delivery->number,
-                ], "{$po->number} closed: every line fully received");
+                ], "{$po->number} closed: every line complete");
             }
 
             Log::channel('purchasing')->info("{$delivery->number} recorded on {$po->number}".($po->status === PurchaseOrderStatus::Closed ? ' (order closed)' : ''));
