@@ -10,6 +10,11 @@ if (app()->environment('local')) {
     Route::view('/_styleguide', 'styleguide');
 }
 
+// PTY-18 catalogue pages
+Route::view('/ingredients', 'pages.ingredients');
+Route::view('/suppliers', 'pages.suppliers');
+Route::view('/menu', 'pages.menu');
+
 // PTY-19 purchasing and POS pages
 // Pages are shells: they load and change data only through /api/v1. The detail page takes a ULID (D-031),
 // constrained to Crockford base32 so "new" and any junk value never reach the view.
