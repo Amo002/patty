@@ -242,9 +242,9 @@ document.addEventListener('alpine:init', function () {
           // Rename first if the name changed, then replace the recipe. If the second step fails, the rename stays saved.
           var rename = name === this.form.originalName
             ? Promise.resolve()
-            : Patty.api.patch('/menu-items/' + this.form.id, { name: name }).then(function () { self.form.originalName = name; });
+            : Patty.api.patch('/menu-items/' + encodeURIComponent(this.form.id), { name: name }).then(function () { self.form.originalName = name; });
           request = rename.then(function () {
-            return Patty.api.put('/menu-items/' + self.form.id + '/recipe', { lines: lines });
+            return Patty.api.put('/menu-items/' + encodeURIComponent(self.form.id) + '/recipe', { lines: lines });
           });
         } else {
           var body = { name: name };

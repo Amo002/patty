@@ -46,7 +46,7 @@ document.addEventListener('alpine:init', function () {
         this.busy = true;
         this.errors = {};
 
-        var request = editing ? Patty.api.patch('/suppliers/' + this.form.id, body) : Patty.api.post('/suppliers', body);
+        var request = editing ? Patty.api.patch('/suppliers/' + encodeURIComponent(this.form.id), body) : Patty.api.post('/suppliers', body);
         return request.then(
           function (result) {
             self.$refs.dialog.close();

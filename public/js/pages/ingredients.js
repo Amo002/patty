@@ -149,7 +149,7 @@ document.addEventListener('alpine:init', function () {
 
         this.busy = true;
         var request = editing
-          ? Patty.api.patch('/ingredients/' + this.form.id, body, { onConflict: function () { self.unitWasLocked(); } })
+          ? Patty.api.patch('/ingredients/' + encodeURIComponent(this.form.id), body, { onConflict: function () { self.unitWasLocked(); } })
           : Patty.api.post('/ingredients', body);
 
         return request.then(
@@ -177,7 +177,7 @@ document.addEventListener('alpine:init', function () {
 
       openHistory: function (item) {
         this.historyItem = item;
-        this.history = Patty.pagedList('/ingredients/' + item.id + '/movements');
+        this.history = Patty.pagedList('/ingredients/' + encodeURIComponent(item.id) + '/movements');
         this.$refs.drawer.showModal();
         this.history.load();
       },
