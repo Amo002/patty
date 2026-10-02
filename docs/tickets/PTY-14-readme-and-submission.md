@@ -63,3 +63,10 @@ Done so far: the README sections, the decisions section, "How Patty joins the ER
 
 - A first draft said pieces get "no rounding room" on over-delivery. That is wrong: the 5% applies to pieces too (the demo receives 315 buns for 300). Pieces only lack the absolute cap. It was corrected before commit.
 - Every test path in the "Test it" table was checked to exist. The below-zero and trigger claims were checked against `SalesTest` (T7) and `ConstraintsTest` (T19).
+
+### README matched to the brief, 2026-10-02
+
+Mohamad asked for the README to be written exactly as the brief asks. Checked against the brief's "The README should cover" list, one item was short: **"How you used AI: the main prompts, what worked, and what you had to fix"**. The main prompts were only in AI_LOG.md, not in the README. Fixes:
+- The five required sections now come first, in the brief's order and under its own wording. The extra material (ERP seams, logs versus audit trail, security, the docs index) moved under "More detail". Section bodies were moved, not rewritten.
+- "How I used AI" now has three parts: "The main prompts" (six, summarised from the log and marked as not verbatim), "What worked" and "What I had to fix".
+- The CI badge points at `main`, now the default branch.
