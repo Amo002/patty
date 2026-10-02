@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\MenuItem;
+use App\Models\PurchaseOrder;
 use App\Models\RecipeLine;
+use App\Models\Sale;
 use App\Services\StockLedger;
 use Illuminate\Support\Facades\DB;
 
@@ -52,6 +54,42 @@ it('keeps the running balance correct across page boundaries', function () {
 
     // If the window restarted on each page, page 2 would begin again from its own first row.
     expect($seen)->toBe($balancesNewestFirst);
+});
+
+it('orders the running balance by business time, so a backdated delivery lands before a later sale', function () {
+    $beef = visIngredient('Beef');
+    $burger = MenuItem::factory()->create(['name' => 'Classic Burger']);
+    RecipeLine::factory()->create(['menu_item_id' => $burger->id, 'ingredient_id' => $beef->id, 'quantity' => 150]);
+
+    $this->travelTo(now('UTC')->subHours(3));
+    $order = visOrder(['Beef' => 1000]);
+    $this->travelBack();
+
+    // Inserted first, happened second: the sale is recorded now.
+    visCall('POST', '/api/v1/sales', ['menu_item_id' => $burger->ulid, 'quantity' => 2])->assertCreated();
+
+    // Inserted second, happened first: the delivery arrived an hour ago and is entered late.
+    visCall('POST', "/api/v1/purchase-orders/{$order['id']}/deliveries", [
+        'lines' => [['purchase_order_line_id' => $order['lines']['Beef'], 'quantity' => 1000]],
+        'received_at' => now('UTC')->subHour()->toIso8601ZuluString(),
+    ])->assertCreated();
+
+    $rows = visCall('GET', "/api/v1/ingredients/{$beef->ulid}/movements")->json('data');
+
+    // By business time: +1000 then -300, so 1000 then 700. A window ordered by id would give -300 and 700.
+    expect(collect($rows)->pluck('reason')->all())->toBe(['sale', 'delivery'])
+        ->and(collect($rows)->pluck('balance_after')->all())->toBe([700, 1000]);
+});
+
+it('links each movement to the document a manager can open, by public id', function () {
+    [$beef] = movementsHistory();
+
+    $rows = visCall('GET', "/api/v1/ingredients/{$beef->ulid}/movements")->json('data');
+    $order = PurchaseOrder::query()->orderBy('id')->first();
+    $sale = Sale::query()->orderByDesc('id')->first();
+
+    expect($rows[4]['reference']['purchase_order_id'])->toBe($order->ulid)
+        ->and($rows[0]['reference']['sale_id'])->toBe($sale->ulid);
 });
 
 it('labels each movement with its source document and carries no ids', function () {

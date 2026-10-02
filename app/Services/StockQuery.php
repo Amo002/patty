@@ -27,16 +27,6 @@ class StockQuery
     public function __construct(private readonly StockLedger $ledger) {}
 
     /**
-     * The statuses that mean "still waiting on the supplier" (D-020).
-     *
-     * @return array<int, string>
-     */
-    private function openStatuses(): array
-    {
-        return [PurchaseOrderStatus::Sent->value, PurchaseOrderStatus::Received->value];
-    }
-
-    /**
      * E27: a page of ingredients by name, each with `on_hand` and `incoming` attached.
      *
      * Query count is constant in the page size: one page query, one count, ONE grouped
@@ -123,7 +113,7 @@ class StockQuery
     private function openLines(?array $ingredientIds = null): Collection
     {
         return PurchaseOrderLine::query()
-            ->whereHas('purchaseOrder', fn ($orders) => $orders->whereIn('status', $this->openStatuses()))
+            ->whereHas('purchaseOrder', fn ($orders) => $orders->whereIn('status', PurchaseOrderStatus::open()))
             ->when($ingredientIds !== null, fn ($lines) => $lines->whereIn('ingredient_id', $ingredientIds))
             ->withSum('deliveryLines as received_sum', 'quantity_received')
             ->get();
@@ -142,7 +132,7 @@ class StockQuery
         return [
             'ingredients_count' => Ingredient::query()->count(),
             'negative_count' => $this->ledger->onHandForAll()->filter(fn (int $onHand) => $onHand < 0)->count(),
-            'open_orders_count' => DB::table('purchase_orders')->whereIn('status', $this->openStatuses())->count(),
+            'open_orders_count' => DB::table('purchase_orders')->whereIn('status', PurchaseOrderStatus::open())->count(),
             'outstanding_lines_count' => $this->openLines()->filter(fn (PurchaseOrderLine $line) => $line->outstanding() > 0)->count(),
         ];
     }
@@ -150,9 +140,12 @@ class StockQuery
     /**
      * E6: movements of one ingredient, newest first, each with `balance_after` and `reference_info`.
      *
-     * balance_after is a window function: SUM(quantity_delta) OVER (PARTITION BY ingredient_id
-     * ORDER BY occurred_at, id). SQL evaluates the window over the whole filtered set before
-     * LIMIT/OFFSET, so page 2 continues the running balance from page 1 instead of restarting.
+     * balance_after is a window function: SUM(quantity_delta) OVER (ORDER BY occurred_at, id).
+     * No PARTITION BY is needed: the WHERE already limits the set to one ingredient.
+     * Ordering by occurred_at (business time) matters because deliveries and sales can be
+     * backdated, so insert order is not history order. SQL evaluates the window over the whole
+     * filtered set before LIMIT/OFFSET, so page 2 continues the running balance from page 1
+     * instead of restarting.
      * The id tie-break keeps rows with the same occurred_at in a stable order. The newest row's
      * balance_after therefore equals on-hand, by the same arithmetic.
      * The reference label comes from eager-loaded relations: a constant number of queries.
@@ -161,7 +154,7 @@ class StockQuery
     {
         $page = StockMovement::query()
             ->select('stock_movements.*')
-            ->selectRaw('SUM(quantity_delta) OVER (PARTITION BY ingredient_id ORDER BY occurred_at, id) as balance_after')
+            ->selectRaw('SUM(quantity_delta) OVER (ORDER BY occurred_at, id) as balance_after')
             ->where('ingredient_id', $ingredient->getKey())
             ->with(['reference' => fn (MorphTo $reference) => $reference->morphWith([
                 DeliveryLine::class => ['delivery.purchaseOrder'],
@@ -179,9 +172,11 @@ class StockQuery
     }
 
     /**
-     * The source document of a movement as {type, number, label}, with no ids (D-031).
+     * The source document of a movement as {type, number, label} plus the public id (ULID) of the
+     * document a manager can open: the purchase order for a delivery, the sale for a sale (F18).
+     * Never an integer id (D-031).
      *
-     * @return array{type: string|null, number: string|null, label: string|null}
+     * @return array<string, string|null>
      */
     private function describeReference(StockMovement $movement): array
     {
@@ -194,6 +189,7 @@ class StockQuery
                 'type' => 'delivery',
                 'number' => $delivery->number,
                 'label' => "{$delivery->number} for {$delivery->purchaseOrder->number}",
+                'purchase_order_id' => $delivery->purchaseOrder->ulid,
             ];
         }
 
@@ -202,6 +198,7 @@ class StockQuery
                 'type' => 'sale',
                 'number' => $reference->number,
                 'label' => "{$reference->number} {$reference->menuItem->name} x{$reference->quantity}",
+                'sale_id' => $reference->ulid,
             ];
         }
 
@@ -249,30 +246,36 @@ class StockQuery
                 'type' => $activity->subject_type,
                 // A deleted draft has no row any more: keep the label from the event, drop the id.
                 'id' => $subject?->ulid,
-                'label' => ($subject?->number ?? $subject?->name) ?? $properties->get('number'),
+                // A deleted subject keeps the number its own events recorded, else a generic label.
+                // Filtering by a deleted subject's ULID returns an empty page: the ULID no longer resolves.
+                'label' => ($subject?->number ?? $subject?->name)
+                    ?? $properties->get('number')
+                    ?? 'Deleted '.str_replace('_', ' ', (string) $activity->subject_type),
             ],
             'channel' => $properties->get('channel'),
             'request_id' => $properties->get('request_id'),
-            'changes' => $this->changes($activity),
+            'changes' => self::reshapeChanges(
+                ($activity->attribute_changes ?? collect())->get('attributes', []),
+                ($activity->attribute_changes ?? collect())->get('old', []),
+            ),
             'created_at' => $activity->created_at?->toIso8601ZuluString(),
         ];
     }
 
     /**
      * spatie v5 stores {attributes: {field: new}, old: {field: old}}; the API shows {field: [old, new]}.
-     * `id` and `*_id` fields are dropped so an internal key never leaks (D-031).
+     * Dropped: `id` and `*_id` (internal keys must never leak, D-031) and `image_path`
+     * (an internal storage path, not something a manager changed in words).
      *
+     * @param  array<string, mixed>  $new
+     * @param  array<string, mixed>  $old
      * @return array<string, array{0: mixed, 1: mixed}>
      */
-    private function changes(Activity $activity): array
+    public static function reshapeChanges(array $new, array $old): array
     {
-        $changes = $activity->attribute_changes ?? collect();
-        $new = $changes->get('attributes', []);
-        $old = $changes->get('old', []);
-
         $result = [];
         foreach ($new as $field => $value) {
-            if ($field === 'id' || str_ends_with($field, '_id')) {
+            if ($field === 'id' || str_ends_with($field, '_id') || $field === 'image_path') {
                 continue;
             }
 
