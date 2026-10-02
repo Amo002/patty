@@ -11,6 +11,10 @@
         ['/pos', 'POS Simulator', 'pos'],
         ['/activity', 'Activity', 'activity'],
     ];
+
+    // PTY-22: demo tools exist only in local (S13); "Load demo data" is only offered on an empty system.
+    $demoTools = \App\Support\DemoTools::enabled();
+    $demoEmpty = $demoTools && \App\Support\DemoTools::isEmpty();
 @endphp
 <!doctype html>
 <html lang="en">
@@ -49,6 +53,8 @@
     <script defer src="{{ $asset('js/units.js') }}"></script>
     <script defer src="{{ $asset('js/api.js') }}"></script>
     <script defer src="{{ $asset('js/ui.js') }}"></script>
+    {{-- PTY-22: demo actions, local only --}}
+    @if ($demoTools)<script defer src="{{ $asset('js/demo.js') }}"></script>@endif
     @stack('scripts')
     <script defer src="{{ $asset('vendor/alpine.min.js') }}"></script>
 </head>
@@ -100,6 +106,15 @@
                             <button type="button" :aria-pressed="pref === 'dark'" @click="set('dark')"><x-icon name="moon" class="icon-sm" /> Dark</button>
                             <button type="button" :aria-pressed="pref === 'system'" @click="set('system')">System</button>
                         </div>
+                        {{-- PTY-22: local-only demo data actions, each behind a confirm dialog (D-037) --}}
+                        @if ($demoTools)
+                            <div class="stack stack-sm" x-data="demoTools" data-demo-tools="1" data-empty="{{ $demoEmpty ? '1' : '0' }}">
+                                <span class="menu-title">Demo data</span>
+                                <button type="button" class="btn btn-secondary" @click="reset()">Reset demo</button>
+                                <button type="button" class="btn btn-secondary" @click="clear()">Clear all data</button>
+                                <button type="button" class="btn btn-secondary" :disabled="!isEmpty" @click="seed()">Load demo data</button>
+                            </div>
+                        @endif
                         <p class="hint">No login, by design. See the README.</p>
                     </div>
                 </div>
@@ -110,6 +125,10 @@
                     <x-icon name="info" />
                     <span class="grow">Single-branch demo. No login needed. Start with the guided tour.</span>
                     @stack('banner-actions')
+                    {{-- PTY-22 --}}
+                    @if ($demoTools)
+                        <span x-data="demoTools" data-empty="{{ $demoEmpty ? '1' : '0' }}"><button type="button" class="btn btn-secondary" @click="reset()">Reset demo data</button></span>
+                    @endif
                     <button type="button" class="btn btn-ghost btn-icon" aria-label="Dismiss" @click="dismiss()">
                         <x-icon name="close" />
                     </button>

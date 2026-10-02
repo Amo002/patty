@@ -313,6 +313,8 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Date:** 2026-10-01
 
 ## D-036 Realistic seed data with licence-free photos
+> The Photos bullet is superseded by D-046 (icons only).
+
 - **Chosen:**
   - **Data:** 12 ingredients, 5 menu items and 4 **clearly fictional** suppliers (`.example` email domains, fictitious +962 numbers). The Classic Burger is exactly as in the brief (beef 150 g, bun 1, cheese 20 g).
   - **History:** about 6 POs covering every state and tolerance case, and about 120 sales over the last 3 days with lunch and dinner peaks. Deterministic (fixed random seed), dated relative to now, created through the real services.
@@ -418,3 +420,13 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **How it was decided:** a builder agent relayed "the user says 4 is fine". The orchestrator did not act on that, because a relayed claim is not the owner's instruction. Mohamad then confirmed it directly.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-01
+
+## D-046 Icons only, no seed photos (amends D-036)
+- **Chosen:** the seed data ships without photos. Ingredients and menu items show their Hugeicons fallback. The nullable `image_path` column and the UI's photo-or-icon logic stay, so photos can be added later without a schema or UI change.
+- **Rejected:** shipping photos whose licence could not be verified. The PTY-22 builder could not open the Unsplash or Pexels licence pages from a script (HTTP 401 and 403), and guessing a source URL or a credit is worse than having no photo.
+- **Why:** photos were a nice-to-have for scanning the catalogue (D-036), not part of the brief. The time is better spent on tests and the README.
+- **Removed with it:** `scripts/prepare-seed-images.php`, the `seed-originals` ignore rule and the photo-size test.
+- **Next step:** licensed photos plus an upload endpoint (D-001 still keeps upload out of scope).
+- **Supersedes:** the Photos bullet of D-036. The rest of D-036 (fictional suppliers, the history, determinism) stands.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-02
