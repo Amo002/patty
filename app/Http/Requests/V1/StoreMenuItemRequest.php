@@ -36,7 +36,8 @@ class StoreMenuItemRequest extends FormRequest
     {
         return [
             // G6: unique case-insensitively. The column is NOCASE, so the plain equality check here is too.
-            'name' => ['required', 'string', 'min:2', 'max:100', Rule::unique('menu_items', 'name')],
+            // S16: no line breaks or control characters, so a name can never forge a log line.
+            'name' => ['required', 'string', 'min:2', 'max:100', 'not_regex:/[\x00-\x1F\x7F]/', Rule::unique('menu_items', 'name')],
             'recipe' => ['sometimes', 'array', 'min:1', 'max:50'],
             ...$this->lineRules(),
         ];
@@ -51,6 +52,7 @@ class StoreMenuItemRequest extends FormRequest
             'name.unique' => 'A menu item with this name already exists.',
             'name.min' => 'The name must be at least 2 characters.',
             'name.max' => 'The name must be at most 100 characters.',
+            'name.not_regex' => 'The name cannot contain line breaks or other control characters.',
             ...$this->lineMessages(),
         ];
     }

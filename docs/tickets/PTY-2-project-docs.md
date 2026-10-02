@@ -4,7 +4,7 @@
 |---|---|
 | Type | Task |
 | Phase | 1 Specification + 2a Backend design |
-| Status | Awaiting Mohamad |
+| Status | Done |
 | Weight | S |
 | Builder | Opus 5.5 (orchestrator) |
 | Reviewer | Mohamad |
