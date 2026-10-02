@@ -377,7 +377,7 @@ it('answers 429 beyond the pos rate limit (T20)', function () {
 
 it('does not change a past sale when the recipe changes afterwards', function () {
     $i = saleSetup();
-    $response = postSale($i)->assertCreated();
+    $response = postSale($i, ['pos_reference' => 'till-1:0001'])->assertCreated();
 
     $this->putJson("/api/v1/menu-items/{$i['burger']->ulid}/recipe", ['lines' => [
         ['ingredient_id' => $i['beef']->ulid, 'quantity' => 999],
@@ -389,12 +389,46 @@ it('does not change a past sale when the recipe changes afterwards', function ()
         $i['cheese']->id => -40,
     ]);
 
-    // Replaying the old sale still shows the old deductions, not the new recipe.
+    // Replaying the old sale still shows the old deductions (300/2/40), not the new recipe (999 beef only).
+    $replay = postSale($i, ['pos_reference' => 'till-1:0001'])->assertOk()->assertJsonPath('data.replayed', true);
+    $quantities = fn (array $deductions) => collect($deductions)->pluck('quantity', 'ingredient.name')->all();
+
+    expect($quantities($replay->json('data.deductions')))->toBe(['Beef' => 300, 'Bun' => 2, 'Cheese' => 40])
+        ->and($quantities($response->json('data.deductions')))->toBe(['Beef' => 300, 'Bun' => 2, 'Cheese' => 40]);
+
+    $list = $this->getJson('/api/v1/sales')->assertOk()->assertJsonPath('data.0.id', Sale::firstOrFail()->ulid);
+    expect($quantities($list->json('data.0.deductions')))->toBe(['Beef' => 300, 'Bun' => 2, 'Cheese' => 40]);
+});
+
+it('accepts an uppercase menu item ULID (G4)', function () {
+    $i = saleSetup();
+
+    $this->postJson('/api/v1/sales', ['menu_item_id' => strtoupper($i['burger']->ulid), 'quantity' => 1])
+        ->assertCreated()
+        ->assertJsonPath('data.menu_item.id', $i['burger']->ulid);
+});
+
+it('keeps GET /sales open while a POS key is configured (D-028 guards the write only)', function () {
+    config(['services.pos.api_key' => 'secret']);
+
+    $this->getJson('/api/v1/sales')->assertOk();
+});
+
+it('audits sale.recorded with a human description and no integer ids', function () {
+    $i = saleSetup();
+    postSale($i, ['pos_reference' => 'till-1:0001'])->assertCreated();
+
+    $activity = Activity::where('event', 'sale.recorded')->firstOrFail();
     $sale = Sale::firstOrFail();
-    $this->getJson('/api/v1/sales')->assertOk()
-        ->assertJsonPath('data.0.id', $sale->ulid)
-        ->assertJsonCount(3, 'data.0.deductions');
-    expect($response->json('data.deductions'))->toHaveCount(3);
+
+    expect($activity->description)->toBe("{$sale->number} Classic Burger x2")
+        ->and($activity->subject_type)->toBe('sale')
+        ->and($activity->properties->only(['menu_item', 'quantity', 'pos_reference'])->all())->toBe([
+            'menu_item' => $i['burger']->ulid,
+            'quantity' => 2,
+            'pos_reference' => 'till-1:0001',
+        ]);
+    expect($activity->properties->toArray())->assertNoIntegerIds();
 });
 
 it('leaves no sale, no movements and no burned number when a ledger write fails mid-sale', function () {
