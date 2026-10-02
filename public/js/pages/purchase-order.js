@@ -275,9 +275,12 @@ document.addEventListener('alpine:init', function () {
       editIngredientChanged: function (line) {
         var ingredient = this.ingredients.find(function (item) { return item.id === line.ingredient_id; });
         var unit = ingredient ? ingredient.unit : '';
-        if (unit !== line.unit) line.quantity = null;
-        line.unit = unit;
-        line.mode = unit ? U.defaultMode(unit, 'purchase') : '';
+        if (unit !== line.unit) {
+          line.quantity = null;
+          line.unit = unit;
+          // Only a new unit remounts the input (back to kg or L). Otherwise it keeps the user's unit, and so must `mode`.
+          line.mode = unit ? U.defaultMode(unit, 'purchase') : '';
+        }
         this.edit.errors = {};
         this.edit.local = {};
       },

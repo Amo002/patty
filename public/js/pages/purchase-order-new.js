@@ -60,10 +60,13 @@ document.addEventListener('alpine:init', function () {
       // A different unit means the old number is meaningless (800 g is not 800 pieces), so it is cleared.
       ingredientChanged: function (line) {
         var unit = this.unitOf(line);
-        if (unit !== line.unit) line.quantity = null;
-        line.unit = unit;
-        // The input starts in kg or L; it reports its real mode on the first keystroke or switch.
-        line.mode = unit ? Patty.units.defaultMode(unit, 'purchase') : '';
+        if (unit !== line.unit) {
+          line.quantity = null;
+          line.unit = unit;
+          // A new unit means a new input (x-if), which starts in kg or L and reports its real mode on the first keystroke or switch.
+          // With the same unit the mounted input stays as the user left it, so `mode` must keep matching it.
+          line.mode = unit ? Patty.units.defaultMode(unit, 'purchase') : '';
+        }
         this.errors = {};
         this.local = {};
       },
