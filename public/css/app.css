@@ -1,0 +1,1078 @@
+/*
+ * Patty design system (D-041, D-042). Hand-written, no build step (D-003).
+ * Values come from docs/design.md, which is the source of truth.
+ *
+ * Sections: 1 tokens, 2 base, 3 layout, 4 components, 5 motion, 6 reduced motion.
+ */
+
+/* ---------- 1. Tokens ---------- */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  /* swap: text shows in the system font at once, Inter replaces it when loaded. */
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --text: #18181b;
+  --muted: #52525b;
+  --accent: #4f46e5;
+  --accent-text: #4338ca;
+  --on-accent: #ffffff;
+  --accent-subtle: #eef2ff;
+  --ok: #15803d;
+  --warn-text: #b45309;
+  --danger: #dc2626;
+  --danger-text: #b91c1c;
+  --danger-subtle: #fef2f2;
+  --info: #1d4ed8;
+
+  /* Logo colours (D-042). The cheese colour is used only inside the logo markup. */
+  --logo-bun: #18181b;
+  --logo-seed: #fafafa;
+  --logo-cheese: #f59e0b;
+
+  --shadow-card: 0 1px 2px rgb(24 24 27 / 6%), 0 1px 3px rgb(24 24 27 / 8%);
+  --shadow-dialog: 0 24px 48px -12px rgb(24 24 27 / 28%), 0 4px 12px rgb(24 24 27 / 10%);
+  --backdrop: rgb(24 24 27 / 45%);
+
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-28: 1.75rem;
+  --fs-36: 2.25rem;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --r-sm: 6px;
+  --r-lg: 12px;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --tap: 44px;
+  --sidebar-w: 248px;
+}
+
+/* Dark follows the OS unless the user picked light explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface-2: #27272a;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --accent: #818cf8;
+    --accent-text: #a5b4fc;
+    --on-accent: #0b0b12;
+    --accent-subtle: #1e1b4b;
+    --ok: #4ade80;
+    --warn-text: #fcd34d;
+    --danger: #f87171;
+    --danger-text: #fca5a5;
+    --danger-subtle: #2a0f0f;
+    --info: #60a5fa;
+    --logo-bun: #e4e4e7;
+    --logo-seed: #18181b;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-dialog: 0 24px 48px -12px rgb(0 0 0 / 70%), 0 0 0 1px #3f3f46;
+    --backdrop: rgb(0 0 0 / 62%);
+  }
+}
+
+/* The manual toggle repeats the same dark values, because CSS cannot share a block between a media query and a selector. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --surface: #18181b;
+  --surface-2: #27272a;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --text: #fafafa;
+  --muted: #a1a1aa;
+  --accent: #818cf8;
+  --accent-text: #a5b4fc;
+  --on-accent: #0b0b12;
+  --accent-subtle: #1e1b4b;
+  --ok: #4ade80;
+  --warn-text: #fcd34d;
+  --danger: #f87171;
+  --danger-text: #fca5a5;
+  --danger-subtle: #2a0f0f;
+  --info: #60a5fa;
+  --logo-bun: #e4e4e7;
+  --logo-seed: #18181b;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-dialog: 0 24px 48px -12px rgb(0 0 0 / 70%), 0 0 0 1px #3f3f46;
+  --backdrop: rgb(0 0 0 / 62%);
+}
+
+/* ---------- 2. Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-16);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Every number in the app is tabular, so columns of figures line up (design.md). */
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 650;
+}
+
+h1 { font-size: var(--fs-28); }
+h2 { font-size: var(--fs-20); }
+h3 { font-size: var(--fs-16); }
+
+p { margin: 0; }
+
+a {
+  color: var(--accent-text);
+  text-underline-offset: 3px;
+}
+
+img,
+svg { display: block; max-width: 100%; }
+
+[hidden] { display: none !important; }
+
+[x-cloak] { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--accent-subtle); color: var(--text); }
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.unit { color: var(--muted); font-size: var(--fs-14); margin-left: 0.25em; }
+.text-danger { color: var(--danger-text); }
+.text-ok { color: var(--ok); }
+.text-sm { font-size: var(--fs-14); }
+.text-xs { font-size: var(--fs-12); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fs-12); }
+
+.icon { width: 20px; height: 20px; flex: none; }
+.icon-sm { width: 16px; height: 16px; }
+
+/* Small layout helpers so pages need no inline styles. */
+.row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.row-between { justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: var(--sp-4); }
+.stack-sm { gap: var(--sp-2); }
+.grow { flex: 1 1 0; min-width: 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+.grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--sp-4); }
+
+@media (max-width: 1100px) {
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 3. Layout ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  /* Named so the nav stays put while the page content cross-fades (design.md). */
+  view-transition-name: nav;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-2) 0;
+  color: var(--text);
+  text-decoration: none;
+  min-height: var(--tap);
+}
+
+/* Light uses the full-colour logo, dark uses the mono mark with the wordmark in --text (D-042). */
+.brand-light { height: 36px; width: auto; }
+.brand-dark { display: none; align-items: center; gap: var(--sp-2); font-weight: 650; font-size: 1.5rem; letter-spacing: -0.04em; }
+.brand-dark svg { height: 36px; width: 36px; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-light { display: none; }
+  :root:not([data-theme="light"]) .brand-dark { display: inline-flex; }
+}
+:root[data-theme="dark"] .brand-light { display: none; }
+:root[data-theme="dark"] .brand-dark { display: inline-flex; }
+
+.nav { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: var(--fs-14);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.nav-link:hover { background: var(--surface-2); color: var(--text); }
+
+.nav-link[aria-current="page"] {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+  padding: var(--sp-3) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.topbar .menu-button { display: none; margin-right: auto; }
+
+.content {
+  width: 100%;
+  max-width: 1264px; /* 1200 of content plus the 2 x 32 padding */
+  margin: 0 auto;
+  padding: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  view-transition-name: page-header;
+}
+
+.page-header .page-meta { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+
+.sidebar-scrim { display: none; }
+
+/* "Below 820 px" (ui.md): a 820 px tablet keeps the sidebar, hence 819.98. */
+@media (max-width: 819.98px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+
+  /* The sidebar becomes a slide-in panel opened by the top menu button. */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(300px, 86vw);
+    z-index: 40;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow);
+    view-transition-name: none;
+  }
+
+  .nav-open .sidebar {
+    transform: none;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .nav-open .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: var(--backdrop);
+  }
+
+  .topbar { padding: var(--sp-2) var(--sp-4); position: sticky; top: 0; z-index: 20; view-transition-name: nav; }
+  .topbar .menu-button { display: inline-flex; }
+  .content { padding: var(--sp-4); }
+}
+
+/* ---------- 4. Components ---------- */
+
+/* Buttons */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-14);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.btn:active:not(:disabled) { transform: translateY(1px); }
+
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+
+.btn-ghost { background: transparent; color: var(--accent-text); }
+.btn-ghost:hover:not(:disabled) { background: var(--accent-subtle); }
+
+.btn-danger { background: var(--danger); color: var(--on-accent); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, var(--text)); }
+
+.btn-icon { width: var(--tap); padding: 0; }
+
+.btn:disabled,
+.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+
+/*
+ * Busy state (rule 1, D-042). Always pair aria-busy with the disabled attribute:
+ *   <button :disabled="busy" :aria-busy="busy">
+ * Disabled is what stops Enter and Space from firing a second click. The label turns transparent instead of
+ * being removed, so the button keeps its width, and the stack bobs on top of it.
+ */
+.btn .stack-spinner { display: none; }
+
+.btn[aria-busy="true"] {
+  color: transparent;
+  cursor: progress;
+  opacity: 1; /* busy is a working state, not a dimmed disabled one */
+}
+
+.btn[aria-busy="true"] .stack-spinner {
+  display: inline-flex;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 15px;
+}
+
+.btn-primary[aria-busy="true"] .stack-spinner,
+.btn-danger[aria-busy="true"] .stack-spinner { color: var(--on-accent); }
+.btn-secondary[aria-busy="true"] .stack-spinner { color: var(--text); }
+.btn-ghost[aria-busy="true"] .stack-spinner { color: var(--accent-text); }
+
+.stack-spinner {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 16px;
+}
+
+.stack-spinner i {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: stack-bob 900ms var(--ease-in-out) infinite;
+}
+
+.stack-spinner i:nth-child(1) { width: 12px; }
+.stack-spinner i:nth-child(2) { width: 16px; animation-delay: 120ms; }
+.stack-spinner i:nth-child(3) { width: 14px; animation-delay: 240ms; }
+
+/* Form controls */
+.field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.field > label,
+.label { font-size: var(--fs-14); font-weight: 500; }
+.hint { font-size: var(--fs-12); color: var(--muted); }
+
+.input,
+.select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--sp-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-14);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.input::placeholder { color: var(--muted); opacity: 0.8; }
+
+.input:focus-visible,
+.select:focus-visible,
+.qty:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-subtle);
+}
+
+.input[aria-invalid="true"],
+.qty[data-invalid="true"] { border-color: var(--danger); }
+
+.input:disabled,
+.select:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+
+.select {
+  appearance: none;
+  padding-right: var(--sp-6);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+/* Quantity input: a number field with the unit switch inside the same frame (D-038). */
+.qty {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: var(--tap);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.qty .qty-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.qty .qty-field:focus-visible { outline: none; }
+
+.qty .qty-suffix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  color: var(--muted);
+  font-size: var(--fs-14);
+  border-left: 1px solid var(--border);
+}
+
+.qty .segmented { padding: 0; gap: 0; border: 0; border-left: 1px solid var(--border); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+
+/* Segmented control: unit switch and theme switch */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.segmented button {
+  min-height: var(--tap);
+  min-width: 44px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-14);
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.segmented button:hover { color: var(--text); }
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+}
+
+/* Inline error: sits next to the field it is about (rule 4). */
+.inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  color: var(--danger-text);
+  font-size: var(--fs-14);
+}
+
+.inline-error .icon { width: 16px; height: 16px; margin-top: 2px; }
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--danger-subtle);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  border-radius: var(--r-sm);
+  color: var(--danger-text);
+  font-size: var(--fs-14);
+}
+
+/* Cards, KPI tiles */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-body { padding: var(--sp-5); }
+
+.kpi { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
+.kpi-label { font-size: var(--fs-14); color: var(--muted); font-weight: 500; }
+.kpi-value { font-size: var(--fs-36); font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
+.kpi-note { font-size: var(--fs-12); color: var(--muted); }
+.kpi[data-tone="danger"] { background: var(--danger-subtle); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.kpi[data-tone="danger"] .kpi-value { color: var(--danger-text); }
+
+/* Tables: scroll sideways inside the card, never the page (design.md Layout). */
+.table-wrap { overflow-x: auto; }
+
+.table { width: 100%; border-collapse: collapse; font-size: var(--fs-14); }
+
+.table th {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.table th.num { text-align: right; }
+
+.table td { padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border); vertical-align: middle; }
+.table tbody tr:hover { background: var(--surface-2); }
+.table tr[data-negative="true"] { background: var(--danger-subtle); }
+.table .actions { text-align: right; white-space: nowrap; }
+
+/* Status pills: a dot and a label, never colour alone (principle 2). */
+.pill {
+  --pill-dot: var(--muted);
+  --pill-text: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pill-dot) 14%, transparent);
+  color: var(--pill-text);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pill-dot);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.pill[data-tone="info"] { --pill-dot: var(--info); --pill-text: var(--info); }
+.pill[data-tone="warn"] { --pill-dot: var(--warn-text); --pill-text: var(--warn-text); }
+.pill[data-tone="ok"] { --pill-dot: var(--ok); --pill-text: var(--ok); }
+.pill[data-tone="danger"] { --pill-dot: var(--danger); --pill-text: var(--danger-text); }
+
+/* Progress bar: received over ordered. */
+.progress {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 80px;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  width: var(--value, 0%);
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.progress[data-complete="true"] > span { background: var(--ok); }
+
+@starting-style {
+  .progress > span { width: 0%; }
+}
+
+/* Dialog: native <dialog>, so focus trapping and Escape come from the browser. */
+.dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-dialog);
+  overflow: auto;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out),
+    overlay var(--dur-slow) allow-discrete, display var(--dur-slow) allow-discrete;
+}
+
+.dialog:not([open]) { opacity: 0; transform: scale(0.96); }
+
+@starting-style {
+  .dialog[open] { opacity: 0; transform: scale(0.96); }
+}
+
+.dialog::backdrop {
+  background: var(--backdrop);
+  opacity: 1;
+  transition: opacity var(--dur-slow) var(--ease-out), overlay var(--dur-slow) allow-discrete,
+    display var(--dur-slow) allow-discrete;
+}
+
+.dialog:not([open])::backdrop { opacity: 0; }
+
+@starting-style {
+  .dialog[open]::backdrop { opacity: 0; }
+}
+
+.dialog-head { padding: var(--sp-5) var(--sp-5) var(--sp-2); }
+.dialog-body { padding: 0 var(--sp-5) var(--sp-4); color: var(--muted); font-size: var(--fs-14); }
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+.dialog-wide { width: min(720px, calc(100vw - 32px)); }
+
+/* Toast: for success and notices. Field errors stay inline. */
+.toast-region {
+  position: fixed;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-dialog);
+  font-size: var(--fs-14);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.toast[data-tone="success"] { border-left-color: var(--ok); }
+.toast[data-tone="error"] { border-left-color: var(--danger); }
+.toast[data-tone="warn"] { border-left-color: var(--warn-text); }
+.toast-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-ref { display: block; margin-top: 2px; font-size: var(--fs-12); color: var(--muted); }
+
+@starting-style {
+  .toast { opacity: 0; transform: translateY(8px); }
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-7) var(--sp-5);
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--muted);
+}
+
+.empty-state .empty-icon { width: 40px; height: 40px; color: var(--muted); }
+.empty-state h3 { color: var(--text); }
+.empty-state p { max-width: 42ch; font-size: var(--fs-14); }
+
+/* Skeleton (D-032, U1): shaped like the content so nothing shifts when data lands. */
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 55%, var(--surface)) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--r-sm);
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeleton-line { height: 14px; }
+.skeleton-line.w-25 { width: 25%; }
+.skeleton-line.w-50 { width: 50%; }
+.skeleton-line.w-75 { width: 75%; }
+.skeleton-block { height: 96px; }
+.skeleton-kpi { height: 36px; width: 40%; }
+
+/* Freshness stamp (principle 4, U3) */
+.freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-12);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.freshness::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.freshness[data-stale="true"]::before { background: var(--warn-text); }
+.freshness.is-pulsing::before { animation: pulse-dot 700ms var(--ease-out); }
+
+/* Identity chip and its menu (D-027) */
+.identity { position: relative; }
+
+.identity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: 0 var(--sp-3) 0 var(--sp-2);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-14);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.identity-chip:hover { background: var(--surface-2); }
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-size: var(--fs-12);
+  font-weight: 700;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--sp-2));
+  z-index: 50;
+  width: 260px;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-dialog);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+@starting-style {
+  .menu { opacity: 0; transform: translateY(-4px); }
+}
+
+.menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Intro banner (D-027) */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--accent-subtle);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-14);
+}
+
+.banner .icon { color: var(--accent-text); }
+
+/* Photo with an icon fallback: fixed aspect ratio, so lazy loading never shifts the layout (D-036). */
+.photo {
+  position: relative;
+  aspect-ratio: var(--ratio, 4 / 3);
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.photo > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo > img:not([src]),
+.photo > img[hidden] { display: none; }
+
+.photo > .icon { width: 32px; height: 32px; }
+
+/* Brand: session loader (D-042). It never takes clicks, so it can never block the page. */
+.session-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  background: var(--bg);
+  pointer-events: none;
+  animation: loader-life 900ms linear both;
+}
+
+.show-loader .session-loader { display: flex; }
+
+.loader-mark { width: 96px; height: 96px; overflow: visible; }
+.loader-word { font-size: 2.5rem; font-weight: 650; letter-spacing: -0.04em; color: var(--text); }
+
+/* Base styles are the final state, keyframes only describe the start, so reduced motion shows the finished logo. */
+.loader-bottom { animation: loader-rise 300ms var(--ease-out) 0ms backwards; }
+.loader-patty { animation: loader-drop 320ms var(--ease-out) 150ms backwards; }
+.loader-cheese { animation: loader-drip 260ms var(--ease-out) 400ms backwards; transform-box: fill-box; transform-origin: top; }
+.loader-top { animation: loader-land 280ms var(--ease-out) 500ms backwards; }
+.loader-word { animation: loader-slide 240ms var(--ease-out) 700ms backwards; }
+
+.fill-bun { fill: var(--logo-bun); }
+.fill-seed { fill: var(--logo-seed); }
+.fill-patty { fill: var(--accent); }
+.fill-cheese { fill: var(--logo-cheese); }
+
+/* ---------- 5. Motion ---------- */
+
+/* Cross-document view transitions: nav and page header keep their own names, the rest cross-fades. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-out);
+}
+
+/* Rows entering: fade and rise when a row is inserted. */
+.table tbody tr,
+.list-row {
+  transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-base) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+@starting-style {
+  .table tbody tr,
+  .list-row { opacity: 0; translate: 0 6px; }
+}
+
+/* Number change on refetch: accent for up, danger for down, plus a short roll of the digits. */
+.flash-up,
+.flash-down { display: inline-block; border-radius: 4px; }
+.flash-up { animation: flash-up 1100ms var(--ease-out), num-roll var(--dur-base) var(--ease-out); }
+.flash-down { animation: flash-down 1100ms var(--ease-out), num-roll var(--dur-base) var(--ease-out); }
+
+@keyframes flash-up {
+  0% { background: var(--accent-subtle); color: var(--accent-text); }
+  100% { background: transparent; }
+}
+
+@keyframes flash-down {
+  0% { background: var(--danger-subtle); color: var(--danger-text); }
+  100% { background: transparent; }
+}
+
+@keyframes num-roll {
+  from { transform: translateY(40%); opacity: 0.3; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+
+@keyframes stack-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(-2px); opacity: 1; }
+}
+
+@keyframes loader-life {
+  0%, 82% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes loader-rise { from { transform: translateY(24px); opacity: 0; } }
+@keyframes loader-drop { from { transform: translateY(-40px); opacity: 0; } 70% { transform: translateY(3px); } }
+@keyframes loader-drip { from { transform: scaleY(0); } }
+@keyframes loader-land { from { transform: translateY(-48px); opacity: 0; } 70% { transform: translateY(2px); } }
+@keyframes loader-slide { from { transform: translateX(-12px); opacity: 0; } }
+
+/* ---------- 6. Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+
+  /* The one exception: the static logo stays for its 900 ms, then the loader script removes it. */
+  .session-loader { animation: none !important; }
+
+  .skeleton { animation: none !important; }
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>units.js self-check</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; }
+    table { border-collapse: collapse; }
+    td, th { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
+    .pass { color: #15803d; font-weight: 600; }
+    .fail { color: #b91c1c; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <!-- Open this file in a browser (php artisan serve, then /js/units.test.html). One row per row of the table in docs/ui.md. -->
+  <h1>units.js self-check</h1>
+  <p id="summary"></p>
+  <table id="results"><thead><tr><th>Case</th><th>Expected</th><th>Got</th><th></th></tr></thead><tbody></tbody></table>
+
+  <script src="/js/units.js"></script>
+  <script>
+    (function () {
+      var u = Patty.units;
+      var rows = [];
+
+      function check(name, expected, got) {
+        rows.push({ name: name, expected: JSON.stringify(expected), got: JSON.stringify(got) });
+      }
+
+      // Display
+      check('Display, small: 750 g', '750 g', u.display(750, 'g').text);
+      check('Display, scaled: 2400 g', '2.4 kg', u.display(2400, 'g').text);
+      check('Display, scaled hover: 2400 g', '2,400 g', u.display(2400, 'g').exact);
+      check('Display, scaled: 52000 g', '52 kg', u.display(52000, 'g').text);
+      check('Display, precise: 1005 g', '1.005 kg', u.display(1005, 'g').text);
+      check('Display, negative: -20 g', '-20 g', u.display(-20, 'g').text);
+      check('Display, negative scaled: -1500 ml', '-1.5 L', u.display(-1500, 'ml').text);
+      check('Display, pieces: 2400 piece', '2,400 pcs', u.display(2400, 'piece').text);
+      check('Display, boundary: 999 g', '999 g', u.display(999, 'g').text);
+      check('Display, boundary: 1000 g', '1 kg', u.display(1000, 'g').text);
+      check('Display, thousands in kg: 1250500 g', '1,250.5 kg', u.display(1250500, 'g').text);
+
+      // Input
+      check('Input kg: 2.4', { ok: true, base: 2400 }, u.parseInput('2.4', 'kg'));
+      check('Input kg: 1.005 (string parsing, not 1004.99..)', { ok: true, base: 1005 }, u.parseInput('1.005', 'kg'));
+      check('Input kg, too precise: 1.0005', { ok: false, message: 'Enter at most 3 decimals in kg' }, u.parseInput('1.0005', 'kg'));
+      check('Input g, not whole: 2.5', { ok: false, message: 'Grams must be a whole number' }, u.parseInput('2.5', 'g'));
+      check('Input L: 0.75', { ok: true, base: 750 }, u.parseInput('0.75', 'L'));
+      check('Input L, too precise: 0.7501', { ok: false, message: 'Enter at most 3 decimals in L' }, u.parseInput('0.7501', 'L'));
+      check('Input g: 250', { ok: true, base: 250 }, u.parseInput('250', 'g'));
+      check('Input kg: 0.001', { ok: true, base: 1 }, u.parseInput('0.001', 'kg'));
+      check('Input kg: trailing zeros 1.0000', { ok: true, base: 1000 }, u.parseInput('1.0000', 'kg'));
+      check('Input kg: whitespace', { ok: true, base: 1500 }, u.parseInput('  1.5 ', 'kg'));
+      check('Input: empty', { ok: false, message: 'Enter a quantity' }, u.parseInput('', 'g'));
+      check('Input: text', { ok: false, message: 'Enter a number, for example 2.5' }, u.parseInput('abc', 'kg'));
+      check('Input piece: 3', { ok: true, base: 3 }, u.parseInput('3', 'piece'));
+      check('Input piece: 1.5', { ok: false, message: 'Pieces must be a whole number' }, u.parseInput('1.5', 'piece'));
+
+      // Zero and negatives (F4)
+      check('Input: 0 refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('0', 'g'));
+      check('Input: 0.000 kg refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('0.000', 'kg'));
+      check('Input: -1 refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-1', 'g'));
+      check('Input: -1.5 kg refused', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-1.5', 'kg'));
+      check('Input: 0 allowed with allowZero', { ok: true, base: 0 }, u.parseInput('0', 'g', { allowZero: true }));
+      check('Input: negative still refused with allowZero', { ok: false, message: 'Enter a quantity above 0' }, u.parseInput('-2', 'g', { allowZero: true }));
+
+      // Switching the unit keeps the same quantity
+      check('Re-express: 2400 as kg text', '2.4', u.toInputText(2400, 'kg'));
+      check('Re-express: 1005 as kg text', '1.005', u.toInputText(1005, 'kg'));
+      check('Re-express: 2400 as g text', '2400', u.toInputText(2400, 'g'));
+
+      // Defaults
+      check('Default switch, PO line (g)', 'kg', u.defaultMode('g', 'purchase'));
+      check('Default switch, PO line (ml)', 'L', u.defaultMode('ml', 'purchase'));
+      check('Default switch, recipe (g)', 'g', u.defaultMode('g', 'recipe'));
+      check('Default switch, recipe (ml)', 'ml', u.defaultMode('ml', 'recipe'));
+
+      // Server error re-expressed
+      check('Error re-expressed in kg', 'Beef: 1.1 kg is above the 1.05 kg limit',
+        u.rewriteError('Beef: 1100 g is above the 1050 g limit', 'kg'));
+      check('Error left in g when typed in g', 'Beef: 1,100 g is above the 1,050 g limit',
+        u.rewriteError('Beef: 1100 g is above the 1050 g limit', 'g'));
+      check('Error in L', 'Milk: 2 L is above the 1.5 L limit', u.rewriteError('Milk: 2000 ml is above the 1500 ml limit', 'L'));
+      check('Error: pieces untouched', 'Bun: 12 pieces over', u.rewriteError('Bun: 12 pieces over', 'kg'));
+
+      var tbody = document.querySelector('#results tbody');
+      var failed = 0;
+      rows.forEach(function (r) {
+        var ok = r.expected === r.got;
+        if (!ok) failed++;
+        var tr = document.createElement('tr');
+        [r.name, r.expected, r.got].forEach(function (text) {
+          var td = document.createElement('td');
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+        var verdict = document.createElement('td');
+        verdict.textContent = ok ? 'PASS' : 'FAIL';
+        verdict.className = ok ? 'pass' : 'fail';
+        tr.appendChild(verdict);
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('summary').textContent =
+        failed === 0 ? 'PASS: all ' + rows.length + ' checks' : 'FAIL: ' + failed + ' of ' + rows.length + ' checks failed';
+      document.title = (failed === 0 ? 'PASS' : 'FAIL') + ' units.js self-check';
+    })();
+  </script>
+</body>
+</html>
