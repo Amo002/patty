@@ -64,10 +64,10 @@
     };
     var init = { method: method, headers: headers, signal: options.signal, credentials: 'same-origin' };
 
-    if (options.body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-      init.body = JSON.stringify(options.body);
-    }
+    // Every write declares JSON, even with no body (send, close, demo reset): the API answers 415
+    // otherwise, which is what stops a cross-site form from posting to it (S6).
+    if (method !== 'GET') headers['Content-Type'] = 'application/json';
+    if (options.body !== undefined) init.body = JSON.stringify(options.body);
     if (options.headers) {
       Object.keys(options.headers).forEach(function (name) {
         headers[name] = options.headers[name];
