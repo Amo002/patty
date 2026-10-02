@@ -30,10 +30,7 @@ class PurchaseOrderController extends ApiController
         $status = $request->validated('status');
 
         $orders = PurchaseOrder::query()
-            ->when($status === ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->whereIn('status', [
-                PurchaseOrderStatus::Sent->value,
-                PurchaseOrderStatus::Received->value,
-            ]))
+            ->when($status === ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->whereIn('status', PurchaseOrderStatus::open()))
             ->when($status !== null && $status !== ListPurchaseOrdersRequest::OPEN, fn (Builder $query) => $query->where('status', $status))
             ->withDetails()
             // id breaks ties between orders created in the same second.

@@ -39,6 +39,17 @@ enum PurchaseOrderStatus: string
         return in_array($to, $this->allowedTransitions(), true);
     }
 
+    /**
+     * The statuses that mean "still waiting on the supplier": the one definition
+     * behind E16 `?status=open` and the incoming quantity (D-020), so the two can never disagree.
+     *
+     * @return array<int, self>
+     */
+    public static function open(): array
+    {
+        return [self::Sent, self::Received];
+    }
+
     public function label(): string
     {
         return match ($this) {
