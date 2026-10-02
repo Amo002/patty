@@ -203,3 +203,31 @@ He also asked for:
 - Pint and the full suite pass after merging the latest develop. While doing this for PTY-3, a "class not found" failure appeared. It was not a bug: PTY-16 had just been merged and the worktree needed `composer install`.
 
 **Lesson:** a passing test suite is necessary, not sufficient. The independent, higher-tier reviewer is where the design rules (D-021, D-022) were actually enforced.
+
+## 2026-10-01 to 2026-10-02: Build waves 2 and 3 (PTY-4 to PTY-9, PTY-11, PTY-26)
+
+**Setup:** 2, then 3, Sonnet builders in separate worktrees, with one Opus reviewer per ticket (D-040, D-045). The orchestrator verified every branch before opening its PR: scope, authorship, no AI trailers, and Pint plus the full suite after merging the latest develop.
+
+**What the reviewers caught that passing tests did not:**
+- **PTY-4, ledger:** stock log lines were written inside the caller's transaction, so a rolled-back delivery left a "movement recorded" line for a movement that did not exist. They are now written after commit. The factory also used a class name that the new morph map rejects.
+- **PTY-6, menu:**
+  - Laravel's `integer` rule accepts `true` as 1, and the quantity rule is copied by every later ticket. Fixed with `integer:strict`.
+  - Interpolating input into a validation message turned an array input into a 500.
+  - Removing the recipe-replace transaction left every test green; a new test now proves atomicity.
+
+  The orchestrator forwarded both validation lessons to the PTY-7 builder before it wrote its own requests.
+- **PTY-7, purchase orders:** the builder's fixed-point `progress_percent` (scaled by 10^9 plus a correction) over-reported in an edge case. It was replaced by "each line's percent rounded down, then the average rounded down", which can be said in one sentence. The received status's allowed actions were also untested.
+- **PTY-9, sales:**
+  - **High:** times sent with an offset (`+03:00`, as an Amman till would) were stored 3 hours wrong, because `Carbon::parse` keeps the offset and Eloquent stores clock time. The same pattern was about to land in PTY-8, so the orchestrator warned that builder first.
+  - A replayed sale reported current stock instead of the original figures; it now computes the balance at each movement.
+- **PTY-5, ingredients:** the unit lock only counted stock movements, but recipe and order quantities are also integers in the unit. Mohamad decided it locks once the ingredient is used anywhere (D-044). Units stay a fixed enum; Mohamad asked whether units should have a table, and the answer was no until purchase units with conversion factors are needed.
+- **PTY-8, receiving:** approved with nothing blocking. The one surviving mutation exposed a misleading comment about why times are converted to UTC (comparisons work on instants; the conversion matters on save).
+- **PTY-26 (a new bug ticket from the PTY-6 review):** a lost duplicate-name race returned 500. It now returns 409 `conflict`, mapped once centrally. 409 rather than 422, because the input was valid and lost against the current state.
+
+**What went wrong in the process:**
+- **A machine restart mid-wave** lost the uncommitted work of two builders (PTY-5, PTY-9), about 15 minutes. They were resumed from their saved transcripts and told to commit after every working piece.
+- **Docker was written without being run** (Docker is not installed here). Mohamad chose to install Docker Desktop and test it before it gets a PR, rather than ship untested files.
+- **A verification ran in the wrong folder.** While checking PTY-8, the orchestrator noticed the test count equalled the previous branch's, and found the shell had stayed in another worktree. The run was repeated in the right place (317 tests). The same slip likely affected the local check of PTY-5, which was still covered by CI on its PR. Every verification command now starts with an explicit `cd`.
+- **The orchestrator re-checked builders' unverified claims itself:** it confirmed that the PTY-26 warning-level test and the PTY-9 query-count test each fail without their fix.
+
+**Owner decisions in this stretch:** 4 agents (D-045); unit lock once used anywhere (D-044); install Docker and test it rather than drop it.
