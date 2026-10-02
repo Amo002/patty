@@ -19,7 +19,8 @@ trait IngredientRules
     protected function ingredientRules(array $presence, mixed $unique): array
     {
         return [
-            'name' => [...$presence, 'string', 'min:2', 'max:100', $unique],
+            // S16: no line breaks or control characters, so a name can never forge a log line.
+            'name' => [...$presence, 'string', 'min:2', 'max:100', 'not_regex:/[\x00-\x1F\x7F]/', $unique],
             'unit' => [...$presence, Rule::enum(Unit::class)],
             // `integer:strict` rejects `true` and "5": JSON booleans would otherwise pass as 1.
             'over_tolerance_bps' => ['nullable', 'integer:strict', 'min:0', 'max:10000'],
@@ -39,6 +40,7 @@ trait IngredientRules
             'name.unique' => 'An ingredient with this name already exists.',
             'name.min' => 'The name must be at least 2 characters.',
             'name.max' => 'The name must be at most 100 characters.',
+            'name.not_regex' => 'The name cannot contain line breaks or other control characters.',
             'unit.required' => 'Unit must be one of g, ml, piece.',
             'unit.enum' => 'Unit must be one of g, ml, piece.',
             'over_tolerance_bps.*' => 'Over-delivery tolerance must be between 0% and 100%.',

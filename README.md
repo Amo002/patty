@@ -49,3 +49,18 @@ The SQLite file lives on the named volume `patty-data`, so data survives `docker
 | [docs/questions/](docs/questions/) | Where the brief was unclear |
 | [docs/tickets/BOARD.md](docs/tickets/BOARD.md) | Ticket board |
 | [docs/AI_LOG.md](docs/AI_LOG.md) | How AI was used, and where it got things wrong |
+
+## Security
+
+There is no login, because the brief asks for none. That risk is contained rather than ignored. The full threat model is in [docs/security.md](docs/security.md) (S1 to S17).
+
+- `php artisan serve` binds to `127.0.0.1`, so only this machine can reach the app.
+- **Cross-site requests are blocked.** Every API write must be sent as JSON, and CORS grants no other origin. A malicious page open in the same browser therefore cannot post to the local API, including the local-only demo reset.
+- Stock history is append-only in code and in the database (triggers refuse UPDATE and DELETE on `stock_movements`).
+- Public ids are ULIDs; integer ids never leave the server.
+- Every query uses bindings, and the UI renders API data as text only.
+- Errors never show a trace or SQL, only a message and a request id.
+- The POS sales endpoint can require a shared key (`POS_API_KEY`) and is rate limited.
+- The demo data endpoints exist only when `APP_ENV=local`.
+
+Reviewed in PTY-21 on 2026-10-02 with Opus 5.5. The review fixed four findings (one in the Docker setup) and accepted two with written reasons; see [the ticket](docs/tickets/PTY-21-security-review.md). `composer audit` runs in CI on every pull request.
