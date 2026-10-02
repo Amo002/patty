@@ -133,7 +133,7 @@ document.addEventListener('alpine:init', function () {
           lines: this.lines.map(function (line) {
             return { ingredient_id: line.ingredient_id, quantity_ordered: line.quantity };
           }),
-        }, { silent: false }).then(function (result) {
+        }).then(function (result) {
           // Stay busy while the browser navigates, so a second click cannot draft a second order.
           location.href = '/purchase-orders/' + encodeURIComponent(result.data.id);
         }).catch(function (e) {

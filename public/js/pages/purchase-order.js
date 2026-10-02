@@ -206,7 +206,7 @@ document.addEventListener('alpine:init', function () {
         var po = this.po;
         var open = po.lines.filter(function (line) { return !line.is_complete; });
         Patty.confirm({
-          title: 'Close ' + po.number + ' with ' + open.length + ' not delivered?',
+          title: 'Close ' + po.number + ' with ' + open.length + (open.length === 1 ? ' line' : ' lines') + ' not delivered?',
           message: 'Stock is not affected. What is still missing is recorded as not delivered, and no more deliveries can be added.',
           lines: open.map(function (line) { return line.ingredient.name + ': ' + P.qty(line.quantity_outstanding, line.ingredient.unit) + ' not delivered'; }),
           confirmLabel: 'Close order',
