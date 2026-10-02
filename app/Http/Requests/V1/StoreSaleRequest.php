@@ -12,6 +12,12 @@ use Illuminate\Validation\Rule;
  */
 class StoreSaleRequest extends FormRequest
 {
+    /** Seconds, milliseconds (v) or microseconds (u), each with an offset (P) or a literal Z. */
+    private const SOLD_AT_FORMATS = [
+        'Y-m-d\TH:i:sP', 'Y-m-d\TH:i:s.vP', 'Y-m-d\TH:i:s.uP',
+        'Y-m-d\TH:i:s\Z', 'Y-m-d\TH:i:s.v\Z', 'Y-m-d\TH:i:s.u\Z',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -39,8 +45,17 @@ class StoreSaleRequest extends FormRequest
             // PCRE `$` also matches before a trailing newline, so "till-1\n" would pass the plain
             // pattern. `\z` anchors at the true end of the string.
             'pos_reference' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._:-]+\z/'],
-            // The 5 minutes of slack cover clock skew between the till and this server.
-            'sold_at' => ['nullable', 'date', 'before_or_equal:'.now()->addMinutes(5)->toIso8601String()],
+            // ISO-8601 only (with an offset or Z, whole or fractional seconds). Plain `date` would also
+            // take "yesterday" or "+1 hour", which a POS contract should not.
+            'sold_at' => [
+                'nullable', 'bail',
+                'date_format:'.implode(',', self::SOLD_AT_FORMATS),
+                // The 5 minutes of slack cover clock skew between the till and this server.
+                // Compared as instants, so the offset the till used does not matter.
+                fn (string $attribute, mixed $value, \Closure $fail) => Carbon::parse($value)->gt(now()->addMinutes(5))
+                    ? $fail('The sale time cannot be more than 5 minutes in the future.')
+                    : null,
+            ],
         ];
     }
 
@@ -61,8 +76,7 @@ class StoreSaleRequest extends FormRequest
             'pos_reference.string' => 'The POS reference must be text.',
             'pos_reference.max' => 'The POS reference must be at most 64 characters.',
             'pos_reference.regex' => 'The POS reference may only contain letters, digits and . _ : -',
-            'sold_at.date' => 'The sale time must be a valid date and time.',
-            'sold_at.before_or_equal' => 'The sale time cannot be more than 5 minutes in the future.',
+            'sold_at.date_format' => 'The sale time must be ISO 8601, for example 2026-10-01T14:00:00Z.',
         ];
     }
 

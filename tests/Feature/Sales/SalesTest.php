@@ -234,6 +234,9 @@ it('rejects a menu item without a recipe with menu_item_not_sellable', function 
 it('rejects invalid input with 422', function (array $overrides) {
     $i = saleSetup();
 
+    // A closure defers "now + 1 hour" until the test runs, not when the dataset is built.
+    $overrides = $overrides instanceof Closure ? $overrides() : $overrides;
+
     $response = postSale($i, $overrides)->assertStatus(422)->assertJsonPath('code', 'validation_failed');
     expect($response->json())->assertNoIntegerIds();
     expect(Sale::count())->toBe(0)->and(onHandOf($i['beef']))->toBe(1000);
@@ -246,8 +249,22 @@ it('rejects invalid input with 422', function (array $overrides) {
     'numeric menu item id' => [['menu_item_id' => 1]],
     'reference with spaces' => [['pos_reference' => 'till 1']],
     'reference too long' => [['pos_reference' => str_repeat('a', 65)]],
-    'sold_at an hour ahead' => [['sold_at' => '+1 hour']],
+    'sold_at an hour ahead' => [fn () => ['sold_at' => now()->addHour()->toIso8601String()]],
+    'sold_at relative +1 hour' => [['sold_at' => '+1 hour']],
+    'sold_at relative yesterday' => [['sold_at' => 'yesterday']],
+    'sold_at date only' => [['sold_at' => '2026-10-01']],
 ]);
+
+it('accepts sold_at in the Z form with and without fractional seconds', function (string $suffix) {
+    $i = saleSetup(100000, 100000, 100000);
+    $when = now()->subMinutes(10)->startOfSecond();
+    $value = $when->format('Y-m-d\TH:i:s').$suffix;
+
+    $this->postJson('/api/v1/sales', ['menu_item_id' => $i['burger']->ulid, 'quantity' => 1, 'sold_at' => $value])
+        ->assertCreated();
+
+    expect(Sale::firstOrFail()->sold_at->equalTo($when))->toBeTrue();
+})->with(['Z', '.250Z']);
 
 it('anchors the pos_reference pattern at the true end of the string', function () {
     // TrimStrings removes a trailing newline before validation over HTTP, so the rule is tested
