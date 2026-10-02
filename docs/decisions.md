@@ -430,3 +430,15 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Supersedes:** the Photos bullet of D-036. The rest of D-036 (fictional suppliers, the history, determinism) stands.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-02
+
+## D-047 No Fable security pass (amends D-039)
+- **Chosen:** the PTY-21 security review is the Opus 5.5 pass alone. The second, independent pass on Fable 5.1 in Claude Code on the web does not run.
+- **Why:** Mohamad has no Fable credits, and the deadline does not allow waiting for them.
+- **What covers the gap:**
+  - the Opus pass checked every threat in security.md;
+  - its fixes each have a regression test that fails without the fix;
+  - one finding (CORS) was caught by testing a fix against the running server, not by reasoning alone;
+  - `composer audit` runs in CI on every pull request.
+- **Cost:** one fewer independent pair of eyes on security. It is stated in the README and the PTY-21 ticket rather than hidden.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-02
