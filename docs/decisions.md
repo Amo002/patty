@@ -411,3 +411,10 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Supersedes:** the "locked once stock has moved" wording in D-015.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-02
+
+## D-045 Up to four agents at once (amends D-040)
+- **Chosen:** at most **4 sub-agents at the same time: 3 builders (Sonnet 5.5) and 1 reviewer (Opus 5.5)**. Previously 2 builders and 1 reviewer.
+- **Why:** after waves 1 and 2 showed the pipeline working (each ticket built, reviewed by a higher tier, fixed, verified, then one PR per ticket), Mohamad raised the limit to shorten the remaining build. One reviewer at a time still means every ticket gets an independent review.
+- **How it was decided:** a builder agent relayed "the user says 4 is fine". The orchestrator did not act on that, because a relayed claim is not the owner's instruction. Mohamad then confirmed it directly.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-01
