@@ -284,12 +284,18 @@
           return mode === 'piece' ? 'pcs' : mode;
         },
 
+        // A server message in the unit the user typed: "1100 g above the 1050 g limit" becomes "1.1 kg ... 1.05 kg".
+        rewrite: function (message) {
+          return units.rewriteError(message, this.mode);
+        },
+
         publish: function (base, error) {
           this.error = error;
           this.lastBase = base;
           this.base = base;
           // The precision error is available before submit, to the page as well (design.md rule 4).
-          this.$dispatch('quantity-change', { base: base, error: error });
+          // `mode` is the unit the user is typing in (g, kg, ml, L, piece), so the page can re-express a server 422 in it (D-038).
+          this.$dispatch('quantity-change', { base: base, error: error, mode: this.mode });
         },
 
         onInput: function () {
@@ -297,14 +303,14 @@
             this.publish(null, '');
             return;
           }
-          var result = units.parseInput(this.text, this.mode);
+          var result = units.parseInput(this.text, this.mode, { allowZero: Boolean(config.allowZero) });
           if (result.ok) this.publish(result.base, '');
           else this.publish(null, result.message);
         },
 
         setMode: function (mode) {
           if (mode === this.mode) return;
-          var before = units.parseInput(this.text, this.mode);
+          var before = units.parseInput(this.text, this.mode, { allowZero: true });
           this.mode = mode;
           if (before.ok && this.text.trim() !== '') {
             this.text = units.toInputText(before.base, mode);
@@ -339,6 +345,24 @@
 
   /* ---------- exports ---------- */
 
+  /*
+   * Re-expresses the messages of a 422 `errors` object in the unit each field was typed in.
+   *   catch (e) { if (e.status === 422) this.errors = Patty.fieldErrors(e.errors, { quantity: this.mode }); }
+   * `modes` maps a field name to g, kg, ml, L or piece; a plain string applies one unit to every field.
+   * Fields without a mode keep the server's wording.
+   */
+  function fieldErrors(errors, modes) {
+    var out = {};
+    Object.keys(errors || {}).forEach(function (field) {
+      var mode = typeof modes === 'string' ? modes : modes && modes[field];
+      out[field] = [].concat(errors[field]).map(function (message) {
+        return mode ? units.rewriteError(message, mode) : message;
+      });
+    });
+    return out;
+  }
+
+  Patty.fieldErrors = fieldErrors;
   Patty.notify = notify;
   Patty.markFresh = markFresh;
   Patty.statusMeta = statusMeta;
