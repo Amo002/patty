@@ -1,0 +1,1984 @@
+{
+    "info": {
+        "name": "Patty API",
+        "description": "Inventory and purchasing for a single-branch burger restaurant. Full contract: docs/api.md.\n\nRun the **Scenario** folder top to bottom (Collection Runner, or `npx newman run docs/postman/patty.postman_collection.json -e docs/postman/local.postman_environment.json --folder Scenario`). It runs the brief end to end and asserts every number. The other folders hold one request per endpoint and reuse the ids the scenario saved.\n\nEvery write sends Content-Type: application/json, even with no body; the API answers 415 otherwise (S6).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Scenario",
+            "description": "The brief end to end: ingredients, a recipe, a purchase order, refused moves, a partial delivery within the under-tolerance, over-delivery by percent and by cap, the closing delivery, a POS sale and its replay, then stock and history. Creates its own records with a unique suffix, so it can run on a seeded database.",
+            "item": [
+                {
+                    "name": "0. Health check and start a run",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/health"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// A suffix per run, so names never collide with the demo data or an earlier run.",
+                                    "pm.collectionVariables.set('run', Date.now().toString(36));"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('envelope says success', () => pm.expect(pm.response.json().success).to.eql(true));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "1. Create ingredient: Beef (g)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Beef {{run}}\",\n    \"unit\": \"g\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data; pm.collectionVariables.set('beef_id', d.id);",
+                                    "pm.test('starts at zero on hand', () => pm.expect(d.on_hand).to.eql(0));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "2. Create ingredient: Bun (piece)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Bun {{run}}\",\n    \"unit\": \"piece\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "pm.collectionVariables.set('bun_id', pm.response.json().data.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "3. Create ingredient: Cheese (g)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Cheese {{run}}\",\n    \"unit\": \"g\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "pm.collectionVariables.set('cheese_id', pm.response.json().data.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "4. Create supplier",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/suppliers",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Scenario Supplier {{run}}\",\n    \"email\": \"orders@scenario.example\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "pm.collectionVariables.set('supplier_id', pm.response.json().data.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "5. Create menu item: Classic Burger with its recipe",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items",
+                        "description": "The brief's example: 150 g beef, 1 bun, 20 g cheese.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Classic Burger {{run}}\",\n    \"recipe\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity\": 150\n        },\n        {\n            \"ingredient_id\": \"{{bun_id}}\",\n            \"quantity\": 1\n        },\n        {\n            \"ingredient_id\": \"{{cheese_id}}\",\n            \"quantity\": 20\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "pm.collectionVariables.set('burger_id', pm.response.json().data.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "6. Create a draft purchase order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders",
+                        "description": "50,000 g of cheese is deliberate: 5% of it (2,500 g) is more than the 2,000 g cap, so step 11 can show the cap rejecting a delivery the percentage alone would allow (D-035).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"supplier_id\": \"{{supplier_id}}\",\n    \"lines\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity_ordered\": 1000\n        },\n        {\n            \"ingredient_id\": \"{{bun_id}}\",\n            \"quantity_ordered\": 10\n        },\n        {\n            \"ingredient_id\": \"{{cheese_id}}\",\n            \"quantity_ordered\": 50000\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const lineOf = (order, ingredientId) => order.lines.find(l => l.ingredient.id === ingredientId);",
+                                    "const o = pm.response.json().data;",
+                                    "pm.collectionVariables.set('po_id', o.id);",
+                                    "pm.collectionVariables.set('beef_line_id', lineOf(o, pm.collectionVariables.get('beef_id')).id);",
+                                    "pm.collectionVariables.set('bun_line_id', lineOf(o, pm.collectionVariables.get('bun_id')).id);",
+                                    "pm.collectionVariables.set('cheese_line_id', lineOf(o, pm.collectionVariables.get('cheese_id')).id);",
+                                    "pm.test('is a draft', () => pm.expect(o.status).to.eql('draft'));",
+                                    "pm.test('tolerances snapshotted: cheese may arrive at most 52,000 g (cap 2,000 g beats 5%)', () => pm.expect(lineOf(o, pm.collectionVariables.get('cheese_id')).max_receivable).to.eql(52000));",
+                                    "pm.test('beef completes from 950 g (5% under-tolerance)', () => pm.expect(lineOf(o, pm.collectionVariables.get('beef_id')).min_to_complete).to.eql(950));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "7. Receive against a draft: refused (409 cannot_receive)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{beef_line_id}}\",\n            \"quantity\": 100\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 409', () => pm.response.to.have.status(409));",
+                                    "pm.test('error code is cannot_receive', () => pm.expect(pm.response.json().code).to.eql('cannot_receive'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "8. Send the order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/send"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('is sent', () => pm.expect(pm.response.json().data.status).to.eql('sent'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "9. Send it again: refused (409 invalid_transition)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/send"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 409', () => pm.response.to.have.status(409));",
+                                    "pm.test('error code is invalid_transition', () => pm.expect(pm.response.json().code).to.eql('invalid_transition'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "10. Partial delivery: 960 g beef, 4 buns",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{beef_line_id}}\",\n            \"quantity\": 960\n        },\n        {\n            \"purchase_order_line_id\": \"{{bun_line_id}}\",\n            \"quantity\": 4\n        }\n    ],\n    \"note\": \"Driver: scenario run\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const lineOf = (order, ingredientId) => order.lines.find(l => l.ingredient.id === ingredientId);",
+                                    "const o = pm.response.json().data.purchase_order;",
+                                    "const beef = lineOf(o, pm.collectionVariables.get('beef_id'));",
+                                    "const bun = lineOf(o, pm.collectionVariables.get('bun_id'));",
+                                    "const cheese = lineOf(o, pm.collectionVariables.get('cheese_id'));",
+                                    "pm.test('order is partially received, not closed', () => pm.expect(o.status).to.eql('received'));",
+                                    "pm.test('beef 960 of 1000 is complete: within the 5% under-tolerance, nothing outstanding', () => { pm.expect(beef.is_complete).to.eql(true); pm.expect(beef.quantity_outstanding).to.eql(0); pm.expect(beef.quantity_under_delivered).to.eql(40); });",
+                                    "pm.test('bun: 6 still outstanding', () => pm.expect(bun.quantity_outstanding).to.eql(6));",
+                                    "pm.test('cheese: all 50,000 g outstanding', () => pm.expect(cheese.quantity_outstanding).to.eql(50000));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "11a. Over-delivery by percentage: 7 more buns (422 over_delivery)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "description": "4 + 7 = 11 buns against 10 ordered. Pieces have no rounding room: 5% of 10 rounds down to 0.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{bun_line_id}}\",\n            \"quantity\": 7\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                                    "pm.test('error code is over_delivery', () => pm.expect(pm.response.json().code).to.eql('over_delivery'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "11b. Over-delivery by cap: 52,500 g cheese (422 over_delivery)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "description": "5% would allow 52,500 g, but the 2,000 g cap limits the line to 52,000 g.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{cheese_line_id}}\",\n            \"quantity\": 52500\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                                    "pm.test('error code is over_delivery', () => pm.expect(pm.response.json().code).to.eql('over_delivery'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "12. Final delivery: 6 buns, 50,000 g cheese, the order closes",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{bun_line_id}}\",\n            \"quantity\": 6\n        },\n        {\n            \"purchase_order_line_id\": \"{{cheese_line_id}}\",\n            \"quantity\": 50000\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const o = pm.response.json().data.purchase_order;",
+                                    "pm.test('every line complete, so the order closed by itself', () => { pm.expect(o.status).to.eql('closed'); pm.expect(o.short_closed).to.eql(false); });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "13. POS sale: 2 Classic Burgers",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data;",
+                                    "const by = id => d.deductions.find(x => x.ingredient.id === id);",
+                                    "pm.test('beef: 300 g out, 660 g left', () => { const x = by(pm.collectionVariables.get('beef_id')); pm.expect(x.quantity).to.eql(300); pm.expect(x.on_hand_after).to.eql(660); });",
+                                    "pm.test('bun: 2 out, 8 left', () => { const x = by(pm.collectionVariables.get('bun_id')); pm.expect(x.quantity).to.eql(2); pm.expect(x.on_hand_after).to.eql(8); });",
+                                    "pm.test('cheese: 40 g out, 49,960 g left', () => { const x = by(pm.collectionVariables.get('cheese_id')); pm.expect(x.quantity).to.eql(40); pm.expect(x.on_hand_after).to.eql(49960); });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "14. The till resends the same sale: replay, stock unchanged",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales",
+                        "description": "Same pos_reference, same item and quantity: 200 with the original sale, no new movements (D-014, D-029).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('marked as a replay', () => pm.expect(pm.response.json().data.replayed).to.eql(true));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "15a. Check stock: Beef 660 g",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{beef_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('on hand 660, nothing incoming', () => { const d = pm.response.json().data; pm.expect(d.on_hand).to.eql(660); pm.expect(d.incoming).to.eql(0); });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "15b. Check stock: Bun 8",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{bun_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('on hand 8', () => pm.expect(pm.response.json().data.on_hand).to.eql(8));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "15c. Check stock: Cheese 49,960 g",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{cheese_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('on hand 49960', () => pm.expect(pm.response.json().data.on_hand).to.eql(49960));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "16. Beef history: each movement with its running balance",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{beef_id}}/movements"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                                    "const rows = pm.response.json().data;",
+                                    "pm.test('two movements, newest first: sale -300 then delivery +960', () => { pm.expect(rows.map(r => r.quantity_delta)).to.eql([-300, 960]); });",
+                                    "pm.test('balances 660 then 960, and the newest equals on hand', () => pm.expect(rows.map(r => r.balance_after)).to.eql([660, 960]));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "17. Invalid input: ingredient without a unit (422 validation_failed)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"No Unit {{run}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                                    "pm.test('error code is validation_failed', () => pm.expect(pm.response.json().code).to.eql('validation_failed'));",
+                                    "pm.test('the error names the field', () => pm.expect(pm.response.json().errors).to.have.property('unit'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Ingredients",
+            "description": "Quantities are whole numbers in the ingredient's unit: g, ml or piece (D-038).",
+            "item": [
+                {
+                    "name": "List ingredients (E2)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients?per_page=25"
+                    }
+                },
+                {
+                    "name": "Create ingredient (E3)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Tomato {{run}}\",\n    \"unit\": \"g\",\n    \"under_tolerance_bps\": 200\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "422 validation_failed",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "api",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    }
+                                ],
+                                "url": "{{base_url}}/ingredients",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"Tomato {{run}}\",\n    \"unit\": \"g\",\n    \"under_tolerance_bps\": 200\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unprocessable Content",
+                            "code": 422,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"The given data was invalid.\",\n    \"code\": \"validation_failed\",\n    \"errors\": {\n        \"unit\": [\n            \"Unit must be one of g, ml, piece.\"\n        ]\n    }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Show ingredient (E4)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{beef_id}}"
+                    }
+                },
+                {
+                    "name": "Update ingredient (E5)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{beef_id}}",
+                        "description": "Any subset of the create fields. null puts a tolerance back to the unit default. Changing the unit of a used ingredient answers 409 unit_locked (D-044).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"over_tolerance_cap\": null\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Movement history (E6)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/ingredients/{{beef_id}}/movements"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Suppliers",
+            "description": "",
+            "item": [
+                {
+                    "name": "List suppliers (E7)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/suppliers"
+                    }
+                },
+                {
+                    "name": "Create supplier (E8)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/suppliers",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Golden Crust {{run}}\",\n    \"email\": \"orders@golden-crust.example\",\n    \"phone\": \"+962 6 552 3318\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Show supplier (E9)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/suppliers/{{supplier_id}}"
+                    }
+                },
+                {
+                    "name": "Update supplier (E10)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/suppliers/{{supplier_id}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+962 6 552 0000\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Menu & Recipes",
+            "description": "",
+            "item": [
+                {
+                    "name": "List menu items (E11)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items"
+                    }
+                },
+                {
+                    "name": "Create menu item (E12)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Fries {{run}}\",\n    \"recipe\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity\": 1\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Show menu item (E13)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items/{{burger_id}}"
+                    }
+                },
+                {
+                    "name": "Rename menu item (E14)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items/{{burger_id}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Classic Burger {{run}} renamed\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Replace recipe (E15)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/menu-items/{{burger_id}}/recipe",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity\": 150\n        },\n        {\n            \"ingredient_id\": \"{{bun_id}}\",\n            \"quantity\": 1\n        },\n        {\n            \"ingredient_id\": \"{{cheese_id}}\",\n            \"quantity\": 20\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Purchase Orders",
+            "description": "",
+            "item": [
+                {
+                    "name": "List purchase orders (E16)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders?status=open",
+                        "description": "status: draft, sent, received, closed, or open (sent or received)."
+                    }
+                },
+                {
+                    "name": "Create draft (E17)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"supplier_id\": \"{{supplier_id}}\",\n    \"lines\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity_ordered\": 1000\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Show purchase order (E18)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}"
+                    }
+                },
+                {
+                    "name": "Replace lines, draft only (E19)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/lines",
+                        "description": "409 order_not_editable once the order is sent.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"ingredient_id\": \"{{beef_id}}\",\n            \"quantity_ordered\": 2000\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Send (E20)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/send",
+                        "description": "draft to sent. Any other move answers 409 invalid_transition."
+                    },
+                    "response": [
+                        {
+                            "name": "409 invalid_transition",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "api",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    }
+                                ],
+                                "url": "{{base_url}}/purchase-orders/{{po_id}}/send",
+                                "description": "draft to sent. Any other move answers 409 invalid_transition."
+                            },
+                            "status": "Conflict",
+                            "code": 409,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"Cannot move PO-2026-0008 from sent to sent.\",\n    \"code\": \"invalid_transition\",\n    \"errors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Short-close (E21)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/close",
+                        "description": "received to closed, when the rest will never arrive. The order is marked short_closed."
+                    }
+                },
+                {
+                    "name": "Delete draft (E22)",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Deliveries",
+            "description": "",
+            "item": [
+                {
+                    "name": "Record a delivery (E23)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                        "description": "All or part of the order. Stock rises by what arrived. The order closes when every line is complete (D-035, D-036).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{beef_line_id}}\",\n            \"quantity\": 600\n        }\n    ],\n    \"received_at\": \"2026-10-02T09:30:00+03:00\",\n    \"note\": \"Driver: Sami\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "409 cannot_receive",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "api",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    }
+                                ],
+                                "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                                "description": "All or part of the order. Stock rises by what arrived. The order closes when every line is complete (D-035, D-036).",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{beef_line_id}}\",\n            \"quantity\": 600\n        }\n    ],\n    \"received_at\": \"2026-10-02T09:30:00+03:00\",\n    \"note\": \"Driver: Sami\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Conflict",
+                            "code": 409,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"Cannot receive a delivery on PO-2026-0008: it has not been sent to the supplier yet. Only a sent or partially received order can take a delivery.\",\n    \"code\": \"cannot_receive\",\n    \"errors\": []\n}"
+                        },
+                        {
+                            "name": "422 over_delivery",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "api",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    }
+                                ],
+                                "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries",
+                                "description": "All or part of the order. Stock rises by what arrived. The order closes when every line is complete (D-035, D-036).",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"lines\": [\n        {\n            \"purchase_order_line_id\": \"{{beef_line_id}}\",\n            \"quantity\": 600\n        }\n    ],\n    \"received_at\": \"2026-10-02T09:30:00+03:00\",\n    \"note\": \"Driver: Sami\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unprocessable Content",
+                            "code": 422,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"Bun mura9bxj: receiving 7 pcs would bring the total to 11 pcs, above the 10 pcs limit.\",\n    \"code\": \"over_delivery\",\n    \"errors\": {\n        \"lines.0.quantity\": [\n            \"Bun mura9bxj: 11 pcs is above the 10 pcs limit.\"\n        ]\n    }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List deliveries of an order (E24)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/purchase-orders/{{po_id}}/deliveries"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Sales (POS)",
+            "description": "Requests send X-Patty-Channel: pos, so the audit trail shows they came from the till.",
+            "item": [
+                {
+                    "name": "Record a sale (E25)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales",
+                        "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "429 too_many_requests",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "pos",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    },
+                                    {
+                                        "key": "X-POS-Key",
+                                        "value": "{{pos_key}}",
+                                        "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                                    }
+                                ],
+                                "url": "{{base_url}}/sales",
+                                "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"Too many requests.\",\n    \"code\": \"too_many_requests\",\n    \"errors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Recent sales (E26)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Visibility",
+            "description": "",
+            "item": [
+                {
+                    "name": "Current stock (E27)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/stock?per_page=100",
+                        "description": "On hand, incoming and a negative flag per ingredient. Computed on every request, never cached."
+                    }
+                },
+                {
+                    "name": "Dashboard counts (E28)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/dashboard"
+                    }
+                },
+                {
+                    "name": "Audit trail (E29)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/activity"
+                    }
+                },
+                {
+                    "name": "Audit trail for one order (E29)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            }
+                        ],
+                        "url": "{{base_url}}/activity?subject_type=purchase_order&subject_id={{po_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Demo data (local only)",
+            "description": "These routes exist only when APP_ENV=local. Anywhere else they are a plain 404 (S13). They delete data: do not run them against anything you want to keep.",
+            "item": [
+                {
+                    "name": "Reset to the demo restaurant (E30)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/demo/reset"
+                    }
+                },
+                {
+                    "name": "Clear everything (E31)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/demo/clear",
+                        "description": "Rebuilds the database. The stock ledger refuses DELETE, so clearing means a fresh database (D-037)."
+                    }
+                },
+                {
+                    "name": "Load demo data into an empty system (E32)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "api",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            }
+                        ],
+                        "url": "{{base_url}}/demo/seed",
+                        "description": "409 demo_not_empty if anything exists already."
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "run",
+            "value": ""
+        },
+        {
+            "key": "beef_id",
+            "value": ""
+        },
+        {
+            "key": "bun_id",
+            "value": ""
+        },
+        {
+            "key": "cheese_id",
+            "value": ""
+        },
+        {
+            "key": "supplier_id",
+            "value": ""
+        },
+        {
+            "key": "burger_id",
+            "value": ""
+        },
+        {
+            "key": "po_id",
+            "value": ""
+        },
+        {
+            "key": "beef_line_id",
+            "value": ""
+        },
+        {
+            "key": "bun_line_id",
+            "value": ""
+        },
+        {
+            "key": "cheese_line_id",
+            "value": ""
+        }
+    ]
+}

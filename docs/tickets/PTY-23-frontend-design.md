@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | 2b Frontend design |
-| Status | Awaiting Mohamad (PR) |
+| Status | Done |
 | Weight | M |
 | Builder | Opus 5.5 (orchestrator, main session; no agent slot used) |
 | Reviewer | Mohamad (design approval given 2026-10-01) |

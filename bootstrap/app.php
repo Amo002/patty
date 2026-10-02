@@ -6,6 +6,7 @@ use App\Http\Middleware\ApiVersion;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\NoStoreCache;
 use App\Http\Middleware\RequestContext;
+use App\Http\Middleware\RequireJsonWrites;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -33,7 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->api(prepend: [ForceJsonResponse::class]);
+        $middleware->api(prepend: [ForceJsonResponse::class, RequireJsonWrites::class]);
 
         // Global, so the headers also cover web pages, /up and unmatched URLs.
         $middleware->append([
