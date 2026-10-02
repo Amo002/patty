@@ -74,10 +74,39 @@ F13, F14, F15, F16.
 ## Additional tests
 
 - [ ] T23: conflict gives 409, the sale count is unchanged, and stock is unchanged.
-- [ ] T22: `config(['patty.pos_api_key' => 'secret'])`. No header gives 401; `X-POS-Key: secret` gives 201.
+- [ ] T22: `config(['services.pos.api_key' => 'secret'])`. No header gives 401; `X-POS-Key: secret` gives 201.
 
 ## Done means
 
 1. POST a sale of 2 Classic Burgers. 201 with three deductions and `number: SALE-2026-000001`.
 2. POST the same body again. 200 with `replayed: true`, and stock unchanged.
 3. POST the same reference with quantity 3. 409 `idempotency_conflict`.
+
+## Builder notes
+
+### What was built, in order
+1. `IdempotencyConflict` (409) and `MenuItemNotSellable` (422) domain exceptions.
+2. `SaleService::record()` and a `SaleResult` value object. Order: look up `pos_reference` (replay or conflict), then one `DB::transaction` holding the recipe check, SALE number, sale row, one ledger movement per recipe line and the `sale.recorded` audit entry. The `pos` log line is written after commit.
+3. Race guard (R4): `UniqueConstraintViolationException` is caught outside the transaction (which has already rolled back), the winner is re-read and the same replay-or-conflict comparison runs. A unique violation on any other index is rethrown.
+4. `StoreSaleRequest`, `ListSalesRequest`, `SaleResource`, `SaleController`, routes in `routes/api/v1/sales.php` (`PosKey` and `throttle:pos` on the POST only).
+5. `tests/Feature/Sales/SalesTest.php` (T1, T7, T10, T20, T22, T23, race, validation, atomicity, recipe-change, E26).
+
+### Decisions and notes
+- `on_hand_after` is the CURRENT on-hand read from one grouped query after commit. For a new sale that is exactly "after this sale". For a replay or a list row it is "now", not a historical snapshot, because no balance is stored (D-004).
+- Deductions are read back from the sale's own movements, not recomputed from the recipe, so a recipe change after the sale cannot alter what a sale shows (Q-007).
+- A replay writes a `sale.replayed` audit row. It moves no stock.
+- `pos_reference` regex ends in `\z`, not `$`. In practice `TrimStrings` strips a trailing newline before validation over HTTP, so the newline case is tested on the rule directly.
+- The race test subclasses `SaleService` so its first lookup misses; this reproduces what the losing request sees without needing real concurrency.
+- The atomicity test makes the second ledger write throw. It fails if `DB::transaction` is removed (verified).
+- Ticket text said `patty.pos_api_key`; the real key is `services.pos.api_key` (fixed above).
+
+### What Mohamad must be able to explain
+- Why the stock check is absent (D-010): the sale already happened at the till.
+- Why the unique index is the real idempotency guard and the lookup is only the fast path (D-029).
+- Why the catch sits outside the transaction.
+
+### Interview lines
+1. "A sale below zero is accepted and flagged, because the burger has already left the kitchen. Refusing it would delete a real event; a negative balance tells the owner a delivery or a count is wrong."
+2. "Negative stock is information: the ledger logs a warning and the API marks the ingredient `is_negative`, so the screen shows it instead of hiding it."
+3. "`pos_reference` is an idempotency key: same reference and same payload returns the original with 200 and moves no stock; a different payload is a 409, because silently replaying would hide a disagreement with the till."
+4. "The database unique index, not my lookup, guarantees one sale per reference. If two retries race, the loser hits the index, rolls back, re-reads the winner and answers as a replay."

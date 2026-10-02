@@ -2,15 +2,21 @@
 
 use App\Enums\MovementReason;
 use App\Enums\Unit;
+use App\Exceptions\Domain\IdempotencyConflict;
+use App\Http\Requests\V1\StoreSaleRequest;
 use App\Models\DeliveryLine;
+use App\Models\DocumentSequence;
 use App\Models\Ingredient;
 use App\Models\MenuItem;
 use App\Models\RecipeLine;
 use App\Models\Sale;
 use App\Models\StockMovement;
+use App\Services\DocumentNumber;
 use App\Services\SaleService;
 use App\Services\StockLedger;
+use Carbon\CarbonInterface;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -174,7 +180,7 @@ it('refuses a reused pos_reference with a different menu item', function () {
 */
 function racingService(): SaleService
 {
-    return new class(app(StockLedger::class), app(App\Services\DocumentNumber::class)) extends SaleService
+    return new class(app(StockLedger::class), app(DocumentNumber::class)) extends SaleService
     {
         private bool $missed = false;
 
@@ -209,7 +215,7 @@ it('answers the loser of a race with a different payload as idempotency_conflict
     app(SaleService::class)->record($i['burger'], 2, 'till-1:0001');
 
     expect(fn () => racingService()->record($i['burger'], 3, 'till-1:0001'))
-        ->toThrow(App\Exceptions\Domain\IdempotencyConflict::class);
+        ->toThrow(IdempotencyConflict::class);
 
     expect(Sale::count())->toBe(1)->and(onHandOf($i['beef']))->toBe(700);
 });
@@ -245,7 +251,7 @@ it('rejects invalid input with 422', function (array $overrides) {
 it('anchors the pos_reference pattern at the true end of the string', function () {
     // TrimStrings removes a trailing newline before validation over HTTP, so the rule is tested
     // directly: with a plain `$` anchor "till-1:0001\n" would pass, with `\z` it must not.
-    $rules = (new App\Http\Requests\V1\StoreSaleRequest)->rules()['pos_reference'];
+    $rules = (new StoreSaleRequest)->rules()['pos_reference'];
     $passes = fn (string $value) => validator(['pos_reference' => $value], ['pos_reference' => $rules])->passes();
 
     expect($passes("till-1:0001\n"))->toBeFalse()
@@ -321,7 +327,7 @@ it('leaves no sale, no movements and no burned number when a ledger write fails 
     {
         private int $calls = 0;
 
-        public function record(Ingredient $ingredient, int $delta, MovementReason $reason, Illuminate\Database\Eloquent\Model $reference, ?Carbon\CarbonInterface $occurredAt = null): StockMovement
+        public function record(Ingredient $ingredient, int $delta, MovementReason $reason, Model $reference, ?CarbonInterface $occurredAt = null): StockMovement
         {
             if ($reason === MovementReason::Sale && ++$this->calls === 2) {
                 throw new RuntimeException('disk full');
@@ -337,7 +343,7 @@ it('leaves no sale, no movements and no burned number when a ledger write fails 
         ->and(StockMovement::count())->toBe($movementsBefore)
         ->and(Activity::where('event', 'sale.recorded')->count())->toBe(0)
         // The SALE counter rolled back too, so the next sale is still number 1.
-        ->and(App\Models\DocumentSequence::where('type', 'SALE')->value('last_value'))->toBeNull();
+        ->and(DocumentSequence::where('type', 'SALE')->value('last_value'))->toBeNull();
 });
 
 it('lists sales newest first, paginated, with deductions (E26)', function () {
