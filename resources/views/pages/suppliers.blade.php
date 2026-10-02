@@ -72,7 +72,7 @@
         </section>
 
         {{-- Lazy loading: the sentinel loads the next page near the viewport; the button is the keyboard fallback (U2). --}}
-        <div class="row" style="justify-content: center" x-show="status === 'loaded' && hasMore" x-cloak>
+        <div class="row load-more" x-show="status === 'loaded' && hasMore" x-cloak>
             <button type="button" class="btn btn-secondary" :disabled="loadingMore" :aria-busy="loadingMore" @click="loadMore()">
                 <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span x-text="moreError ? 'Could not load more. Try again' : 'Load more'"></span>

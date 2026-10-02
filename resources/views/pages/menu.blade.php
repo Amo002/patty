@@ -70,7 +70,7 @@
         </div>
 
         {{-- Lazy loading: the sentinel loads the next page near the viewport; the button is the keyboard fallback (U2). --}}
-        <div class="row" style="justify-content: center" x-show="status === 'loaded' && hasMore" x-cloak>
+        <div class="row load-more" x-show="status === 'loaded' && hasMore" x-cloak>
             <button type="button" class="btn btn-secondary" :disabled="loadingMore" :aria-busy="loadingMore" @click="loadMore()">
                 <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span x-text="moreError ? 'Could not load more. Try again' : 'Load more'"></span>
@@ -127,7 +127,7 @@
                                                 :aria-disabled="usedElsewhere(option, line)"
                                                 @mousedown.prevent="pick(line, option)" @mousemove="line.active = i">
                                                 <span x-text="option.name"></span>
-                                                <span class="muted text-xs" x-text="usedElsewhere(option, line) ? 'already in this recipe' : option.unit"></span>
+                                                <span class="muted text-xs" x-text="usedElsewhere(option, line) ? 'already in this recipe' : (option.unit_label || option.unit)"></span>
                                             </li>
                                         </template>
                                     </ul>

@@ -3,6 +3,10 @@
 /* Left-aligned numbers (phone numbers): digits still line up, but the cell is not right-aligned like .num. */
 .tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* The "Load more" button sits centred under a list; the skeleton for a right-aligned number hugs the right edge. */
+.load-more { justify-content: center; }
+.skeleton-end { margin-left: auto; }
+
 /* Ingredient list: a small square photo, and the Negative pill sitting beside the number. */
 .thumb-cell { width: 56px; padding-right: 0; }
 .thumb { width: 40px; border-radius: var(--r-sm); }

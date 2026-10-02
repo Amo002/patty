@@ -52,7 +52,7 @@
                                 <tr aria-hidden="true">
                                     <td><div class="skeleton skeleton-block thumb"></div></td>
                                     <td><div class="skeleton skeleton-line w-50"></div></td>
-                                    <td><div class="skeleton skeleton-line w-25" style="margin-left: auto"></div></td>
+                                    <td><div class="skeleton skeleton-line w-25 skeleton-end"></div></td>
                                     <td><div class="skeleton skeleton-line w-25"></div></td>
                                     <td><div class="skeleton skeleton-line w-75"></div></td>
                                     <td></td>
@@ -86,7 +86,7 @@
         </section>
 
         {{-- Lazy loading: the sentinel loads the next page near the viewport; the button is the keyboard fallback (U2). --}}
-        <div class="row" style="justify-content: center" x-show="status === 'loaded' && hasMore" x-cloak>
+        <div class="row load-more" x-show="status === 'loaded' && hasMore" x-cloak>
             <button type="button" class="btn btn-secondary" :disabled="loadingMore" :aria-busy="loadingMore" @click="loadMore()">
                 <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span x-text="moreError ? 'Could not load more. Try again' : 'Load more'"></span>
@@ -216,7 +216,7 @@
                             </template>
                         </ol>
 
-                        <div class="row" style="justify-content: center" x-show="history.status === 'loaded' && history.hasMore">
+                        <div class="row load-more" x-show="history.status === 'loaded' && history.hasMore">
                             <button type="button" class="btn btn-secondary" :disabled="history.loadingMore" :aria-busy="history.loadingMore" @click="history.loadMore()">
                                 <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
                                 <span x-text="history.moreError ? 'Could not load more. Try again' : 'Load more'"></span>
