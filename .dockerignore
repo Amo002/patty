@@ -1,0 +1,12 @@
+.git
+.claude
+.github
+vendor
+node_modules
+.env
+database/*.sqlite
+database/*.sqlite-journal
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
