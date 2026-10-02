@@ -64,7 +64,8 @@
 
             <div class="stack">
                 <template x-for="(line, index) in lines" :key="line.key">
-                    <div class="po-line" x-id="['ingredient']">
+                    <fieldset class="po-line" x-id="['ingredient']">
+                        <legend class="visually-hidden" x-text="'Line ' + (index + 1)"></legend>
                         <div class="field">
                             <label :for="$id('ingredient')">Ingredient</label>
                             <select class="select" :id="$id('ingredient')" x-model="line.ingredient_id" @change="ingredientChanged(line)">
@@ -95,7 +96,7 @@
                                 <p class="inline-error" role="alert"><x-icon name="alert" /> <span x-text="message"></span></p>
                             </template>
                         </div>
-                    </div>
+                    </fieldset>
                 </template>
             </div>
 

@@ -135,7 +135,8 @@
                     <p class="hint">Quantities start in kg and L. Switch to g or ml with the toggle.</p>
 
                     <template x-for="(line, index) in edit.lines" :key="line.key">
-                        <div class="po-line" x-id="['ingredient']">
+                        <fieldset class="po-line" x-id="['ingredient']">
+                            <legend class="visually-hidden" x-text="'Line ' + (index + 1)"></legend>
                             <div class="field">
                                 <label :for="$id('ingredient')">Ingredient</label>
                                 <select class="select" :id="$id('ingredient')" x-model="line.ingredient_id" @change="editIngredientChanged(line)">
@@ -164,7 +165,7 @@
                                     <p class="inline-error" role="alert"><x-icon name="alert" /> <span x-text="message"></span></p>
                                 </template>
                             </div>
-                        </div>
+                        </fieldset>
                     </template>
 
                     <div>
@@ -220,7 +221,9 @@
             </div>
             <div class="dialog-body stack">
                 <template x-for="line in recv.lines" :key="line.key">
-                    <div class="rcv-line">
+                    {{-- A fieldset named by the ingredient, so each "Received" field is announced with its own ingredient. --}}
+                    <fieldset class="rcv-line">
+                        <legend class="visually-hidden" x-text="line.name"></legend>
                         <div class="rcv-name">
                             <strong class="text" x-text="line.name"></strong>
                             <span class="text-sm muted" x-text="limitText(line)"></span>
@@ -230,7 +233,7 @@
                                 'model' => 'line.quantity',
                                 'unit' => 'line.unit',
                                 'change' => 'line.mode = $event.detail.mode; line.error = $event.detail.error',
-                                'label' => 'Quantity received',
+                                'label' => 'Received',
                                 'allowZero' => true,
                                 'class' => 'rcv-field',
                             ])
@@ -240,7 +243,7 @@
                                 <p class="inline-error" role="alert"><x-icon name="alert" /> <span x-text="message"></span></p>
                             </template>
                         </div>
-                    </div>
+                    </fieldset>
                 </template>
 
                 <div class="stack stack-sm">

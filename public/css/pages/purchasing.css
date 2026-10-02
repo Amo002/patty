@@ -58,15 +58,6 @@
 }
 .rcv-name { display: flex; flex-direction: column; gap: 2px; }
 .rcv-errors { grid-column: 1 / -1; }
-/* The ingredient name beside the field already says what it is for. The label stays for screen readers. */
-.rcv-field > label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
 .rcv-check { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); color: var(--text); font-size: var(--fs-14); }
 .rcv-check input { width: 18px; height: 18px; }
 @media (max-width: 640px) {
@@ -88,3 +79,6 @@
 }
 .pos-notice[data-tone="danger"] { background: var(--danger-subtle); border-color: var(--danger); }
 .pos-notice[data-tone="warn"] { border-color: var(--warn-text); }
+
+/* A fieldset names each row for screen readers; the browser border and padding are not wanted. */
+fieldset.po-line, fieldset.rcv-line { margin: 0; min-width: 0; border-width: 0 0 1px; padding-inline: 0; padding-top: 0; }
