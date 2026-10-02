@@ -14,3 +14,4 @@ if (app()->environment('local')) {
 // Pages are shells: they load and change data only through /api/v1. The detail page takes a ULID (D-031),
 // constrained to Crockford base32 so "new" and any junk value never reach the view.
 Route::view('/purchase-orders', 'pages.purchase-orders');
+Route::view('/purchase-orders/new', 'pages.purchase-order-new');
