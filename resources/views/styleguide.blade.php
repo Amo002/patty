@@ -17,6 +17,11 @@
                     milk: null,
                     buns: 12,
                     busy: false,
+                    lines: [
+                        { id: 1, quantity: 1050, mode: 'kg', error: '' },
+                        { id: 2, quantity: 600, mode: 'g', error: '' },
+                    ],
+                    serverErrors: {},
                     rows: [
                         { id: 1, name: 'Beef', unit: 'g', on_hand: 52000 },
                         { id: 2, name: 'Cheese', unit: 'g', on_hand: 750 },
@@ -63,6 +68,29 @@
                             confirmLabel: 'Delete draft',
                             tone: 'danger',
                             run: function () { return new Promise(function (resolve, reject) { setTimeout(function () { reject(new Error('Beef: 1.1 kg is above the 1.05 kg limit')); }, 600); }); },
+                        });
+                    },
+                    // A fake 422 for the first line, re-expressed in the unit that line is typed in (D-038, F1).
+                    fake422: function () {
+                        var line = this.lines[0];
+                        var errors = { quantity: ['Beef: 1100 g is above the 1050 g limit'] };
+                        this.serverErrors = Patty.fieldErrors(errors, { quantity: line.mode });
+                    },
+                    confirmReported: function () {
+                        // A 409 that api.js has already announced with a toast: the dialog closes and the page refreshes.
+                        Patty.confirm({
+                            title: 'Send this purchase order?',
+                            confirmLabel: 'Send order',
+                            onConflict: function () { Patty.notify({ tone: 'info', message: 'Page refresh would run here.' }); },
+                            run: function () {
+                                return new Promise(function (resolve, reject) {
+                                    setTimeout(function () {
+                                        var error = new Patty.api.ApiError({ status: 409, message: 'This order was already sent.', handled: true });
+                                        Patty.notify({ tone: 'warn', message: error.message });
+                                        reject(error);
+                                    }, 600);
+                                });
+                            },
                         });
                     },
                     replayLoader: function () {
@@ -123,16 +151,17 @@
             <div class="row">
                 <button type="button" class="btn btn-primary" disabled>Disabled</button>
                 <button type="button" class="btn btn-secondary" disabled>Disabled</button>
-                <button type="button" class="btn btn-primary" aria-busy="true">
+                <button type="button" class="btn btn-primary" aria-busy="true" disabled>
                     <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span> Busy (static)
                 </button>
-                <button type="button" class="btn btn-danger" aria-busy="true">
+                <button type="button" class="btn btn-danger" aria-busy="true" disabled>
                     <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span> Busy
                 </button>
-                <button type="button" class="btn btn-primary" :aria-busy="busy" @click="fakeBusy()">
+                <button type="button" class="btn btn-primary" :disabled="busy" :aria-busy="busy" @click="fakeBusy()">
                     <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span> Click for 2 s busy
                 </button>
             </div>
+            <p class="hint">Always bind both: <code>:disabled="busy" :aria-busy="busy"</code>. Disabled stops Enter and Space from firing a second click; aria-busy shows the stack and keeps the width.</p>
         </div>
     </section>
 
@@ -175,6 +204,21 @@
                     <p class="text-sm muted">Sent as <strong class="text" x-text="buns === null ? 'nothing yet' : buns + ' pcs'"></strong></p>
                 </div>
             </div>
+            <h3>Quantity inputs in an x-for (unique ids per row)</h3>
+            <div class="stack stack-sm">
+                <template x-for="line in lines" :key="line.id">
+                    <div class="stack stack-sm" x-data="{ quantity: line.quantity }">
+                        <x-quantity-input unit="g" context="purchase" label="Beef line" x-model="quantity"
+                                          @quantity-change="line.mode = $event.detail.mode; line.error = $event.detail.error" />
+                        <p class="inline-error" x-show="serverErrors.quantity && line.id === 1"><x-icon name="alert" /> <span x-text="(serverErrors.quantity || [])[0]"></span></p>
+                    </div>
+                </template>
+                <div class="row">
+                    <button type="button" class="btn btn-secondary" @click="fake422()">Fake a 422 on the first line</button>
+                    <span class="hint">Switch the first line between g and kg, then click: the message follows the unit.</span>
+                </div>
+            </div>
+
             <p class="hint">Try 1.0005 in kg (more than 3 decimals), or 2.5 in g (not whole). The error appears before anything is sent.</p>
         </div>
     </section>
@@ -247,7 +291,8 @@
             <div class="row">
                 <button type="button" class="btn btn-secondary" @click="confirmSimple()">Confirm dialog</button>
                 <button type="button" class="btn btn-primary" @click="confirmBusy()">Confirm with a busy request</button>
-                <button type="button" class="btn btn-danger" @click="confirmFails()">Confirm that fails</button>
+                <button type="button" class="btn btn-danger" @click="confirmFails()">Confirm that fails (inline)</button>
+                <button type="button" class="btn btn-secondary" @click="confirmReported()">Confirm that hits a 409</button>
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('sg-dialog').showModal()">Plain dialog</button>
             </div>
             <div class="row">
