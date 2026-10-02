@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MovementReason;
+use App\Exceptions\ImmutableMovement;
 use Database\Factories\StockMovementFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,34 @@ class StockMovement extends Model
             'reason' => MovementReason::class,
             'occurred_at' => 'datetime',
         ];
+    }
+
+    /**
+     * D-024, application layer: an existing movement can never be saved again.
+     * The PTY-3 triggers are the database layer below this one.
+     *
+     * This guard only sees model-level saves. `increment()`, `decrement()` and
+     * query-builder `update()` / `delete()` issue SQL directly and bypass it; for
+     * those paths the SQLite triggers (D-024) are the backstop, and they fail with
+     * a QueryException rather than ImmutableMovement.
+     *
+     * @throws ImmutableMovement
+     */
+    public function save(array $options = []): bool
+    {
+        if ($this->exists) {
+            throw ImmutableMovement::forAction('update');
+        }
+
+        return parent::save($options);
+    }
+
+    /**
+     * @throws ImmutableMovement
+     */
+    public function delete(): never
+    {
+        throw ImmutableMovement::forAction('delete');
     }
 
     public function ingredient(): BelongsTo
