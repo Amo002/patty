@@ -4,7 +4,9 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      # Localhost only, like `php artisan serve`. The app has no login, and a bare "8000:8000" would
+      # publish it on every network interface, so anyone on the same Wi-Fi could reach it (S2, PTY-21).
+      - "127.0.0.1:8000:8000"
     volumes:
       # Only the SQLite file lives here, so the code and migrations stay in the image.
       - patty-data:/data
