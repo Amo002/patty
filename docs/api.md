@@ -35,6 +35,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
 | 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
 | 409 | `conflict` | A unique index rejected the write: a concurrent request created the same record after validation passed. Refresh and retry. |
+| 415 | `unsupported_media_type` | A write (POST, PUT, PATCH, DELETE) without `Content-Type: application/json`, even when it has no body (S6) |
 | 422 | `validation_failed` | Input is malformed; `errors` holds `{ field: [messages] }` |
 | 422 | `over_delivery` | The quantity would take the line above `max_receivable` (over % or absolute cap, D-035); `errors` names the line |
 | 422 | `menu_item_not_sellable` | The menu item has no recipe |
