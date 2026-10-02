@@ -11,7 +11,7 @@
  *    waits its turn instead of being dropped (the bug found in the earlier page reviews).
  *  - Refresh replaces the rows rather than appending. Rows that are still there keep their DOM nodes (Alpine
  *    matches by key), so scroll position holds and x-flash can see which numbers moved.
- *  - Rows are de-duplicated with `keyOf`, never by `id`: Activity rows have no id at all.
+ *  - Rows are de-duplicated with `keyOf` when the page gives one, never by `id`: Activity rows have no id at all.
  *  - Polls are `silent`: an error appears in the panel itself with the request id, not as a stack of toasts.
  *
  * config: { path, query, pageSize, keyOf(row), decorate(rows), changed(before, after), onChange() }
@@ -68,7 +68,7 @@
           .finally(function () { self.loading = false; });
       },
 
-      /** Next page, appended. Rows already shown are skipped, in case the list shifted between requests. */
+      /** Next page, appended. With a `keyOf`, rows already shown are skipped in case the list shifted between requests. */
       more: function () {
         var self = this;
         if (this.loadingMore || !this.hasMore) return Promise.resolve();
@@ -77,9 +77,12 @@
           // After a refresh the list holds a whole number of pages, so this is the page that follows it.
           var next = Math.floor(self.rows.length / self.pageSize) + 1;
           return self.page(next, self.pageSize).then(function (res) {
-            var seen = {};
-            self.rows.forEach(function (row) { seen[config.keyOf(row)] = true; });
-            var fresh = res.data.filter(function (row) { return !seen[config.keyOf(row)]; });
+            var fresh = res.data;
+            if (config.keyOf) {
+              var seen = {};
+              self.rows.forEach(function (row) { seen[config.keyOf(row)] = true; });
+              fresh = res.data.filter(function (row) { return !seen[config.keyOf(row)]; });
+            }
             self.apply(res, self.rows.concat(fresh));
           });
         })
