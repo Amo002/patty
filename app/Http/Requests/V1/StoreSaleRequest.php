@@ -75,6 +75,8 @@ class StoreSaleRequest extends FormRequest
     {
         $value = $this->validated('sold_at');
 
-        return $value === null ? null : Carbon::parse($value);
+        // Eloquent stores the wall-clock time without converting it, so a "+03:00" value must become
+        // UTC here or it would be saved 3 hours off (the database holds UTC, as DocumentNumber assumes).
+        return $value === null ? null : Carbon::parse($value)->utc();
     }
 }

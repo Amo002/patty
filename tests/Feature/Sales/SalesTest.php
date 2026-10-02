@@ -271,6 +271,22 @@ it('accepts a sold_at in the past and stamps the movements with it', function ()
         ->and(StockMovement::where('reason', 'sale')->first()->occurred_at->equalTo($when))->toBeTrue();
 });
 
+it('stores a sold_at sent with a UTC offset as the same instant in UTC', function () {
+    $i = saleSetup();
+    // An Amman till (+03:00) sending "now": inside the 5-minute window, but 3 hours off if stored unconverted.
+    $when = now()->subMinute()->startOfSecond();
+    $local = $when->copy()->setTimezone('Asia/Amman')->toIso8601String();
+    expect($local)->toEndWith('+03:00');
+
+    $response = $this->postJson('/api/v1/sales', [
+        'menu_item_id' => $i['burger']->ulid, 'quantity' => 1, 'sold_at' => $local,
+    ])->assertCreated();
+
+    expect($response->json('data.sold_at'))->toBe($when->toIso8601ZuluString())
+        ->and(Sale::firstOrFail()->sold_at->equalTo($when))->toBeTrue()
+        ->and(StockMovement::where('reason', 'sale')->get()->every(fn ($m) => $m->occurred_at->equalTo($when)))->toBeTrue();
+});
+
 it('follows the X-POS-Key rule (T22, D-028)', function () {
     $i = saleSetup();
 
