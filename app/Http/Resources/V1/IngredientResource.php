@@ -10,7 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * api.md "Ingredient". Expects `on_hand` and `unit_locked` to be attached by
  * IngredientService, so a list costs one grouped stock query, not one per row.
  *
- * `incoming` (open-PO quantity) is added by PTY-10, which owns that maths.
+ * `incoming` (D-020) is attached by StockQuery through IngredientService.
  *
  * @mixin Ingredient
  */
@@ -29,6 +29,7 @@ class IngredientResource extends JsonResource
             'unit' => $this->unit->value,
             'unit_label' => $this->unit->label(),
             'on_hand' => $this->on_hand,
+            'incoming' => $this->incoming,
             // Negative stock is information, not an error (D-007): the manager needs to see it.
             'is_negative' => $this->on_hand < 0,
             'unit_locked' => $this->unit_locked,

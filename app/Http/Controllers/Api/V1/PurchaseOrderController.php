@@ -40,7 +40,10 @@ class PurchaseOrderController extends ApiController
             ->latest()->latest('id')
             ->paginate($request->perPage());
 
-        return $this->paginated($orders, PurchaseOrderResource::class);
+        // The open list is the live "what is outstanding" view, so it says when it was computed.
+        $meta = $status === ListPurchaseOrdersRequest::OPEN ? ['generated_at' => now()->utc()->toIso8601ZuluString()] : [];
+
+        return $this->paginated($orders, PurchaseOrderResource::class, meta: $meta);
     }
 
     /**
