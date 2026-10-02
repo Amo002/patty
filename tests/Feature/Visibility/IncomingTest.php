@@ -66,6 +66,17 @@ it('adds the outstanding of every open order of the same ingredient', function (
     expect(visIncoming('Bun'))->toBe(50);
 });
 
+it('adds nothing for an over-received line, never a negative amount', function () {
+    // Cheese keeps the first order open after beef arrives 30 g over (within the 5% over-tolerance).
+    $first = visOrder(['Beef' => 1000, 'Cheese' => 500]);
+    visOrder(['Beef' => 400]);
+
+    visReceive($first, ['Beef' => 1030])->assertCreated();
+
+    // 0 from the over-received line plus 400 from the second order. A plain ordered - received would give 370.
+    expect(visIncoming('Beef'))->toBe(400);
+});
+
 it('shows incoming on the ingredient endpoints too (E2, E4)', function () {
     visOrder(['Beef' => 1000]);
     $beef = visIngredient('Beef');

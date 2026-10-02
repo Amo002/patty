@@ -265,7 +265,8 @@ class StockQuery
     /**
      * spatie v5 stores {attributes: {field: new}, old: {field: old}}; the API shows {field: [old, new]}.
      * Dropped: `id` and `*_id` (internal keys must never leak, D-031) and `image_path`
-     * (an internal storage path, not something a manager changed in words).
+     * (an internal storage path; the API exposes only image_url). No model logs an `*_id`
+     * field today, so that guard is defence in depth for a future `logOnly` change.
      *
      * @param  array<string, mixed>  $new
      * @param  array<string, mixed>  $old
