@@ -149,7 +149,7 @@ document.addEventListener('alpine:init', function () {
 
         this.busy = true;
         var request = editing
-          ? Patty.api.patch('/ingredients/' + encodeURIComponent(this.form.id), body, { onConflict: function () { self.unitWasLocked(); } })
+          ? Patty.api.patch('/ingredients/' + encodeURIComponent(this.form.id), body, { onConflict: function (e) { self.conflicted(e); } })
           : Patty.api.post('/ingredients', body);
 
         return request.then(
@@ -165,11 +165,15 @@ document.addEventListener('alpine:init', function () {
         ).then(function () { self.busy = false; });
       },
 
-      // A 409 unit_locked means stock moved since this page loaded: lock the select and show the current list.
-      unitWasLocked: function () {
-        this.form.unitLocked = true;
-        this.form.unit = this.form.originalUnit;
-        this.form.notice = 'This ingredient already has stock history, so its unit cannot change.';
+      // api.js has already shown the notice. Either way the list is out of date, so it refreshes.
+      // Only unit_locked says anything about the unit: a generic 409 `conflict` (a unique-index race) must not lock the select.
+      conflicted: function (e) {
+        if (e.code === 'unit_locked') {
+          // The server's own message names the use (D-044): stock history, a recipe or a purchase order.
+          this.form.unitLocked = true;
+          this.form.unit = this.form.originalUnit;
+          this.form.notice = e.message;
+        }
         this.refresh();
       },
 
