@@ -44,7 +44,14 @@ The repository was cloned from GitHub into a temp folder on Windows 11, and the 
 - `php artisan test`: 420 passed.
 - The Windows read-only folder problem seen in agent worktrees did not occur on a fresh clone.
 
-The check is repeated on `develop` after the open PRs merge, before the release PR.
+### Final clean-clone check, 2026-10-02 (commit `3dc24b9`, with #26, #27 and #28 merged)
+
+The branch was cloned fresh from GitHub and the README followed again:
+- `composer setup`: exit 0 in 159 s.
+- `php artisan serve`: every page (`/`, `/ingredients`, `/suppliers`, `/menu`, `/purchase-orders`, `/pos`, `/activity`) and `/api/v1/dashboard` returned 200.
+- A plain form POST to the API returned 415, which is the S6 fix working.
+- `php artisan test`: 429 passed.
+- The README's newman command for the Postman Scenario: 21 requests and 47 assertions, all passing with the JSON-only rule active.
 
 Done so far: the README sections, the decisions section, "How Patty joins the ERP", "Logs versus audit trail", the four "What next" items, and the clean-clone check above.
 
