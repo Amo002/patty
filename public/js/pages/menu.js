@@ -157,8 +157,9 @@ document.addEventListener('alpine:init', function () {
           line.active = Math.min(line.active + 1, list.length - 1);
         } else if (event.key === 'ArrowUp') {
           line.active = Math.max(line.active - 1, 0);
-        } else if (event.key === 'Enter' && line.open && list[line.active]) {
-          this.pick(line, list[line.active]); // Enter picks; it must not submit the form
+        } else if (event.key === 'Enter' && line.open) {
+          // While the list is open Enter belongs to the picker, even with no match: it must never submit the form.
+          if (list[line.active]) this.pick(line, list[line.active]);
         } else if (event.key === 'Escape' && line.open) {
           event.stopPropagation(); // the first Escape closes the list, not the whole dialog
           this.closeCombo(line);
@@ -238,11 +239,15 @@ document.addEventListener('alpine:init', function () {
 
         this.busy = true;
         var request;
+        var renamed = false;
         if (editing) {
           // Rename first if the name changed, then replace the recipe. If the second step fails, the rename stays saved.
           var rename = name === this.form.originalName
             ? Promise.resolve()
-            : Patty.api.patch('/menu-items/' + encodeURIComponent(this.form.id), { name: name }).then(function () { self.form.originalName = name; });
+            : Patty.api.patch('/menu-items/' + encodeURIComponent(this.form.id), { name: name }).then(function () {
+              self.form.originalName = name;
+              renamed = true;
+            });
           request = rename.then(function () {
             return Patty.api.put('/menu-items/' + encodeURIComponent(self.form.id) + '/recipe', { lines: lines });
           });
@@ -263,7 +268,11 @@ document.addEventListener('alpine:init', function () {
           },
           function (e) {
             if (e.status === 422) self.errors = e.errors;
-            if (editing) self.refresh(); // a rename may have gone through even though the recipe did not
+            if (renamed) {
+              // The list shows the new name behind the dialog, so say why the recipe still looks unsaved.
+              Patty.notify({ tone: 'warn', message: 'Name saved; the recipe was not updated: ' + e.message });
+            }
+            if (editing) self.refresh(self.form.id);
           }
         ).then(function () { self.busy = false; });
       },
