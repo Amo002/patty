@@ -68,9 +68,9 @@ class IngredientService
     {
         DB::transaction(function () use ($ingredient, $data) {
             // Re-read with lockForUpdate so the unit checked is the unit changed. This is a
-            // no-op on SQLite: there the single-writer lock makes a racing write fail
-            // ("database is locked") instead of slipping past the check. On MySQL and
-            // Postgres it is a real row lock (same approach as PurchaseOrderService).
+            // no-op on SQLite: there the transaction itself is IMMEDIATE (D-050), so a racing
+            // writer waits for this one and then sees the new unit. On MySQL and Postgres it is
+            // a real row lock (same approach as PurchaseOrderService).
             $stored = Ingredient::query()->whereKey($ingredient->getKey())->lockForUpdate()->firstOrFail();
 
             // A unit sent unchanged ("g" to "g") is not a change, so it must not trip the lock.

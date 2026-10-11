@@ -34,9 +34,9 @@ class ReceivingService
      * Everything runs in one DB::transaction, so a rejected line saves nothing:
      * no delivery, no movement, no audit row, and the GRN number is not burned.
      * The order is re-read with lockForUpdate so the status checked is the
-     * status changed. That lock is a no-op on SQLite, where the single-writer
-     * lock already serialises writes (a racing writer fails rather than
-     * double-receiving); it is a real row lock on MySQL and Postgres (D-024).
+     * status changed. That lock is a no-op on SQLite, where IMMEDIATE
+     * transactions already serialise writers, so a racing delivery waits and
+     * then sees this one (D-050); it is a real row lock on MySQL and Postgres (D-024).
      *
      * Invariants: status is sent or received; for each line, received so far +
      * quantity <= max_receivable of the line's SNAPSHOT tolerance, never the

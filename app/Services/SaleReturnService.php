@@ -38,8 +38,8 @@ class SaleReturnService
      *
      * Everything runs in one transaction with the sale row locked, so two refunds racing for the last
      * unit of a line are serialised and the second sees the first one's rows. On SQLite lockForUpdate
-     * is a no-op (as in ReceivingService and SaleService); the concurrent-refund case there is tracked
-     * in PTY-31. Order inside:
+     * is a no-op; the transaction itself is IMMEDIATE there (D-050, PTY-31), which serialises the same
+     * way. Order inside:
      * idempotency first (D-029), then every line is checked against what is left, and only then does
      * the RET number get taken and anything get written, so a refused refund leaves no trace and burns
      * no number (data.md invariant 3).
