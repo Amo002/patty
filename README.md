@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/Amo002/patty/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Amo002/patty/actions/workflows/ci.yml)
 
-Inventory and purchasing for a burger restaurant with one branch. A manager defines ingredients, suppliers and recipes, orders from suppliers, records deliveries (all or part of an order), and sees stock fall as the POS reports sales. Everything is done from the web UI, which uses the same API a POS or any other client would.
+Inventory and purchasing for a burger restaurant with one branch. A manager defines ingredients, suppliers and recipes, orders from suppliers, records deliveries (all or part of an order), sees stock fall as the POS reports sales (tickets of one or more items), and refunds items, putting ingredients back only when the food was not made. Everything is done from the web UI, which uses the same API a POS or any other client would.
+
+**New in v1.1.0 (after the v1.0.0 submission):** multi-item POS tickets ([PTY-29](docs/tickets/PTY-29-multi-item-sales.md), D-048), refunds with or without restock ([PTY-30](docs/tickets/PTY-30-sale-refunds.md), D-049), and SQLite transactions that make racing writers wait instead of failing ([PTY-31](docs/tickets/PTY-31-sqlite-immediate-transactions.md), D-050). Upgrading an existing copy: `php artisan migrate` (existing sales are kept).
 
 The README follows the brief's list: how to run it and the tests, the data model, the decisions, how AI was used, and what is next. More detail follows those five sections.
 
@@ -156,6 +158,10 @@ A till that loses its connection resends the ticket. An optional `pos_reference`
 
 Retries are the most likely real-world way for stock to go wrong, and arithmetic tests alone would never catch them.
 
+### Two writers at the same moment (D-050)
+
+Every write reads, checks, then writes in one transaction: "is there still one Fries left to refund?", "is this order still open?". On MySQL or Postgres a row lock keeps a second request out until the first commits. On SQLite that lock does nothing, so transactions are `IMMEDIATE` with a 5 second busy timeout: the second writer waits, then sees the first one's rows and gets the normal answer (a 422, a 409 or a replay), never a 500. A test holds a transaction open on a real file database and proves a second writer is kept out.
+
 ### What is edited and what is not (D-016)
 
 - **Drafts:** an order's lines and supplier can change only while it is a draft, and only drafts can be deleted.
@@ -186,6 +192,7 @@ Summarised, not verbatim. Each one, with what came back, is in the AI log.
 4. **Tolerances:** "Delivery tolerance like SAP and Microsoft Dynamics, both." The AI first explained how each system actually behaves, so that "both" became a concrete rule: over %, under %, and an absolute cap, whichever is stricter, copied onto each order line.
 5. **Building:** "Build ticket PTY-N", with a brief listing the files the builder may touch, and "commit after every working piece". Each ticket then went to a reviewer: "Review against the ticket and the docs; break each rule on purpose and check a test fails."
 6. **Security:** "Review against the threat model in docs/security.md", run on the finished code.
+7. **After submission (v1.1.0):** "Let the POS sell more than one menu item, and it must reflect on the ingredients and stock." I asked for a clickable mockup before approving, and my question "what about refunding one Fries?" changed the design: one stock movement per sale line, so a refund can put back exactly what that item took. Three Sonnet builders (backend, UI, docs) worked in parallel against a contract in the ticket, and an Opus reviewer checked each ticket with mutation tests.
 
 ### What worked
 
@@ -197,6 +204,7 @@ Summarised, not verbatim. Each one, with what came back, is in the AI log.
   - a running balance would have been wrong for backdated entries.
 - **Questions in files, before code.** Every rule in "Decisions" above traces back to a question and a recorded answer.
 - **Checking against the running system, not the reasoning.** This found the CORS hole and three Docker build failures (below).
+- **Mockup first, then code (v1.1.0).** Trying the refund flow on a mockup surfaced a data-model flaw before any code was written.
 
 ### What I had to fix
 
@@ -205,6 +213,7 @@ Summarised, not verbatim. Each one, with what came back, is in the AI log.
 - **Docker written without being run.** It failed three ways on its first real build: a database extension rebuilt for no reason, an unused image library, and read-only folders from the Windows checkout.
 - **The AI putting words in my mouth.** It wrote a rationale for an over-delivery decision as if it were mine (D-011). It was corrected and I wrote my own: follow SAP and Dynamics practice.
 - **Guessing before diagnosing.** On the first day Laravel would not boot. The AI tried two wrong fixes before finding the real cause, a Windows read-only folder flag that PHP honours.
+- **v1.1.0 review finds:** a refund retry after a lost response could have refunded twice (the UI threw away the server's idempotency key); a resend wiped the ticket being built; and on SQLite two racing writers could get a 500, which became PTY-31. My own local database also broke the POS page until the new migration was run, so upgrading now says to run `php artisan migrate`.
 - **Process slips:** a test run in the wrong folder, a file written into the wrong worktree, a factual error in the first README draft, and a builder that tried a guessed credential header (blocked by the safety system).
 
 ## What I'd do next with more time
