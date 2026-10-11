@@ -43,13 +43,13 @@ document.addEventListener('alpine:init', function () {
       result: null, // the Sale shown on screen
       notice: null, // { tone, title, text } for 401, 429, a 409 conflict and ticket-level 422s
 
-      // The refund panel (E27), one sale at a time. It has its own busy flag, notice and rows so a refund can never
+      // The refund panel (E33), one sale at a time. It has its own busy flag, notice and rows so a refund can never
       // touch the ticket, the Result card or `last` (the sale being retried). `sale` is a copy of the Recent sales row:
       // it stays on screen even if the poll drops that row from the loaded pages.
       //   lines: [{ menu_item_id, name, sold, refunded, left, quantity, error }]  one per sale line, in sale order
       //   sent:  the lines actually posted (quantity > 0), because the server names a line by its position there
       //   done:  { title, text } after a 201, announced through a small status element
-      refund: { sale: null, lines: [], sent: [], restock: false, reason: REFUND_REASONS[0], busy: false, notice: null, done: null },
+      refund: { sale: null, lines: [], sent: [], reference: '', restock: false, reason: REFUND_REASONS[0], busy: false, notice: null, done: null },
       reasons: REFUND_REASONS,
 
       recent: [],
@@ -319,7 +319,7 @@ document.addEventListener('alpine:init', function () {
         }
       },
 
-      /* ---------- refunds (E27, D-049) ---------- */
+      /* ---------- refunds (E33, D-049) ---------- */
 
       canRefund: function (sale) {
         return sale.lines.some(function (l) { return l.quantity - (l.refunded || 0) > 0; });
@@ -348,12 +348,30 @@ document.addEventListener('alpine:init', function () {
         rf.busy = false;
         rf.notice = null;
         rf.done = null;
-        this.$refs.refundDialog.showModal();
+        rf.reference = newReturnReference();
+        // Same order as the receive dialog: let Alpine build the rows first, then open and focus the first quantity,
+        // so the browser's initial focus does not land on rows of the previous opening that are being removed.
+        var dialog = this.$refs.refundDialog;
+        this.$nextTick(function () {
+          dialog.showModal();
+          var first = dialog.querySelector('input.pos-qty:not([disabled])');
+          if (first) first.focus();
+        });
       },
 
+      // When the opener button turned into a disabled "Refunded", focus would fall to the body. Send it to the
+      // Recent sales heading instead (tabindex -1), after the table has re-rendered.
       closeRefund: function () {
         if (this.refund.busy) return;
         this.$refs.refundDialog.close();
+      },
+
+      // Runs on the dialog's close event, so Escape and the Close button both get it.
+      refundClosed: function () {
+        var self = this;
+        this.$nextTick(function () {
+          if (document.activeElement === document.body || document.activeElement === null) self.$refs.recentHeading.focus();
+        });
       },
 
       refundStep: function (line, delta) {
@@ -368,7 +386,10 @@ document.addEventListener('alpine:init', function () {
         line.quantity = Number.isFinite(n) ? Math.min(line.left, Math.max(0, n)) : 0;
       },
 
+      // Any edit means a different refund, so it gets a new reference. Without an edit the reference is kept, so pressing
+      // Refund again after a lost response is a safe replay (D-029), not a second refund.
       clearRefundFeedback: function () {
+        this.refund.reference = newReturnReference();
         this.refund.notice = null;
         this.refund.done = null;
         this.refund.lines.forEach(function (l) { l.error = ''; });
@@ -422,7 +443,7 @@ document.addEventListener('alpine:init', function () {
           lines: rf.sent.map(function (l) { return { menu_item_id: l.menu_item_id, quantity: l.quantity }; }),
           restock: rf.restock,
           reason: rf.reason,
-          pos_reference: newReturnReference(),
+          pos_reference: rf.reference,
         };
         var restock = rf.restock;
         rf.busy = true;
@@ -439,10 +460,17 @@ document.addEventListener('alpine:init', function () {
             l.quantity = 0;
           });
           rf.sent = [];
-          rf.done = {
-            title: response.data.number + ' recorded',
-            text: restock ? 'The ingredients are back in stock.' : 'Stock did not change.',
-          };
+          var data = response.data;
+          var text = 'Stock did not change.';
+          if (restock) {
+            // The real amounts from the response, not the estimate in the preview.
+            var back = (data.restocked || []).map(function (r) { return r.ingredient.name + ' +' + P.qty(r.quantity, r.ingredient.unit); });
+            text = back.length > 0 ? 'Back in stock: ' + back.join(', ') : 'The ingredients are back in stock.';
+          }
+          if (data.replayed) text = '(already recorded, nothing moved again) ' + text;
+          rf.done = { title: data.number + ' recorded', text: text };
+          // The next press is a new refund, so it needs its own reference.
+          rf.reference = newReturnReference();
           self.refreshRecent();
           self.loadIngredients();
         }).catch(function (e) {
@@ -459,6 +487,7 @@ document.addEventListener('alpine:init', function () {
           rf.notice = { tone: 'warn', title: 'Too many requests too quickly', text: 'The till is rate limited. Wait a few seconds and refund again.', requestId: e.requestId };
         } else if (e.status === 409 && e.code === 'idempotency_conflict') {
           rf.notice = { tone: 'warn', title: 'Refused: reference already used', text: 'That reference belongs to a different refund. Nothing moved in stock. Press Refund again to send a fresh one.', detail: e.message, requestId: e.requestId };
+          rf.reference = newReturnReference();
         } else if (e.status === 422) {
           this.failRefundValidation(e);
           // Someone else refunded these units first (another till, another tab): reload so "left" tells the truth.

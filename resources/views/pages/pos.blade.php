@@ -189,7 +189,7 @@
 
     {{-- Recent sales --}}
     <section class="card">
-        <div class="card-header"><h2>Recent sales</h2></div>
+        <div class="card-header"><h2 tabindex="-1" x-ref="recentHeading">Recent sales</h2></div>
 
         <div class="card-body" x-show="recentError" x-cloak>
             <div class="error-banner" role="alert">
@@ -249,8 +249,8 @@
         </div>
     </section>
 
-    {{-- Refund panel (E27). A native dialog like the receive one: Escape closes it, focus stays inside, no extra script. --}}
-    <dialog class="dialog dialog-wide" x-ref="refundDialog" aria-labelledby="refund-title" @cancel="refund.busy && $event.preventDefault()">
+    {{-- Refund panel (E33). A native dialog like the receive one: Escape closes it, focus stays inside, no extra script. --}}
+    <dialog class="dialog dialog-wide" x-ref="refundDialog" aria-labelledby="refund-title" @cancel="refund.busy && $event.preventDefault()" @close="refundClosed()">
         <form novalidate @submit.prevent="refundSale()" x-show="refund.sale">
             <div class="dialog-head">
                 <h2 id="refund-title" x-text="'Refund from ' + (refund.sale && refund.sale.number)"></h2>
@@ -309,7 +309,7 @@
                 {{-- 3. Why --}}
                 <div class="field" x-id="['reason']">
                     <label :for="$id('reason')">Reason</label>
-                    <select class="select" :id="$id('reason')" x-model="refund.reason" :disabled="refund.busy">
+                    <select class="select" :id="$id('reason')" x-model="refund.reason" :disabled="refund.busy" @change="clearRefundFeedback()">
                         <template x-for="r in reasons" :key="r"><option :value="r" x-text="r"></option></template>
                     </select>
                 </div>
@@ -318,6 +318,7 @@
                 <div class="pos-preview">
                     <strong class="text text-sm">What happens to stock</strong>
                     <p class="text-sm muted" x-show="refundUnits() === 0">Choose at least one item to refund.</p>
+                    <p class="hint" x-show="refundUnits() > 0">Estimated from today's recipe. The refund puts back exactly what this sale took.</p>
                     <template x-if="refundUnits() > 0 && refund.restock">
                         <div>
                             <ul>
