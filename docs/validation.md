@@ -101,12 +101,13 @@ Errors are keyed `lines`, `lines.N.menu_item_id` and `lines.N.quantity` (N is 0-
 | lines.*.quantity | required, `integer:strict` (G3), `min:1`, `max:1000` |
 | restock | required, `boolean:strict`: only JSON `true` or `false`. `"true"`, `1`, `0` and `null` are rejected. There is no default on the API (D-049). |
 | reason | required, `string`, 1 to 200 characters, no control characters (the same rule as names) |
-| pos_reference | the same rules as on sales: `nullable`, `string`, `max:64`, `regex:/^[A-Za-z0-9._:-]+$/` |
+| pos_reference | the same rules as on sales: `nullable`, `string`, `max:64`, `regex:/^[A-Za-z0-9._:-]+\z/` |
 | X-POS-Key | middleware, as for sales |
 | duplicates | merged before anything else, as for sales |
 | item on the sale | service: `ItemNotOnSale`, 422 `item_not_on_sale`, when a menu item is not a line of this sale |
 | quantity left | service: `OverRefund`, 422 `over_refund`. Per line, left = line quantity - earlier refunds of that line. Checked for every line, inside the transaction with the sale locked, before anything is written. All breaches are reported at once. |
-| reference reuse | service. The same sale, the same merged lines (any order) and the same `restock` are a replay (200). Anything else is 409 `idempotency_conflict`. |
+| reference reuse | service. The same sale, the same merged lines (any order) and the same `restock` are a replay (200). Anything else is 409 `idempotency_conflict`. The `reason` is not compared: a replay returns the original refund with its original reason. |
+| both errors at once | If a request has an item not on the sale and also an over-refund, only `item_not_on_sale` is reported. |
 
 Validation errors are keyed `lines`, `lines.N.menu_item_id`, `lines.N.quantity`, `restock` and `reason` (N is 0-based in the key, 1-based in the message). Messages:
 
@@ -115,10 +116,12 @@ Validation errors are keyed `lines`, `lines.N.menu_item_id`, `lines.N.quantity`,
 | lines required, empty | Add at least one item to refund. |
 | lines max | A refund can hold at most 50 lines. |
 | menu_item_id missing or invalid | Line N: choose the menu item to refund. |
+| menu_item_id unknown | Line N: that menu item does not exist. |
 | quantity missing, not a whole number, below 1 or above 1,000 | Line N: the quantity must be a whole number from 1 to 1,000. |
 | restock missing or not a boolean | Choose whether the ingredients go back to stock. |
 | reason missing | Give a reason for the refund. |
 | reason above 200 characters | The reason must be at most 200 characters. |
+| reason with line breaks or control characters | The reason cannot contain line breaks or other control characters. |
 
 Domain errors (not FormRequest rules):
 
