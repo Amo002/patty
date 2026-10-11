@@ -61,15 +61,15 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 
 ### FR-5 Sales from the POS
 
-- AC1. `POST /api/v1/sales` accepts `{ menu_item_id, quantity, pos_reference? }`.
-- AC2. Stock of each recipe ingredient falls by `recipe quantity x sale quantity`. Example: 2 Classic Burgers lower beef by 300 g, bun by 2 and cheese by 40 g.
+- AC1. `POST /api/v1/sales` accepts a ticket of one or more menu items, `{ lines: [{ menu_item_id, quantity }], pos_reference? }` (1 to 50 lines, D-048).
+- AC2. Stock of each recipe ingredient falls by `recipe quantity x line quantity`, summed over the ticket's lines in the response. Example: a line of 2 Classic Burgers lowers beef by 300 g, bun by 2 and cheese by 40 g.
 - AC3. A sale that takes an ingredient below zero is accepted and recorded, and the ingredient shows as negative (Q-001).
 - AC4. If `pos_reference` is sent and was already recorded, the original sale is returned with 200 and stock does not move again (Q-005).
-- AC5. Unknown menu item or quantity < 1 returns 422 `validation_failed`.
-- AC6. A sale is all-or-nothing across its ingredients.
+- AC5. No lines, unknown menu item or quantity < 1 on any line returns 422 `validation_failed`.
+- AC6. A sale is all-or-nothing across its lines and ingredients: if any item has no recipe, nothing is recorded.
 - AC7. Two simultaneous requests with the same `pos_reference` still produce one sale. The unique index is the final guard.
 - AC8. The sale endpoint is rate-limited (120 per minute) and answers 429 `too_many_requests` beyond that.
-- AC9. If `pos_reference` was already used with a different menu item or quantity, the sale is rejected (409 `idempotency_conflict`) and nothing is recorded (D-029).
+- AC9. If `pos_reference` was already used with different lines (compared as merged (menu item, quantity) pairs, in any order), the sale is rejected (409 `idempotency_conflict`) and nothing is recorded (D-029).
 - AC10. If `POS_API_KEY` is configured, a sale without a matching `X-POS-Key` is rejected (401). With no key configured the endpoint is open (D-028).
 
 ### FR-6 Visibility

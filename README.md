@@ -79,12 +79,12 @@ The full contract is [docs/api.md](docs/api.md).
 ```
 suppliers ──< purchase_orders ──< purchase_order_lines >── ingredients ──< recipe_lines >── menu_items
                     │                      │                    │                                │
-                    └──< deliveries ──< delivery_lines          │                              sales
+                    └──< deliveries ──< delivery_lines          │                           sale_lines >── sales
                                            │                    │                                │
                                            └────────────> stock_movements <──────────────────────┘
 ```
 
-- **`stock_movements` is the heart of it.** It is an append-only list of signed changes: `+960` for a delivery line, `-300` for a sale. Each row records the delivery line or sale that caused it. **On hand is never stored**: it is the sum of an ingredient's movements.
+- **`stock_movements` is the heart of it.** It is an append-only list of signed changes: `+960` for a delivery line, `-300` for a sale. Each row records the delivery line or sale line that caused it. **On hand is never stored**: it is the sum of an ingredient's movements.
 - **Outstanding is never stored either.** For each order line it is what was ordered minus what has arrived. **Incoming** (shown next to on hand) is the sum of outstanding over open orders.
 - **Quantities are whole numbers** in the ingredient's unit: grams, millilitres or pieces. No floats anywhere, so no rounding drift. The UI shows and accepts kg and L, and converts with exact arithmetic.
 - **Ids:**
@@ -107,7 +107,7 @@ The rule is enforced in two places:
 
 ### A sale that takes stock below zero is accepted and flagged (D-010)
 
-The POS reports a sale that has already happened: the customer has the burger. Refusing it would not undo the sale; it would only remove it from the records. Negative stock is real information: an unrecorded delivery, a miscount, or loss. So the sale is recorded and the ingredient shows **Negative** in red, where the manager will see it.
+The POS reports a sale (a ticket of one or more menu items) that has already happened: the customer has the burger. Refusing it would not undo the sale; it would only remove it from the records. Negative stock is real information: an unrecorded delivery, a miscount, or loss. So the sale is recorded and the ingredient shows **Negative** in red, where the manager will see it.
 
 ### Partial deliveries, and what closes an order (D-012, D-013)
 
@@ -132,11 +132,15 @@ An ingredient is counted in g, ml or pieces, and orders, recipes and stock all u
 
 Real purchasing often buys in a different unit than it consumes (a 20 L drum, used in ml). That needs a conversion factor per ingredient, which is listed below as a next step.
 
+### A sale is a ticket of lines (D-048)
+
+A till sends tickets: 2 Classic Burgers plus 1 Fries under one reference. `POST /sales` takes `{ "lines": [ { "menu_item_id": ..., "quantity": 2 }, ... ], "pos_reference": ... }`, 1 to 50 lines, and records it in one transaction. If any item has no recipe the whole ticket is refused. Each sale line writes its own movements, so a later refund can put back exactly what that line took, even after a recipe change. Duplicate items on a ticket are merged.
+
 ### Duplicate POS calls (D-014, D-029)
 
-A till that loses its connection resends the sale. An optional `pos_reference` makes the endpoint idempotent:
-- **Replay:** the same reference with the same item and quantity returns the original sale (200) and moves no stock.
-- **Conflict:** the same reference with a different item or quantity is a 409.
+A till that loses its connection resends the ticket. An optional `pos_reference` makes the endpoint idempotent:
+- **Replay:** the same reference with the same items and quantities, in any order, returns the original sale (200) and moves no stock.
+- **Conflict:** the same reference with different items or quantities is a 409.
 
 Retries are the most likely real-world way for stock to go wrong, and arithmetic tests alone would never catch them.
 

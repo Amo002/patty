@@ -24,6 +24,7 @@ Log lines are not tested, since asserting log text would be filler. The single e
 | T4 | Every invalid transition is rejected with 409 `invalid_transition` (dataset of all pairs) | State machine | PTY-7 |
 | T5 | Delivery against a draft or closed order is rejected, and stock does not move | Operation guards | PTY-8 |
 | T6 | Editing lines of a sent order is rejected | Operation guards | PTY-7 |
+| T7a | A multi-item ticket writes one movement per (sale line, recipe line) referencing the sale line, groups deductions per ingredient, merges duplicate items, refuses the whole ticket if any item is unsellable, and replays or conflicts order-insensitively | D-048 | PTY-29 |
 | T7 | A sale below zero is accepted and the ingredient shows negative | Q-001 decision | PTY-9 |
 | T8 | "A day at Patty" (flows.md): every step of the worked day asserts on-hand and incoming; final beef 180, bun 21, cheese 120 | Ledger design | PTY-10 |
 | T9 | T9a to T9f: within over-tolerance accepted (full amount to stock); beyond it rejected atomically; the absolute cap beats the %; small-count rounding (10 buns allow 10); under-tolerance completion closes the PO with the shortfall shown; below under-tolerance stays open | D-035, atomicity | PTY-8 |
@@ -77,6 +78,9 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 - [ ] In the POS simulator, sell 2 Classic Burgers. Beef falls by 300, bun by 2, cheese by 40.
 - [ ] Sell enough to push cheese below zero. The sale succeeds and cheese shows Negative in red.
 - [ ] Send the same POS reference twice. Stock moves only once.
+- [ ] Build a ticket of Classic Burger x2 plus Fries x1 and sell it. The result lists one row per ingredient, Ingredients shows the new on hand, and the ticket clears.
+- [ ] "Resend last ticket" is a replay (nothing moves). "Resend with one more of the first item" is a 409 (nothing moves).
+- [ ] Add a menu item with no recipe to a ticket. The whole ticket is refused and no stock moves.
 
 ### QA-6 Visibility
 - [ ] Keep the dashboard open in one tab and record a sale in another. The dashboard updates within about 10 s without a reload, and the "updated" stamp resets.
