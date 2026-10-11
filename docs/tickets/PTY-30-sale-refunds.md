@@ -168,17 +168,17 @@ Opus 5.5, manual review plus 12 mutation checks: 11 killed; the 12th (removing `
 
 | # | Severity | File:line | Finding | Resolution |
 |---|---|---|---|---|
-| R1 | Medium | public/js/pages/pos.js refundSale | A new `pos_reference` on every press: a retry after a lost response would record a second refund. | |
-| R2 | Low | pos.js openRefund | Focus not placed like the receive dialog; focus lost when the opener becomes "Refunded". | |
-| R3 | Low | docs/ui.md, pos.js preview | The preview uses today's recipe while ui.md said the sale's own amounts; recommended a one-line hint. | |
-| R4 | Low | docs/api.md | Example message capitalised; the code says "only ...". | |
-| R5 | Low | docs/flows.md, docs/architecture.md | Idempotency lookup shown before the lock; log context wrong. | |
-| R6 | Low | docs/validation.md | Two messages missing; regex written with `$` not `\z`. | |
-| R7 | Low | docs/ui.md | Success and replay wording did not match the UI. | |
-| R8 | Low | several comments | Comments still said E27. | |
-| R9 | Low | DemoSeeder refund block | A seeded refund could be timed after the next sale with a smaller movement id. | |
-| R10 | Low | SaleReturnService::check | `item_not_on_sale` hiding `over_refund` was undocumented and untested. | |
-| R11 | Low | SaleReturnsTest.php:437 | Test name did not match what it checks. | |
+| R1 | Medium | public/js/pages/pos.js refundSale | A new `pos_reference` on every press: a retry after a lost response would record a second refund. || Fixed (1737379). The reference is made when the panel opens and reused on retry; renewed on any change, after a 201 and after a 409. |
+| R2 | Low | pos.js openRefund | Focus not placed like the receive dialog; focus lost when the opener becomes "Refunded". || Fixed (1737379). Focus follows the receive dialog; on close it goes to the Recent sales heading if the opener is disabled. |
+| R3 | Low | docs/ui.md, pos.js preview | The preview uses today's recipe while ui.md said the sale's own amounts; recommended a one-line hint. || Fixed (1737379, 317fbf6). Hint added; the success notice shows the real restocked amounts. |
+| R4 | Low | docs/api.md | Example message capitalised; the code says "only ...". || Fixed (317fbf6). |
+| R5 | Low | docs/flows.md, docs/architecture.md | Idempotency lookup shown before the lock; log context wrong. || Fixed (317fbf6). |
+| R6 | Low | docs/validation.md | Two messages missing; regex written with `$` not `\z`. || Fixed (317fbf6). The sales regex was aligned too. |
+| R7 | Low | docs/ui.md | Success and replay wording did not match the UI. || Fixed (317fbf6). |
+| R8 | Low | several comments | Comments still said E27. || Fixed (1737379, 5204926). The commit message saying E27 stays (no force-push). |
+| R9 | Low | DemoSeeder refund block | A seeded refund could be timed after the next sale with a smaller movement id. || Fixed (5204926). Refund at the earliest of sale + 2 min, next sale - 1 s, now; a seeder test checks sale and refund movements keep clock order. |
+| R10 | Low | SaleReturnService::check | `item_not_on_sale` hiding `over_refund` was undocumented and untested. || Fixed (5204926, 317fbf6). Tested and documented. |
+| R11 | Low | SaleReturnsTest.php:437 | Test name did not match what it checks. || Fixed (5204926). |
 | R12 | Info | SaleReturnService.php:310 | Replay ignores `reason`. | Kept, as recommended; documented. |
 | R13 | Info | SaleReturnService.php:290 | `LogicException` only reachable with corrupt data. | Kept. |
 | R14 | Info | requests | Refunds merge in the service, sales in the request. | Justified and tested. |
