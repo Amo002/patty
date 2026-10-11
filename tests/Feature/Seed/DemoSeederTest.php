@@ -126,7 +126,7 @@ it('seeds one refund that was made (no stock moves) and one that was voided (sto
     expect($returns)->toHaveCount(2)
         ->and($returns->pluck('restock')->all())->toBe([false, true])
         ->and($returns->pluck('reason')->all())->toBe(['Customer complaint', 'Cancelled before cooking'])
-        ->and($returns->pluck('number')->all())->toBe(['RET-'.now('UTC')->year.'-000001', 'RET-'.now('UTC')->year.'-000002'])
+        ->and($returns->pluck('number')->all())->toBe($returns->map(fn ($r) => 'RET-'.$r->returned_at->copy()->utc()->year)->zip(['-000001', '-000002'])->map(fn ($p) => $p[0].$p[1])->all())
         ->and(Activity::query()->where('event', 'sale.returned')->count())->toBe(2);
 
     [$made, $voided] = $returns->all();

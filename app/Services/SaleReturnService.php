@@ -37,8 +37,9 @@ class SaleReturnService
      * Record a refund, or recognise a retry of one already recorded.
      *
      * Everything runs in one transaction with the sale row locked, so two refunds racing for the last
-     * unit of a line are serialised and the second sees the first one's rows (on SQLite the single
-     * writer lock does the same job; the lock is a no-op there, as in ReceivingService). Order inside:
+     * unit of a line are serialised and the second sees the first one's rows. On SQLite lockForUpdate
+     * is a no-op (as in ReceivingService and SaleService); the concurrent-refund case there is tracked
+     * in PTY-31. Order inside:
      * idempotency first (D-029), then every line is checked against what is left, and only then does
      * the RET number get taken and anything get written, so a refused refund leaves no trace and burns
      * no number (data.md invariant 3).
@@ -82,7 +83,7 @@ class SaleReturnService
                 throw $e; // some other unique index (number, ulid): not ours to explain
             }
 
-            return DB::transaction(fn () => $this->replay($winner, $sale, $merged, $restock));
+            return $this->withRestocked(DB::transaction(fn () => $this->replay($winner, $sale, $merged, $restock)));
         }
 
         if (! $result->replayed) {
@@ -95,11 +96,11 @@ class SaleReturnService
             ]);
         }
 
-        return $result;
+        return $this->withRestocked($result);
     }
 
     /**
-     * Attach what the refund put back, for the resource to render.
+     * Attach what the refund put back, for the resource to render, so the controller makes one call.
      *
      * Read back from the ledger, not recomputed, so the answer is the same whenever it is asked
      * (a replay returns exactly what the first response did). Grouped per ingredient in order of first
@@ -107,10 +108,12 @@ class SaleReturnService
      * (StockLedger::balancesAfter), so it does not move when later sales or refunds happen.
      * Empty for a refund that did not restock.
      */
-    public function withRestocked(SaleReturn $return): SaleReturn
+    private function withRestocked(SaleReturnResult $result): SaleReturnResult
     {
+        $return = $result->return;
+        // The sale is already set on a new refund and on a replay found by reference; only fetch it if missing.
+        $return->loadMissing('sale');
         $return->load([
-            'sale',
             'lines' => fn ($q) => $q->orderBy('id'),
             'lines.saleLine.menuItem',
             'lines.stockMovements' => fn ($q) => $q->orderBy('id'),
@@ -126,7 +129,7 @@ class SaleReturnService
             'on_hand_after' => (int) $balances->get($group->last()->id, 0),
         ])->values());
 
-        return $return;
+        return $result;
     }
 
     /**
@@ -165,8 +168,9 @@ class SaleReturnService
         }
 
         // "Left" is derived under the lock: the line's quantity minus the sum of its refund lines.
+        // A restock needs every line's own movements; loading them here, once, avoids a query per refunded line.
         $saleLines = $sale->lines()
-            ->with('menuItem')
+            ->when($restock, fn ($q) => $q->with(['stockMovements' => fn ($m) => $m->orderBy('id'), 'stockMovements.ingredient']))
             ->withSum('returnLines as refunded_sum', 'quantity')
             ->orderBy('id')
             ->get()
@@ -278,7 +282,7 @@ class SaleReturnService
      */
     private function restock(Sale $sale, int $lineCount, SaleLine $saleLine, SaleReturnLine $returnLine, CarbonInterface $at): void
     {
-        $movements = $saleLine->stockMovements()->with('ingredient')->orderBy('id')->get();
+        $movements = $saleLine->stockMovements;
 
         if ($movements->isEmpty() && $lineCount === 1) {
             $movements = $sale->stockMovements()->with('ingredient')->orderBy('id')->get();
