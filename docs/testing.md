@@ -95,7 +95,7 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 Start from `php artisan migrate:fresh --seed`. Note Potatoes, Oil and Ketchup on hand (Ingredients).
 - [ ] In `/pos`, sell Fries x2. Recent sales shows the sale with a Refund button.
 - [ ] Refund made: click Refund, set Fries to 1, leave "Yes, it was made" selected, pick a reason, confirm. The preview says stock does not change. Recent sales shows "Fries x1 refunded". Ingredients is unchanged.
-- [ ] Refund voided: refund the other Fries and choose "No, it was voided before cooking". The preview lists potatoes 200 g, oil 25 g, ketchup 20 g. After confirming, Ingredients shows each of the three up by exactly that, which is one Fries' worth down from before the sale.
+- [ ] Refund voided: refund the other Fries and choose "No, it was voided before cooking". The preview lists potatoes 200 g, oil 25 ml, ketchup 20 ml. After confirming, Ingredients shows each of the three up by exactly that, which is one Fries' worth down from before the sale.
 - [ ] The sale row now reads "Refunded" and its button is disabled.
 - [ ] Third refund refused: the panel cannot be used any more, so send E33 from Postman with Fries x1 for that sale. The answer is 422 `over_refund`, "only 0 Fries left to refund", and nothing moves.
 - [ ] Open the Potatoes history. The restock line reads `RET-2026-... for SALE-2026-...: Fries x1`.

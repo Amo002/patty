@@ -43,7 +43,7 @@ FR-5 (extension), D-004, D-010, D-029, D-048, new D-049.
 - Morph aliases `sale_return`, `sale_return_line`.
 - `MovementReason::SaleReturn = 'sale_return'`, label "Sale return".
 
-### POST /api/v1/sales/{sale}/returns (E27)
+### POST /api/v1/sales/{sale}/returns (E33; E27 was already GET /stock)
 
 `{sale}` is the sale ULID (route model binding, as elsewhere). Middleware: `PosKey` and `throttle:pos`, like `POST /sales`.
 
@@ -120,7 +120,7 @@ On hand after both: potatoes, oil and ketchup are each down by exactly one Fries
 - [ ] Sale resource `refunded` / `refunded_units`; StockQuery label; audit and log.
 - [ ] DemoSeeder: one refund not restocked and one restocked on earlier sales, deterministic; DemoSeederTest updated.
 - [ ] UI: Refund button per Recent sales row ("Refunded" and disabled when nothing is left); a refund panel matching the preview: per-line steppers capped at what is left, the made/voided choice (made preselected), a reason select (Customer complaint, Wrong order, Cancelled before cooking, Long wait), a preview of what happens to stock, inline 422 errors on the row, success notice, and Recent sales shows "Fries x1 refunded" pills from `refunded`.
-- [ ] Docs: D-049, api.md (E27 and the changed shapes), validation.md, data.md, flows.md, ui.md, testing.md, Postman (E27 request with examples), README.
+- [ ] Docs: D-049, api.md (E33 and the changed shapes), validation.md, data.md, flows.md, ui.md, testing.md, Postman (E33 request with examples), README.
 
 ## Tests required
 
