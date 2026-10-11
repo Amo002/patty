@@ -62,9 +62,10 @@ A till, not a form. The page builds a ticket and sends it as one sale (E25, D-04
 - **Tiles:** one tap-to-add tile per menu item (E11). Tapping adds the item to the ticket, or adds one more if it is already there.
 - **Ticket:** one row per item with a stepper (quantity 1 to 1,000) and a remove button. Duplicates cannot appear, because a repeated tap raises the quantity. An empty ticket cannot be sold.
 - **Per-ingredient preview:** before selling, the ticket shows what it will take per ingredient (recipe quantity x line quantity, summed across lines). It is a preview only: the server decides, and D-010 still allows stock to go below zero.
-- **Sell:** sends `lines` and a `pos_reference`. On 201 the ticket clears and the result lists one row per ingredient (quantity taken, on hand after, negative highlighted). Items with no recipe come back as 422 `menu_item_not_sellable` and the whole ticket is refused.
-- **Line errors:** 422 errors keyed `lines.N.*` appear on the matching ticket row.
-- **Retry buttons:** "Resend last ticket" sends the same lines and reference again (200 replay, nothing moves). "Resend with one more of the first item" sends the same reference with changed lines (409 `idempotency_conflict`, nothing moves).
+- **Sell:** sends `lines` and a `pos_reference`. On 201 the ticket clears (only after a sale sent from the ticket with Sell, never after a resend) and the result lists one row per ingredient (quantity taken, on hand after, negative highlighted). Items with no recipe come back as 422 `menu_item_not_sellable` and the whole ticket is refused.
+- **Line errors:** 422 errors keyed `lines.N.*` from Sell appear on the matching ticket row.
+- **In flight:** all ticket and resend controls are disabled while a sale is being sent, so a double tap cannot send twice.
+- **Retry buttons:** "Resend last ticket" sends the same lines and reference again (200 replay, nothing moves). "Resend with one more of the first item" sends the same reference with changed lines (409 `idempotency_conflict`, nothing moves). Resend results and errors (replay, 409, 429) show as a notice, not on a ticket row.
 - **Recent sales (E26):** each sale shows its items and total units.
 
 ## Unit conversion rules (public/js/units.js, D-038)
