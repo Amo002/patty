@@ -42,7 +42,7 @@
                     {{-- Tiles: one tap adds one of that item to the ticket. --}}
                     <div class="pos-tiles">
                         <template x-for="item in items" :key="item.id">
-                            <button type="button" class="pos-tile" :disabled="! item.is_sellable" @click="add(item)"
+                            <button type="button" class="pos-tile" :disabled="busy || ! item.is_sellable" @click="add(item)"
                                     :aria-label="item.is_sellable ? 'Add ' + item.name + ' to the ticket' : item.name + ', no recipe yet'">
                                 <x-icon name="menu" />
                                 <strong x-text="item.name"></strong>
@@ -60,7 +60,7 @@
 
                         <p class="pos-ticket-empty muted" x-show="ticket.length === 0">Tap a menu item to start the ticket.</p>
 
-                        <div aria-live="polite">
+                        <div>
                             <template x-for="(line, index) in ticket" :key="line.menu_item_id">
                                 <div class="pos-line" :data-invalid="line.error !== ''" x-id="['qty']" role="group" :aria-label="itemName(line)">
                                     <div class="stack stack-sm">
@@ -68,16 +68,16 @@
                                         <span class="text-sm muted" x-text="recipeHint(line)"></span>
                                     </div>
                                     <div class="pos-stepper">
-                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One less ' + itemName(line)" @click="step(index, -1)">&minus;</button>
+                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One less ' + itemName(line)" :disabled="busy" @click="step(index, -1)">&minus;</button>
                                         <label class="visually-hidden" :for="$id('qty')" x-text="'Quantity of ' + itemName(line)"></label>
                                         <input class="input pos-qty" type="number" min="1" max="1000" step="1" inputmode="numeric"
-                                               :id="$id('qty')" :value="line.quantity" :aria-invalid="line.error !== ''"
+                                               :id="$id('qty')" :value="line.quantity" :disabled="busy" :aria-invalid="line.error !== ''"
                                                :aria-describedby="$id('qty') + '-msg'" @change="setQuantity(index, $event.target.value); $event.target.value = line.quantity">
-                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One more ' + itemName(line)" :disabled="line.quantity >= 1000" @click="step(index, 1)">
+                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One more ' + itemName(line)" :disabled="busy || line.quantity >= 1000" @click="step(index, 1)">
                                             <x-icon name="plus" class="icon-sm" />
                                         </button>
                                     </div>
-                                    <button type="button" class="btn btn-ghost btn-icon" :aria-label="'Remove ' + itemName(line)" @click="remove(index)">
+                                    <button type="button" class="btn btn-ghost btn-icon" :aria-label="'Remove ' + itemName(line)" :disabled="busy" @click="remove(index)">
                                         <x-icon name="trash" class="icon-sm" />
                                     </button>
                                     <div class="pos-line-error" :id="$id('qty') + '-msg'">

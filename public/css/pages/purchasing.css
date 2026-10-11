@@ -95,7 +95,7 @@
   padding: 0 var(--sp-2);
   border-radius: 999px;
   background: var(--accent);
-  color: var(--surface);
+  color: var(--on-accent);
   font-size: var(--fs-12);
   font-weight: 600;
   line-height: 24px;

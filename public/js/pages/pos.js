@@ -199,7 +199,7 @@ document.addEventListener('alpine:init', function () {
 
       sell: function () {
         if (this.busy || this.ticket.length === 0) return;
-        this.send({ lines: this.lines(), pos_reference: newReference() });
+        this.send({ lines: this.lines(), pos_reference: newReference() }, true);
       },
 
       // The same reference and payload again: the server answers 200 with replayed: true and moves nothing.
@@ -227,11 +227,14 @@ document.addEventListener('alpine:init', function () {
         };
       },
 
-      send: function (payload) {
+      // fromTicket is true only for Sell ticket. A resend replays `last`, so it must not touch the ticket being built:
+      // not clear it on success, and not put its row errors (indexed against the resent lines) on the ticket's rows.
+      send: function (payload, fromTicket) {
         var self = this;
+        var snapshot = JSON.stringify(payload.lines);
         this.busy = true;
         this.notice = null;
-        this.ticket.forEach(function (l) { l.error = ''; });
+        if (fromTicket) this.ticket.forEach(function (l) { l.error = ''; });
 
         // Errors are reported on this page (silent), because a 401, 429 or 409 means something specific to a till.
         return Patty.api.post('/sales', payload, { channel: 'pos', silent: true }).then(function (response) {
@@ -239,17 +242,17 @@ document.addEventListener('alpine:init', function () {
           // Only a request the server accepted becomes the "last sale": a refused change goes to catch and leaves it alone.
           self.last = self.copyOf(payload);
           self.result = response.data;
-          // The sale is on the books, so the ticket is done. A replay (200) also clears: the till has nothing left to send.
-          self.ticket = [];
+          // The sale is on the books, so the ticket is done, but only if it still holds exactly what was sent.
+          if (fromTicket && JSON.stringify(self.lines()) === snapshot) self.ticket = [];
           self.refreshRecent();
           self.loadIngredients();
         }).catch(function (e) {
           self.busy = false;
-          self.fail(e);
+          self.fail(e, fromTicket);
         });
       },
 
-      fail: function (e) {
+      fail: function (e, fromTicket) {
         if (e.status === 401) {
           this.notice = { tone: 'danger', title: 'This server requires a POS key', text: 'POS_API_KEY is set on this server, so a sale needs the X-POS-Key header. The simulator does not send one. Unset POS_API_KEY in .env to use it.', requestId: e.requestId };
         } else if (e.status === 429) {
@@ -263,7 +266,7 @@ document.addEventListener('alpine:init', function () {
             requestId: e.requestId,
           };
         } else if (e.status === 422) {
-          this.failValidation(e);
+          this.failValidation(e, fromTicket);
           if (e.code === 'menu_item_not_sellable') this.loadItems();
         } else {
           Patty.notify({ tone: 'error', message: e.message, requestId: e.requestId });
@@ -272,22 +275,28 @@ document.addEventListener('alpine:init', function () {
 
       // 422 keys are `lines` (the ticket as a whole) and `lines.N.menu_item_id` / `lines.N.quantity`, where N is the
       // 0-based position in the array we sent, which is the ticket order. Row errors go on row N, the rest in a notice.
-      failValidation: function (e) {
+      failValidation: function (e, fromTicket) {
         var errors = e.errors || {};
         var self = this;
         var placed = false;
+        var resendMessages = [];
         Object.keys(errors).forEach(function (key) {
           var match = /^lines\.(\d+)\./.exec(key);
           var message = Array.isArray(errors[key]) ? errors[key][0] : errors[key];
-          if (match && self.ticket[Number(match[1])]) {
+          if (match && fromTicket && self.ticket[Number(match[1])]) {
             var line = self.ticket[Number(match[1])];
             line.error = line.error ? line.error + ' ' + message : message;
             placed = true;
+          } else if (match) {
+            // A resend: the index points into the resent lines, not the ticket, so say it in the notice.
+            resendMessages.push(message);
           }
         });
         var general = errors.lines ? (Array.isArray(errors.lines) ? errors.lines[0] : errors.lines) : null;
         if (general) {
           this.notice = { tone: 'danger', title: 'The sale was not recorded', text: general, requestId: e.requestId };
+        } else if (resendMessages.length > 0) {
+          this.notice = { tone: 'danger', title: 'The sale was not recorded', text: resendMessages.join(' '), requestId: e.requestId };
         } else if (!placed) {
           this.notice = { tone: 'danger', title: 'The sale was not recorded', text: e.message, requestId: e.requestId };
         }
