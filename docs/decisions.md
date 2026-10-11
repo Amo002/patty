@@ -442,3 +442,19 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Cost:** one fewer independent pair of eyes on security. It is stated in the README and the PTY-21 ticket rather than hidden.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-02
+
+## D-048 A sale is a ticket of lines; each movement points at its sale line
+- **Chosen:** a sale holds one or more lines in a new `sale_lines` table (`sale_id`, `menu_item_id`, `quantity`, unique per sale and menu item). The POS sends `lines[]` to `POST /sales`. The sale is recorded in one transaction and writes **one stock movement per (sale line, recipe line)**, each referencing the `SaleLine` (morph alias `sale_line`). The response groups `deductions` per ingredient across the whole ticket. Duplicate menu items in one ticket are merged before anything else.
+- **Why:**
+  - a real till sends tickets (2 Classic Burger + 1 Fries under one reference), not one item at a time;
+  - one transaction makes a ticket all or nothing: if any item has no recipe the whole ticket is refused and no SALE number is used;
+  - per-line movements let a refund (PTY-30) of k of n units put back exactly what that line took: `line delta / n x k` is an exact integer, and it stays correct after the recipe changes, because the movement holds what was taken then, not what the recipe says now;
+  - it mirrors `DeliveryLine`, which already gives each delivered line its own movement.
+- **Rejected:**
+  - several single-item POSTs per ticket: not atomic, and one POS reference per item instead of per ticket;
+  - one movement per ingredient per sale (fewer rows): a refund could not tell which line took what.
+- **Still holds:** D-010 (no stock check before a sale; a ticket may take stock below zero and the deduction is flagged) and D-029 (idempotency by `pos_reference`; same lines replay with 200, different lines are a 409). Sameness now compares the merged lines as (menu item, quantity) pairs, regardless of order.
+- **Breaking change:** the old body `{menu_item_id, quantity}` is rejected (422 on `lines`). `sales` no longer has `menu_item_id` or `quantity`; the migration moves each existing sale into one sale line.
+- **Ticket:** PTY-29. Prepares PTY-30 (refunds).
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-11
