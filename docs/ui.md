@@ -33,7 +33,7 @@ What the manager sees. **One web app**: one site, one sidebar, every page linked
 | Suppliers | `/suppliers` | E7, E8, E10 | Adds and edits suppliers |
 | Menu & Recipes | `/menu` | E11, E12, E14, E15 | Adds menu items and edits recipes |
 | Purchase Orders | `/purchase-orders`, `/purchase-orders/{ulid}`, `/purchase-orders/new` | E16 to E24, E29 | Lists, drafts, edits, sends, receives, short-closes; sees the order's activity |
-| POS Simulator | `/pos` | E11, E25, E26 | Builds a ticket of one or more menu items and sells it; resends the last ticket to show retry protection (D-048) |
+| POS Simulator | `/pos` | E11, E25, E26, E33 | Builds a ticket of one or more menu items and sells it; resends the last ticket to show retry protection (D-048); refunds items of a recent sale, with or without putting the ingredients back (D-049) |
 | Activity | `/activity` | E29 | Sees every recorded event with its channel |
 
 URLs use ULIDs, never database ids (D-031).
@@ -66,7 +66,22 @@ A till, not a form. The page builds a ticket and sends it as one sale (E25, D-04
 - **Line errors:** 422 errors keyed `lines.N.*` from Sell appear on the matching ticket row.
 - **In flight:** all ticket and resend controls are disabled while a sale is being sent, so a double tap cannot send twice.
 - **Retry buttons:** "Resend last ticket" sends the same lines and reference again (200 replay, nothing moves). "Resend with one more of the first item" sends the same reference with changed lines (409 `idempotency_conflict`, nothing moves). Resend results and errors (replay, 409, 429) show as a notice, not on a ticket row.
-- **Recent sales (E26):** each sale shows its items and total units.
+- **Recent sales (E26):** each sale shows its items and total units. From PTY-30 it also shows a "Fries x1 refunded" pill per refunded line (from `refunded`) and a Refund button.
+
+## Refunds in the POS Simulator (PTY-30)
+
+A refund is a panel opened from a Recent sales row (E33, D-049). The sale is never edited.
+
+- **Refund button:** one per row in Recent sales. When nothing is left to refund on the sale (`refunded_units` equals `units`), it reads "Refunded" and is disabled.
+- **Pills:** each line with `refunded` above 0 shows a pill such as "Fries x1 refunded".
+- **Panel steps:**
+  1. **Items:** one stepper per sale line, from 0 up to what is left (`quantity - refunded`). Lines with nothing left are shown as refunded and cannot be raised.
+  2. **Was the food made?** Two choices: "Yes, it was made" (`restock: false`, the ingredients are gone) and "No, it was voided before cooking" (`restock: true`, the ingredients go back). **"Yes, it was made" is preselected.**
+  3. **Reason:** a select with Customer complaint, Wrong order, Cancelled before cooking and Long wait.
+  4. **Refund:** disabled until at least one unit is chosen. It is busy while the request is in flight, so a double tap cannot send twice.
+- **Preview:** under the choice, the panel says what will happen to stock. For "made": nothing changes. For "voided": the ingredients that go back, per ingredient (the sale line's own amounts for the chosen quantities, `-(movement) / quantity x chosen`). It is a preview only: the server decides.
+- **Success:** a notice "Refund recorded." and Recent sales reloads, so the pills and the Refund button update. A replay shows "Refund already recorded. No stock moved."
+- **Errors:** 422 `over_refund` and `item_not_on_sale` appear on the matching panel row (keys `lines.N.*`). 409 `idempotency_conflict`, 429 and 401 show as a notice, as for sales (U7).
 
 ## Unit conversion rules (public/js/units.js, D-038)
 

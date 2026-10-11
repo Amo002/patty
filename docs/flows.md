@@ -199,6 +199,52 @@ Template for each flow:
 - **UI next:** after clear, the dashboard shows its empty states, with "Load demo data" as the main action; after seed, a toast and a reload.
 - **Outside local:** both 404.
 
+## Refunds (PTY-30, D-049)
+
+A sale is never edited. A refund is a new document against it, and the manager answers one question: was the food already made?
+
+### F23 Refund a sale
+- **Actor:** the manager in the POS Simulator (channel `pos`), or the till
+- **Request:** E33 `POST /sales/{sale}/returns` with `{ "lines": [ { "menu_item_id": fries, "quantity": 1 } ], "restock": false, "reason": "Customer complaint", "pos_reference": "till-1:ret-000031" }`, plus `X-POS-Key` if configured
+- **Steps:**
+  1. Middleware checks the POS key (if set) and the rate limit. The sale is found by its ULID (404 if unknown).
+  2. If `pos_reference` exists, go to F25 or F26.
+  3. Begin the transaction and lock the sale row.
+  4. Merge duplicate menu items. Every item must be a line of this sale, else `ItemNotOnSale` (422).
+  5. For every line, left = line quantity - earlier refunds of that line. If any requested quantity is above its left, `OverRefund` (422) lists every breach. Nothing has been written yet.
+  6. Take the next RET number. Create the sale return and its lines.
+  7. If `restock` is true: for each refunded line and each movement of that sale line, `StockLedger::record(-(movement delta) / line quantity x refunded quantity, saleReturnLine)`, reason `sale_return`. A legacy line with no movements of its own, on a one-line sale, uses the sale's movements. If `restock` is false, no movement is written.
+  8. Audit `sale.returned` on the sale.
+  9. Commit.
+  10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F25 or F26.
+- **Log:** `pos` info "Sale refunded" with context (return number, sale number, restock), written after commit; `stock` info per movement
+- **Response:** 201 Sale return with `lines` and `restocked` grouped per ingredient (empty when `restock` is false)
+- **No stock check (D-010):** a restock never fails because of stock, and a refund never fails because stock is negative.
+
+### F24 The worked example: made, voided, then too many
+SALE-2026-000125 is Fries x2 (potatoes 200, oil 25, ketchup 20 each). Its line movements are potatoes -400, oil -50, ketchup -40.
+
+| Refund | restock | Movements written | Left on the line |
+|---|---|---|---|
+| RET-2026-000001: Fries x1 ("it was made") | false | none | 1 |
+| RET-2026-000002: Fries x1 ("voided before cooking") | true | potatoes +200, oil +25, ketchup +20 (`-(-400) / 2 x 1`, `-(-50) / 2 x 1`, `-(-40) / 2 x 1`) | 0 |
+| a third: Fries x1 | either | none: 422 `over_refund`, "Line 1: only 0 Fries left to refund on SALE-2026-000125." | 0 |
+
+After both refunds, potatoes, oil and ketchup are each down by exactly one Fries' worth from before the sale: the first refund moved nothing, the second put one portion back. The amounts come from the sale's own movements, so they stay right even if the Fries recipe changes in between.
+- **Rows written (the second refund):** sale_returns +1, sale_return_lines +1, stock_movements +3, activity_log +1, document_sequences updated
+- **Rows written (the third):** none, and no RET number is used.
+- **UI next:** Recent sales shows "Fries x1 refunded" pills, and the Refund button turns into a disabled "Refunded" once nothing is left.
+
+### F25 Refund replay (same reference, same payload)
+- **Steps:** find the existing return by `pos_reference`. It matches when it is for the same sale, with the same merged lines (any order) and the same `restock`.
+- **Rows written:** none except activity_log +1 (`sale.return_replayed`)
+- **Response:** **200** "Refund already recorded. No stock moved." with the original refund, `replayed: true`.
+
+### F26 Refund idempotency conflict (same reference, different payload)
+- **Steps:** a return with that reference exists, but for another sale, other lines, other quantities or another `restock`. Throw `IdempotencyConflict`.
+- **Rows written:** none
+- **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it (D-029).
+
 ---
 
 ## A day at Patty (the worked scenario, and test T8)

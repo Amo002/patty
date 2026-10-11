@@ -96,6 +96,25 @@ POS POST /sales  { lines: [{ menu_item_id, quantity }], pos_reference }
   201 { success: true, data: sale (lines, deductions grouped per ingredient) }
 ```
 
+### Sale refund (PTY-30)
+```
+POS POST /sales/{sale}/returns  { lines: [{ menu_item_id, quantity }], restock, reason, pos_reference }
+  SaleReturnService::record
+    pos_reference seen before?  ->  200 replay if same sale, lines and restock; else 409
+    BEGIN TRANSACTION
+      lock the sale row
+      every item is on the sale                              else 422 item_not_on_sale
+      per line: quantity <= line quantity - earlier refunds  else 422 over_refund (all breaches, nothing written)
+      insert sale return, insert its lines
+      if restock: per refunded line, per movement of that sale line:
+        StockLedger::record(-(movement delta) / line qty x refunded qty, saleReturnLine)
+      if not restock: no movement at all (the food was made)
+      activity('sale.returned') on the sale
+    COMMIT
+  201 { success: true, data: sale return (lines, restocked grouped per ingredient) }
+```
+The sale and its movements are never touched. A refund is a new document, and a restock is a new positive movement (D-049).
+
 ### Purchase order states (PTY-7)
 ```
           send                first delivery            nothing outstanding (auto)
@@ -110,6 +129,7 @@ POS POST /sales  { lines: [{ menu_item_id, quantity }], pos_reference }
 |---|---|
 | `stock_movements` | on hand = sum of deltas per ingredient |
 | `delivery_lines` | received, outstanding, over-received per PO line |
+| `sale_return_lines` | refunded and left-to-refund per sale line |
 | `delivery_lines` of open POs | incoming per ingredient |
 | `activity_log` | the history panel |
 
@@ -136,8 +156,8 @@ How "stock numbers that are always right" is protected, layer by layer (D-024):
 
 1. **Input:** FormRequests accept integers only, check `exists`, and bound quantities (max 1,000,000 per line, 50 lines).
 2. **Domain:** services and the single transition map reject what the current state forbids.
-3. **Atomicity:** each use case is one transaction. A delivery or sale lands completely or not at all.
-4. **Concurrency:** the PO row is locked while receiving. A unique `pos_reference` stops double-counted retries.
+3. **Atomicity:** each use case is one transaction. A delivery, sale or refund lands completely or not at all.
+4. **Concurrency:** the PO row is locked while receiving, and the sale row while refunding, so two refunds cannot both take the last unit. A unique `pos_reference` stops double-counted retries.
 5. **Database:** foreign keys, unique indexes, and triggers that make `stock_movements` impossible to update or delete, even from a console or a bug.
 6. **HTTP:** rate limit on the POS endpoint, security headers, `no-store`.
 7. **Process:** tests that fail without the logic, CI on every PR, protected branches, a reviewer agent one tier above the builder, and the owner's line-by-line review.
