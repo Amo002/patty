@@ -162,3 +162,8 @@ The first file to open every session. It tracks the project phase by phase: what
 PTY-13 Postman, then PTY-14: the full README, a check from a fresh clone, the release PR develop to main, and the v1.0.0 tag. Deadline Sunday 4 October, 12:00 Amman.
 
 ## Phase 7: Interview preparation (not started)
+
+## Post-release extensions (2026-10-11)
+
+- **PTY-29 multi-item sales (in review).** The POS sends a ticket of one or more lines; each movement points at its sale line (D-048). Built by three Sonnet builders in parallel (backend, UI, docs), reviewed by Opus: no High findings, two Medium UI fixes. Mohamad lifted the post-submission freeze for this ticket and PTY-30 only.
+- **PTY-30 refunds (planned, after PTY-29).** A refund is a new document; ingredients go back to stock only when the food was not made.
