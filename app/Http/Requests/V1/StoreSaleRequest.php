@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\V1;
 
+use App\Http\Requests\V1\Concerns\LowercasesMenuItemIds;
 use App\Models\MenuItem;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
@@ -13,6 +14,8 @@ use Illuminate\Validation\Validator;
  */
 class StoreSaleRequest extends FormRequest
 {
+    use LowercasesMenuItemIds;
+
     /** Seconds, milliseconds (v) or microseconds (u), each with an offset (P) or a literal Z. */
     private const SOLD_AT_FORMATS = [
         'Y-m-d\TH:i:sP', 'Y-m-d\TH:i:s.vP', 'Y-m-d\TH:i:s.uP',
@@ -24,26 +27,6 @@ class StoreSaleRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
-    }
-
-    /**
-     * Stored ULIDs are lowercase but the `ulid` rule accepts uppercase, so lowercase first (G4).
-     */
-    protected function prepareForValidation(): void
-    {
-        $lines = $this->input('lines');
-
-        if (! is_array($lines)) {
-            return;
-        }
-
-        foreach ($lines as $index => $line) {
-            if (is_array($line) && is_string($line['menu_item_id'] ?? null)) {
-                $lines[$index]['menu_item_id'] = strtolower($line['menu_item_id']);
-            }
-        }
-
-        $this->merge(['lines' => $lines]);
     }
 
     /**
