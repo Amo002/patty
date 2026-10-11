@@ -359,14 +359,13 @@ document.addEventListener('alpine:init', function () {
         });
       },
 
-      // When the opener button turned into a disabled "Refunded", focus would fall to the body. Send it to the
-      // Recent sales heading instead (tabindex -1), after the table has re-rendered.
       closeRefund: function () {
         if (this.refund.busy) return;
         this.$refs.refundDialog.close();
       },
 
-      // Runs on the dialog's close event, so Escape and the Close button both get it.
+      // Runs on the dialog's close event, so Escape and the Close button both get it. When the opener button turned
+      // into a disabled "Refunded", focus would fall to the body: send it to the Recent sales heading (tabindex -1).
       refundClosed: function () {
         var self = this;
         this.$nextTick(function () {
@@ -453,10 +452,14 @@ document.addEventListener('alpine:init', function () {
 
         return Patty.api.post('/sales/' + rf.sale.id + '/returns', payload, { channel: 'pos', silent: true }).then(function (response) {
           rf.busy = false;
-          // The server counted these units as refunded. Update the panel now (no wait for the list), then refresh the list.
+          // A new refund: show its units as refunded now, without waiting for the list. A replay was already counted
+          // (the poll may have synced it after a lost response), so adding again would double it: leave the counts to
+          // the refresh below and just empty the steppers.
           rf.sent.forEach(function (l) {
-            l.refunded += l.quantity;
-            l.left -= l.quantity;
+            if (!response.data.replayed) {
+              l.refunded += l.quantity;
+              l.left -= l.quantity;
+            }
             l.quantity = 0;
           });
           rf.sent = [];
@@ -534,7 +537,9 @@ document.addEventListener('alpine:init', function () {
           if (!match) return;
           line.refunded = match.refunded || 0;
           line.left = match.quantity - line.refunded;
-          line.quantity = Math.min(line.quantity, line.left);
+          var clamped = Math.min(line.quantity, line.left);
+          // The request would now differ from one already sent under this reference, which the server answers with a 409.
+          if (clamped !== line.quantity) { line.quantity = clamped; rf.reference = newReturnReference(); }
         });
       },
 
