@@ -65,9 +65,86 @@
 }
 
 /* POS Simulator */
-.pos-qty { max-width: 160px; font-variant-numeric: tabular-nums; text-align: right; }
+/* Menu tiles: one tap adds one to the ticket. The badge is the count already on it. */
+.pos-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-3); }
+.pos-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.pos-tile:hover:not(:disabled) { background: var(--accent-subtle); border-color: var(--accent); }
+.pos-tile:disabled { cursor: not-allowed; opacity: 0.6; }
+.pos-tile .icon { color: var(--accent-text); }
+.pos-tile-badge {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  min-width: 24px;
+  padding: 0 var(--sp-2);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  line-height: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ticket box: header, rows, footer. */
+.pos-ticket { border: 1px solid var(--border); border-radius: var(--r-sm); }
+.pos-ticket-head,
+.pos-ticket-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+}
+.pos-ticket-head { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.pos-ticket-foot { border-radius: 0 0 var(--r-sm) var(--r-sm); }
+.pos-ticket-empty { padding: var(--sp-5) var(--sp-4); text-align: center; }
+.pos-line {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.pos-line[data-invalid="true"] { background: var(--danger-subtle); }
+.pos-line-error { grid-column: 1 / -1; }
+.pos-stepper { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.pos-qty { width: 72px; font-variant-numeric: tabular-nums; text-align: right; }
+
 .pos-preview { padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-sm); }
-.pos-preview ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-5); }
+.pos-preview ul { margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.pos-preview li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+}
+.pos-preview .num { min-width: 7ch; }
+
+@media (max-width: 520px) {
+  .pos-line { grid-template-columns: 1fr auto; }
+  .pos-line .pos-stepper { grid-column: 1 / -1; }
+}
 .pos-retry { padding-top: var(--sp-4); border-top: 1px solid var(--border); }
 .pos-notice {
   display: flex;

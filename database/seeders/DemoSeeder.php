@@ -226,20 +226,34 @@ class DemoSeeder extends Seeder
                 $time->subDay();
             }
 
-            $planned[] = [$time, $items[mt_rand(0, count($items) - 1)], $quantities[mt_rand(0, count($quantities) - 1)]];
+            // A ticket of 1 to 3 different items: mostly one, sometimes a combo.
+            $size = mt_rand(1, 100) <= 70 ? 1 : (mt_rand(1, 100) <= 75 ? 2 : 3);
+            $ticket = [];
+            while (count($ticket) < $size) {
+                $slug = $items[mt_rand(0, count($items) - 1)];
+                // A repeat keeps its first quantity and the loop draws again, so the items stay distinct.
+                // A combo is one of each; only a single-item ticket can be a bigger order.
+                $ticket[$slug] ??= $size === 1 ? $quantities[mt_rand(0, count($quantities) - 1)] : 1;
+            }
+
+            $planned[] = [$time, $ticket];
         }
 
         usort($planned, fn (array $a, array $b) => $a[0] <=> $b[0]);
 
-        foreach ($planned as $index => [$time, $slug, $quantity]) {
+        foreach ($planned as $index => [$time, $ticket]) {
             Carbon::setTestNow($time);
             $reference = sprintf('seed-till-1:%05d', $index + 1);
-            $sales->record($this->menu[$slug], $quantity, $reference, $time);
+            $lines = [];
+            foreach ($ticket as $slug => $quantity) {
+                $lines[] = ['item' => $this->menu[$slug], 'quantity' => $quantity];
+            }
+            $sales->record($lines, $reference, $time);
 
             // The till's link hiccups once and it sends the same sale again (D-029): the replay moves no stock.
             if ($index === 59) {
                 Carbon::setTestNow($time->copy()->addSeconds(20));
-                $sales->record($this->menu[$slug], $quantity, $reference, $time);
+                $sales->record($lines, $reference, $time);
             }
         }
     }

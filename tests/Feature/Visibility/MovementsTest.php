@@ -23,7 +23,7 @@ function movementsHistory(): array
     $burger = MenuItem::factory()->create(['name' => 'Classic Burger']);
     RecipeLine::factory()->create(['menu_item_id' => $burger->id, 'ingredient_id' => $beef->id, 'quantity' => 150]);
 
-    $sell = fn (int $quantity) => visCall('POST', '/api/v1/sales', ['menu_item_id' => $burger->ulid, 'quantity' => $quantity])->assertCreated();
+    $sell = fn (int $quantity) => visCall('POST', '/api/v1/sales', ['lines' => [['menu_item_id' => $burger->ulid, 'quantity' => $quantity]]])->assertCreated();
 
     visReceive(visOrder(['Beef' => 1000]), ['Beef' => 1000])->assertCreated();
     $sell(2);
@@ -66,7 +66,7 @@ it('orders the running balance by business time, so a backdated delivery lands b
     $this->travelBack();
 
     // Inserted first, happened second: the sale is recorded now.
-    visCall('POST', '/api/v1/sales', ['menu_item_id' => $burger->ulid, 'quantity' => 2])->assertCreated();
+    visCall('POST', '/api/v1/sales', ['lines' => [['menu_item_id' => $burger->ulid, 'quantity' => 2]]])->assertCreated();
 
     // Inserted second, happened first: the delivery arrived an hour ago and is entered late.
     visCall('POST', "/api/v1/purchase-orders/{$order['id']}/deliveries", [

@@ -69,13 +69,29 @@ E20 send, E21 close and E22 delete take no body. The status rules give 409 `inva
 ### Sales (E25): `StoreSaleRequest`
 | Field | Rules |
 |---|---|
-| menu_item_id | required, ULID (G4) on `menu_items` |
-| quantity | required, integer (G3), `min:1`, `max:1000` per sale event |
+| lines | required, array (G5), `min:1`, `max:50` |
+| lines.*.menu_item_id | required, string, ULID (G4, lowercased first), exists on `menu_items` |
+| lines.*.quantity | required, `integer:strict` (G3), `min:1`, `max:1000` |
 | pos_reference | `nullable`, `string`, `max:64`, `regex:/^[A-Za-z0-9._:-]+$/` |
 | sold_at | `nullable`, `date`, no more than 5 minutes in the future (clock skew between POS and server) |
 | X-POS-Key | middleware: when `POS_API_KEY` is set, it must match (`hash_equals`), else 401 |
-| recipe exists | service: `MenuItemNotSellable`, 422 |
-| reference reuse | service. The same payload is a replay (200). A different `menu_item_id` or `quantity` gives 409 `idempotency_conflict`. |
+| duplicates | **merged**, not rejected: the same menu item on two lines becomes one line with the quantities added, before anything else. After merging, a line above 1,000 is a 422 on that line. |
+| old body | `{ menu_item_id, quantity }` is no longer accepted: 422 on `lines` (required) |
+| recipe exists | service: `MenuItemNotSellable`, 422 `menu_item_not_sellable` if **any** item has no recipe. The whole ticket is refused (no sale, no lines, no movements, no SALE number used). |
+| reference reuse | service. The same merged lines, in any order, are a replay (200). Any other lines (a changed quantity, an added or removed item) give 409 `idempotency_conflict`. |
+
+Errors are keyed `lines`, `lines.N.menu_item_id` and `lines.N.quantity` (N is 0-based in the key, 1-based in the message). Messages:
+
+| Rule | Message |
+|---|---|
+| lines required, empty | Add at least one menu item to the sale. |
+| lines max | A sale can hold at most 50 lines. |
+| menu_item_id missing | Line N: choose the menu item that was sold. |
+| menu_item_id not a string | Line N: the menu item must be an id. |
+| menu_item_id not a valid ULID | Line N: the menu item is not a valid id. |
+| menu_item_id unknown | Line N: that menu item does not exist. |
+| quantity missing, not a whole number, below 1 or above 1,000 | Line N: the quantity must be a whole number from 1 to 1,000. |
+| merged duplicates above 1,000 | Line N: {item name} appears more than once and adds up to more than 1,000. |
 
 ### Queries
 | Endpoint | Param | Rules |
@@ -90,4 +106,4 @@ No body. Registered only in the local environment. E32 returns 409 `demo_not_emp
 
 ## Bounds and overflow
 
-The largest possible single stock movement is 1,000 (max sale quantity) x 1,000,000 (max recipe quantity) = 10^9. The largest delivery line is 1,000,000. Sums over thousands of movements stay far below the 64-bit integer limit (about 9.2 x 10^18). No overflow is possible within these bounds.
+The largest possible single stock movement is 1,000 (max quantity on one sale line) x 1,000,000 (max recipe quantity) = 10^9. The largest delivery line is 1,000,000. Sums over thousands of movements stay far below the 64-bit integer limit (about 9.2 x 10^18). No overflow is possible within these bounds.

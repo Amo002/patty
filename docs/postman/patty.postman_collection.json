@@ -653,7 +653,7 @@
                         "url": "{{base_url}}/sales",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -669,6 +669,7 @@
                                 "exec": [
                                     "pm.test('status is 201', () => pm.response.to.have.status(201));",
                                     "const d = pm.response.json().data;",
+                                    "pm.test('the two Classic Burger lines are merged into one line of 2', () => { pm.expect(d.lines.length).to.eql(1); pm.expect(d.lines[0].quantity).to.eql(2); pm.expect(d.item_count).to.eql(1); pm.expect(d.units).to.eql(2); });",
                                     "const by = id => d.deductions.find(x => x.ingredient.id === id);",
                                     "pm.test('beef: 300 g out, 660 g left', () => { const x = by(pm.collectionVariables.get('beef_id')); pm.expect(x.quantity).to.eql(300); pm.expect(x.on_hand_after).to.eql(660); });",
                                     "pm.test('bun: 2 out, 8 left', () => { const x = by(pm.collectionVariables.get('bun_id')); pm.expect(x.quantity).to.eql(2); pm.expect(x.on_hand_after).to.eql(8); });",
@@ -704,10 +705,10 @@
                             }
                         ],
                         "url": "{{base_url}}/sales",
-                        "description": "Same pos_reference, same item and quantity: 200 with the original sale, no new movements (D-014, D-029).",
+                        "description": "Same pos_reference, same merged lines (in any order): 200 with the original sale, no new movements (D-014, D-029, D-048).",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1700,10 +1701,10 @@
                             }
                         ],
                         "url": "{{base_url}}/sales",
-                        "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                        "description": "As if the till were calling. A sale is a ticket of one or more lines (D-048); this one sends the same menu item on two lines, which the server merges into one line of 2. Stock falls by the recipe of every line. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). If any item has no recipe the whole ticket is refused (422 menu_item_not_sellable). Resending the same pos_reference with the same lines (any order) is a replay (200), with different lines it is 409 idempotency_conflict. Rate limited to 120 a minute.",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1738,10 +1739,10 @@
                                     }
                                 ],
                                 "url": "{{base_url}}/sales",
-                                "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                                "description": "As if the till were calling. A sale is a ticket of one or more lines (D-048); this one sends the same menu item on two lines, which the server merges into one line of 2. Stock falls by the recipe of every line. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). If any item has no recipe the whole ticket is refused (422 menu_item_not_sellable). Resending the same pos_reference with the same lines (any order) is a replay (200), with different lines it is 409 idempotency_conflict. Rate limited to 120 a minute.",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                                    "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"

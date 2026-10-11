@@ -298,3 +298,17 @@ After the fixes, the app seeded and served, data survived a restart, and 420 tes
 - PR bodies with double quotes were mangled by PowerShell 5.1 argument passing. They are now written from a file.
 
 **Owner decisions:** icons only, no photos (D-046); test Docker on a real machine rather than ship it untested.
+## 2026-10-11: PTY-29, multi-item sales (after submission)
+
+**Prompt (Mohamad):** "what we have now in the pos semultation is we only chose one menue item lets find a way and plan how we can do it with mutlible menue item and that will also reflect on the ingrediant and the stock we have." Then, before approving the plan: "make me an artifact to see how it will work", and "whats about the refuund if for example i wanna refund 1 frise".
+
+**What worked:**
+- Planning before code, with a clickable HTML mockup of the new POS (tiles, ticket, per-ingredient preview, the request and the database rows) that Mohamad tried before approving.
+- His refund question **changed the design**. The first plan wrote one movement per ingredient per sale (beef -600 as one row). A refund of one Fries could then not tell which line took what. The approved design writes one movement per sale line and recipe line, so a refund puts back exactly `line delta / n x k` (D-048). Refunds became their own ticket, PTY-30.
+- An exact API contract in the ticket let three Sonnet builders (backend, UI, docs) work in parallel on separate files, then merge without conflicts.
+
+**What had to be fixed:**
+- **The contract's migration order was wrong for SQLite.** "Copy into sale_lines, then drop the columns" fails, because dropping a foreign-key column rebuilds `sales` and the new rows block the drop. The backend builder's own migration test caught it, and it reordered the steps. The orchestrator then ran the migration on a copy of a real 121-sale database to confirm nothing was lost.
+- **The Opus reviewer found two UI bugs the builder could not see without a backend:** a replay cleared the ticket being built, and resend errors landed on unrelated rows. Also seven Low items (docs drift, a missing service guard, an untested merge path, two misleading messages, a colour token, an over-broad `aria-live`).
+- **The orchestrator's live smoke test** found a 409 message still worded for a single item.
+- **Process slips by the orchestrator:** the first merge commits were not in `PTY-N:` form, and one exposed a worktree name. History was not rewritten. The browser pass could not run because the Chrome extension was not connected, so the UI was checked through the API and by Mohamad by hand.

@@ -33,7 +33,7 @@ What the manager sees. **One web app**: one site, one sidebar, every page linked
 | Suppliers | `/suppliers` | E7, E8, E10 | Adds and edits suppliers |
 | Menu & Recipes | `/menu` | E11, E12, E14, E15 | Adds menu items and edits recipes |
 | Purchase Orders | `/purchase-orders`, `/purchase-orders/{ulid}`, `/purchase-orders/new` | E16 to E24, E29 | Lists, drafts, edits, sends, receives, short-closes; sees the order's activity |
-| POS Simulator | `/pos` | E11, E25, E26 | Sells N of a menu item; resends the last sale to show retry protection |
+| POS Simulator | `/pos` | E11, E25, E26 | Builds a ticket of one or more menu items and sells it; resends the last ticket to show retry protection (D-048) |
 | Activity | `/activity` | E29 | Sees every recorded event with its channel |
 
 URLs use ULIDs, never database ids (D-031).
@@ -54,6 +54,19 @@ URLs use ULIDs, never database ids (D-031).
 | U10 | **Guided "Try it" card** (Dashboard): five steps linking to screens, ticking themselves off from real data. Dismissible. | D-027 |
 | U11 | Every request sends `X-Patty-Channel: ui` (the POS Simulator sends `pos`), so the audit trail knows where actions came from. | D-021 |
 | U12 | API data is rendered with `x-text` or `textContent` only. **Never `x-html` or `innerHTML`.** | security.md |
+
+## POS Simulator (PTY-29)
+
+A till, not a form. The page builds a ticket and sends it as one sale (E25, D-048).
+
+- **Tiles:** one tap-to-add tile per menu item (E11). Tapping adds the item to the ticket, or adds one more if it is already there.
+- **Ticket:** one row per item with a stepper (quantity 1 to 1,000) and a remove button. Duplicates cannot appear, because a repeated tap raises the quantity. An empty ticket cannot be sold.
+- **Per-ingredient preview:** before selling, the ticket shows what it will take per ingredient (recipe quantity x line quantity, summed across lines). It is a preview only: the server decides, and D-010 still allows stock to go below zero.
+- **Sell:** sends `lines` and a `pos_reference`. On 201 the ticket clears (only after a sale sent from the ticket with Sell, never after a resend) and the result lists one row per ingredient (quantity taken, on hand after, negative highlighted). Items with no recipe come back as 422 `menu_item_not_sellable` and the whole ticket is refused.
+- **Line errors:** 422 errors keyed `lines.N.*` from Sell appear on the matching ticket row.
+- **In flight:** all ticket and resend controls are disabled while a sale is being sent, so a double tap cannot send twice.
+- **Retry buttons:** "Resend last ticket" sends the same lines and reference again (200 replay, nothing moves). "Resend with one more of the first item" sends the same reference with changed lines (409 `idempotency_conflict`, nothing moves). Resend results and errors (replay, 409, 429) show as a notice, not on a ticket row.
+- **Recent sales (E26):** each sale shows its items and total units.
 
 ## Unit conversion rules (public/js/units.js, D-038)
 

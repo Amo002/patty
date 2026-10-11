@@ -11,7 +11,7 @@ A one-branch burger restaurant wants to *"stop running out of ingredients and st
 | Guessing what's in the storeroom | Stock is derived from every delivery and sale. It is never stored, so it cannot drift from its history. | Solved |
 | "At any moment" | No caching anywhere, `no-store` headers, auto-refresh, a visible "updated N s ago" | Solved |
 | Deliveries don't match the order | Partial deliveries, 5% over-delivery tolerance, short-close | Solved |
-| Every sale uses a recipe | Each sale explodes into one movement per recipe ingredient. POS retries are idempotent. | Solved |
+| Every sale uses a recipe | Each sale is a ticket of lines; each line explodes into one movement per recipe ingredient. POS retries are idempotent. | Solved |
 | Which orders are still open | Open orders with ordered / received / outstanding per line | Solved |
 | Orders can't reach a bad state | One transition map, guarded operations, every invalid move tested | Solved |
 | Stop running out | On hand **plus Incoming** (outstanding on open orders) per ingredient, so the manager sees what is already on the way | Solved for "what's coming". Reorder levels are the next step. |
@@ -82,17 +82,18 @@ UI  POST /purchase-orders/{id}/deliveries  { lines: [{ purchase_order_line_id, q
 
 ### POS sale (PTY-9)
 ```
-POS POST /sales  { menu_item_id, quantity, pos_reference }
+POS POST /sales  { lines: [{ menu_item_id, quantity }], pos_reference }
   SaleService::record
     pos_reference seen before?  ->  200, original sale, replayed: true, no stock moves
     BEGIN TRANSACTION
-      menu item has a recipe                                else 422 menu_item_not_sellable
-      insert sale
-      per recipe line: StockLedger::record(-(line.qty x sale.qty), sale)
+      merge duplicate items; load all recipes in one query
+      every item has a recipe                               else 422 menu_item_not_sellable (whole ticket)
+      insert sale, insert sale lines
+      per sale line, per recipe line: StockLedger::record(-(recipe.qty x line.qty), saleLine)
       any ingredient now negative -> Log::channel('stock')->warning
       activity('sale.recorded')
     COMMIT
-  201 { success: true, data: sale, deductions, negatives }
+  201 { success: true, data: sale (lines, deductions grouped per ingredient) }
 ```
 
 ### Purchase order states (PTY-7)

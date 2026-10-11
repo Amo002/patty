@@ -120,27 +120,28 @@ Template for each flow:
 
 ### F13 POS sale
 - **Actor:** the POS system (or the POS Simulator page, channel `pos`)
-- **Request:** E25 `{ "menu_item_id": classic, "quantity": 6, "pos_reference": "till-1:000101" }`, plus `X-POS-Key` if configured
+- **Request:** E25 a ticket of one or more lines, `{ "lines": [ { "menu_item_id": classic, "quantity": 2 }, { "menu_item_id": double, "quantity": 1 } ], "pos_reference": "till-1:000101" }`, plus `X-POS-Key` if configured (D-048)
 - **Steps:**
   1. Middleware checks the POS key (if set) and the rate limit.
   2. If `pos_reference` exists, go to F15 or F16.
   3. Begin the transaction.
-  4. Load the recipe; if empty, `MenuItemNotSellable`.
+  4. Merge duplicate menu items (quantities added) and load every recipe in one query; if any item has no recipe, `MenuItemNotSellable` and the whole ticket is refused.
   5. Take the next SALE number.
-  6. Create the sale.
-  7. For each recipe line: `StockLedger::record(-(qty x sale qty), sale)`.
+  6. Create the sale and its sale lines.
+  7. For each sale line, in line order, and each of its recipe lines: `StockLedger::record(-(qty x line qty), saleLine)`. Nothing is summed in the ledger.
   8. Audit `sale.recorded`.
   9. Commit.
   10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F15 or F16.
-- **Rows written:** sales +1, stock_movements +3 (beef -900, bun -6, cheese -120), activity_log +1, document_sequences updated
-- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, menu_item, quantity, pos_reference), written after commit; `stock` info per movement
-- **Response:** 201 Sale with `deductions` and `on_hand_after`
-- **UI next (Simulator):** the deductions animate in; the dashboard updates on its next refresh
+- **Rows written:** sales +1, sale_lines +2, stock_movements +7 (Classic x2: beef -300, bun -2, cheese -40; Double Patty x1: beef -300, bun -1, cheese -40, burger sauce -20), activity_log +1, document_sequences updated
+- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, lines, pos_reference), written after commit; `stock` info per movement
+- **Response:** 201 Sale with `lines`, `item_count`, `units` and `deductions` grouped per ingredient (beef 600, bun 3, cheese 80, burger sauce 20), each with `on_hand_after`
+- **UI next (Simulator):** the ticket clears and the per-ingredient deductions animate in; the dashboard updates on its next refresh
 - **Error paths:**
   - bad or missing key: 401
-  - no recipe: 422 `menu_item_not_sellable`
-  - quantity 0 or above 1,000: 422
+  - any item has no recipe: 422 `menu_item_not_sellable` (no sale, no lines, no movements, no SALE number used)
+  - no lines, more than 50, quantity 0 or above 1,000: 422 keyed `lines.N.*`
   - unknown item: 422
+  - old body `{menu_item_id, quantity}`: 422 on `lines`
   - too many requests: 429
 
 ### F14 POS sale driving stock negative
@@ -149,15 +150,15 @@ Template for each flow:
 - **Response:** 201; the cheese deduction has `is_negative: true`. **UI next:** the Simulator highlights the negative line; the dashboard shows Cheese in danger colour with "Negative", and the negative KPI goes up.
 
 ### F15 POS replay (same reference, same payload)
-- **Steps:** find the existing sale by `pos_reference`; `menu_item_id` and `quantity` match.
+- **Steps:** find the existing sale by `pos_reference`; the merged lines match as (menu item, quantity) pairs, in any order.
 - **Rows written:** none except activity_log +1 (`sale.replayed`)
 - **Log:** `pos` notice "Sale replayed" with context (sale ulid, pos_reference)
 - **Response:** **200** with the original sale, `replayed: true`. Stock is unchanged.
 
 ### F16 POS idempotency conflict (same reference, different payload)
-- **Steps:** an existing sale is found, but the item or quantity differs. Throw `IdempotencyConflict`.
+- **Steps:** an existing sale is found, but the lines differ (a changed quantity, an added or removed item). Throw `IdempotencyConflict`.
 - **Rows written:** none
-- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted menu item and quantity
+- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted lines
 - **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it.
 
 ## Visibility

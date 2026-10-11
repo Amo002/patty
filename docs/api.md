@@ -32,7 +32,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `order_not_editable` | Lines can only change while the order is draft |
 | 409 | `cannot_receive` | Deliveries only against sent or partially received orders |
 | 409 | `unit_locked` | The unit cannot change once the ingredient is used in stock history, recipes or purchase orders (D-044) |
-| 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
+| 409 | `idempotency_conflict` | `pos_reference` already used with other items or quantities |
 | 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
 | 409 | `conflict` | A unique index rejected the write: a concurrent request created the same record after validation passed. Refresh and retry. |
 | 415 | `unsupported_media_type` | A write (POST, PUT, PATCH, DELETE) without `Content-Type: application/json`, even when it has no body (S6) |
@@ -81,8 +81,8 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 | E22 | DELETE | `/purchase-orders/{purchaseOrder}` | Delete a draft | 200 | 404, 409 `invalid_transition` | PTY-7 |
 | E23 | POST | `/purchase-orders/{purchaseOrder}/deliveries` | Record a delivery | 201 | 404, 409 `cannot_receive`, 422 `over_delivery`, 422 | PTY-8 |
 | E24 | GET | `/purchase-orders/{purchaseOrder}/deliveries` | Deliveries of a PO | 200 | 404, 422 | PTY-8 |
-| E25 | POST | `/sales` | POS sale event | 201 (new), 200 (replay) | 401, 409 `idempotency_conflict`, 422 `menu_item_not_sellable`, 422, 429 | PTY-9 |
-| E26 | GET | `/sales` | Recent sales | 200 | 422 | PTY-9 |
+| E25 | POST | `/sales` | POS sale ticket (one or more menu items, D-048) | 201 (new), 200 (replay) | 401, 409 `idempotency_conflict`, 422 `menu_item_not_sellable` (any item, refuses the whole ticket), 422 keyed `lines.N.*`, 429 | PTY-9, PTY-29 |
+| E26 | GET | `/sales` | Recent sales (each with its lines) | 200 | 422 | PTY-9, PTY-29 |
 | E27 | GET | `/stock` | Stock per ingredient: on hand, incoming, negative | 200 | 422 | PTY-10 |
 | E28 | GET | `/dashboard` | KPI counts | 200 | | PTY-10 |
 | E29 | GET | `/activity` | Audit trail, `?subject_type=&subject_id=` | 200 | 422 | PTY-10 |
@@ -181,8 +181,12 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 ```json
 {
   "id": "01JA...", "number": "SALE-2026-000124",
-  "menu_item": { "id": "01JA...", "name": "Classic Burger" },
-  "quantity": 2, "pos_reference": "till-1:000873", "sold_at": "...",
+  "lines": [
+    { "menu_item": { "id": "01JA...", "name": "Classic Burger" }, "quantity": 2 },
+    { "menu_item": { "id": "01JB...", "name": "Fries" }, "quantity": 1 }
+  ],
+  "item_count": 2, "units": 3,
+  "pos_reference": "till-1:000873", "sold_at": "...",
   "replayed": false,
   "deductions": [
     { "ingredient": { "id": "...", "name": "Beef", "unit": "g" }, "quantity": 300, "on_hand_after": 700, "is_negative": false },
@@ -190,6 +194,7 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
   ]
 }
 ```
+`item_count` is the number of lines, `units` the sum of their quantities. `deductions` is grouped per ingredient across all lines: `quantity` is the sum taken, `on_hand_after` the balance after that ingredient's last movement in this sale, ordered by the ingredient's first movement in the sale (D-048). The same shape is each item of E26.
 
 ### Stock row (E27)
 ```json
@@ -205,7 +210,7 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
   "occurred_at": "..."
 }
 ```
-`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A movement reason with no document yet has `number` and `label` null.
+`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A sale movement's label is `"<number> <item> x<qty>"` for a one-line sale and `"<number> 3 items"` otherwise (item count = lines). A movement reason with no document yet has `number` and `label` null.
 `balance_after` is a running sum computed in SQL with a window function (`SUM(...) OVER (ORDER BY occurred_at, id)`), so it is correct on every page.
 
 ### Dashboard (E28)
@@ -240,7 +245,14 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 | E19 PUT lines | `{ "lines": [ { "ingredient_id": "01JA...", "quantity_ordered": 1000 } ] }` |
 | E20, E21, E22 | no body |
 | E23 POST deliveries | `{ "lines": [ { "purchase_order_line_id": "01JA...", "quantity": 600 } ], "received_at"?: "...", "note"?: "..." }` |
-| E25 POST sales | `{ "menu_item_id": "01JA...", "quantity": 2, "pos_reference"?: "till-1:000873", "sold_at"?: "..." }` |
+| E25 POST sales | `{ "lines": [ { "menu_item_id": "01JA...", "quantity": 2 }, { "menu_item_id": "01JB...", "quantity": 1 } ], "pos_reference"?: "till-1:000873", "sold_at"?: "..." }` |
+
+E25 notes (D-048):
+- `lines` holds 1 to 50 items. Duplicate menu items are merged (quantities added) before anything else.
+- 422 errors are keyed `lines`, `lines.N.menu_item_id` and `lines.N.quantity` (N is 0-based in the key, 1-based in the message).
+- 422 `menu_item_not_sellable` if any item has no recipe. The whole ticket is refused: no sale, no lines, no movements, no SALE number used.
+- Replay (200) and conflict (409 `idempotency_conflict`) compare the merged lines as (menu item, quantity) pairs, regardless of order.
+- The old body `{ "menu_item_id", "quantity" }` is rejected with 422 on `lines`.
 
 ## Example: a failure
 ```http
