@@ -32,7 +32,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 409 | `order_not_editable` | Lines can only change while the order is draft |
 | 409 | `cannot_receive` | Deliveries only against sent or partially received orders |
 | 409 | `unit_locked` | The unit cannot change once the ingredient is used in stock history, recipes or purchase orders (D-044) |
-| 409 | `idempotency_conflict` | `pos_reference` already used with a different item or quantity |
+| 409 | `idempotency_conflict` | `pos_reference` already used with other items or quantities |
 | 409 | `demo_not_empty` | Demo seed refused because data already exists (use reset) |
 | 409 | `conflict` | A unique index rejected the write: a concurrent request created the same record after validation passed. Refresh and retry. |
 | 415 | `unsupported_media_type` | A write (POST, PUT, PATCH, DELETE) without `Content-Type: application/json`, even when it has no body (S6) |
