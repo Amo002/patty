@@ -208,8 +208,8 @@ A sale is never edited. A refund is a new document against it, and the manager a
 - **Request:** E33 `POST /sales/{sale}/returns` with `{ "lines": [ { "menu_item_id": fries, "quantity": 1 } ], "restock": false, "reason": "Customer complaint", "pos_reference": "till-1:ret-000031" }`, plus `X-POS-Key` if configured
 - **Steps:**
   1. Middleware checks the POS key (if set) and the rate limit. The sale is found by its ULID (404 if unknown).
-  2. If `pos_reference` exists, go to F25 or F26.
-  3. Begin the transaction and lock the sale row.
+  2. Begin the transaction and lock the sale row.
+  3. If `pos_reference` exists, go to F25 or F26. The lookup is inside the transaction, after the lock, so two identical retries cannot both pass it.
   4. Merge duplicate menu items. Every item must be a line of this sale, else `ItemNotOnSale` (422).
   5. For every line, left = line quantity - earlier refunds of that line. If any requested quantity is above its left, `OverRefund` (422) lists every breach. Nothing has been written yet.
   6. Take the next RET number. Create the sale return and its lines.
@@ -217,7 +217,7 @@ A sale is never edited. A refund is a new document against it, and the manager a
   8. Audit `sale.returned` on the sale.
   9. Commit.
   10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F25 or F26.
-- **Log:** `pos` info "Sale refunded" with context (return number, sale number, restock), written after commit; `stock` info per movement
+- **Log:** `pos` info "Sale refunded" with context (`sale` ULID, `return` number, `lines`, `restock`, `pos_reference`), written after commit; `stock` info per movement
 - **Response:** 201 Sale return with `lines` and `restocked` grouped per ingredient (empty when `restock` is false)
 - **No stock check (D-010):** a restock never fails because of stock, and a refund never fails because stock is negative.
 

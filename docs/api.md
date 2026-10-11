@@ -281,7 +281,7 @@ E33 notes (D-049):
 - `reason` is required, 1 to 200 characters.
 - A quantity above what is left on the line (line quantity minus earlier refunds) is 422 `over_refund`. Every line is checked before anything is written, so one request reports all breaches and writes nothing.
 - A menu item that is not on the sale is 422 `item_not_on_sale`.
-- Replay (200, "Refund already recorded. No stock moved.") needs the same `pos_reference`, the same sale, the same merged lines in any order and the same `restock`. Anything else with that reference is 409 `idempotency_conflict`.
+- Replay (200, "Refund already recorded. No stock moved.") needs the same `pos_reference`, the same sale, the same merged lines in any order and the same `restock`. Anything else with that reference is 409 `idempotency_conflict`. The `reason` is not compared: a replay returns the original refund with its original reason.
 - 201 message: "Refund recorded." A refund never fails because of stock (D-010).
 
 E25 notes (D-048):
@@ -321,7 +321,7 @@ Fries x2 were sold on SALE-2026-000125 and one is already refunded, so one is le
 HTTP/1.1 422
 {
   "success": false,
-  "message": "Only 1 Fries left to refund on SALE-2026-000125.",
+  "message": "only 1 Fries left to refund on SALE-2026-000125.",
   "code": "over_refund",
   "errors": { "lines.0.quantity": ["Line 1: only 1 Fries left to refund on SALE-2026-000125."] }
 }

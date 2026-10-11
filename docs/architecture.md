@@ -100,9 +100,9 @@ POS POST /sales  { lines: [{ menu_item_id, quantity }], pos_reference }
 ```
 POS POST /sales/{sale}/returns  { lines: [{ menu_item_id, quantity }], restock, reason, pos_reference }
   SaleReturnService::record
-    pos_reference seen before?  ->  200 replay if same sale, lines and restock; else 409
     BEGIN TRANSACTION
       lock the sale row
+      pos_reference seen before?  ->  200 replay if same sale, lines and restock; else 409
       every item is on the sale                              else 422 item_not_on_sale
       per line: quantity <= line quantity - earlier refunds  else 422 over_refund (all breaches, nothing written)
       insert sale return, insert its lines

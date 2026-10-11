@@ -79,8 +79,10 @@ A refund is a panel opened from a Recent sales row (E33, D-049). The sale is nev
   2. **Was the food made?** Two choices: "Yes, it was made" (`restock: false`, the ingredients are gone) and "No, it was voided before cooking" (`restock: true`, the ingredients go back). **"Yes, it was made" is preselected.**
   3. **Reason:** a select with Customer complaint, Wrong order, Cancelled before cooking and Long wait.
   4. **Refund:** disabled until at least one unit is chosen. It is busy while the request is in flight, so a double tap cannot send twice.
-- **Preview:** under the choice, the panel says what will happen to stock. For "made": nothing changes. For "voided": the ingredients that go back, per ingredient (the sale line's own amounts for the chosen quantities, `-(movement) / quantity x chosen`). It is a preview only: the server decides.
-- **Success:** a notice "Refund recorded." and Recent sales reloads, so the pills and the Refund button update. A replay shows "Refund already recorded. No stock moved."
+- **Preview:** under the choice, the panel says what will happen to stock. For "made": nothing changes. For "voided": the ingredients that go back, per ingredient. It is estimated from today's recipe, and the panel says so: "Estimated from today's recipe. The refund puts back exactly what this sale took." The server restocks from the sale line's own movements (D-049), so the real amounts can differ if the recipe changed after the sale.
+- **Success:** a notice "RET-... recorded" with the real restocked amounts from the response, or "Stock did not change." when nothing was restocked. Recent sales reloads, so the pills and the Refund button update.
+- **Retry:** the panel keeps one `pos_reference` while the rows, the restock choice and the reason stay the same. A retry after a lost response reuses it, so it comes back as a replay ("Refund already recorded. No stock moved."). The reference is renewed when the rows, the restock choice or the reason change, after a 201, and after a 409.
+- **Focus:** opening the panel focuses the first quantity input. Closing it returns focus to the Recent sales heading if the Refund button became disabled.
 - **Errors:** 422 `over_refund` and `item_not_on_sale` appear on the matching panel row (keys `lines.N.*`). 409 `idempotency_conflict`, 429 and 401 show as a notice, as for sales (U7).
 
 ## Unit conversion rules (public/js/units.js, D-038)
