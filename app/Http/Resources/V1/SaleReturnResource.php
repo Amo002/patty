@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * api.md "Sale return". Expects the relations SaleReturnService::withRestocked() loads
+ * api.md "Sale return". Expects the relations SaleReturnService::record() loads
  * (`sale`, `lines.saleLine.menuItem` and the `restocked` relation).
  *
  * @mixin SaleReturn

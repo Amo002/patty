@@ -26,7 +26,6 @@ class SaleReturnController extends ApiController
             $request->validated('pos_reference'),
         );
 
-        $this->returns->withRestocked($result->return);
         $resource = new SaleReturnResource($result->return, $result->replayed);
 
         // 200 for a replay: nothing was created, the POS just gets the original answer again.
