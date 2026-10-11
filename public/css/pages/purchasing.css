@@ -159,3 +159,53 @@
 
 /* A fieldset names each row for screen readers; the browser border and padding are not wanted. */
 fieldset.po-line, fieldset.rcv-line { margin: 0; min-width: 0; border-width: 0 0 1px; padding-inline: 0; padding-top: 0; }
+
+/* Refunds (PTY-30). The panel is a native dialog; these are its rows and the two "was the food made" cards. */
+.pos-refunded { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
+.rf-group { margin: 0; min-width: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.rf-group > legend { padding: 0; margin-bottom: var(--sp-2); color: var(--text); font-size: var(--fs-14); font-weight: 600; }
+.rf-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.rf-line[data-invalid="true"] { background: var(--danger-subtle); border-color: var(--danger); }
+.rf-line-error { grid-column: 1 / -1; }
+.rf-line-error:empty { display: none; }
+
+.rf-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.rf-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.rf-choice input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.rf-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-subtle); }
+.rf-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rf-group:disabled .rf-choice { cursor: not-allowed; opacity: 0.7; }
+
+.rf-done {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--ok);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .rf-choices { grid-template-columns: minmax(0, 1fr); }
+  .rf-line { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rf-choice { transition: none; }
+}
