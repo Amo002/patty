@@ -51,10 +51,15 @@ class SaleService
      *
      * @throws IdempotencyConflict when the reference was used for a different sale
      * @throws MenuItemNotSellable when any item has no recipe lines (the whole ticket is refused)
+     * @throws \InvalidArgumentException when there are no lines (a sale with nothing sold explains no stock change)
      */
     public function record(array $lines, ?string $posReference = null, ?CarbonInterface $soldAt = null): SaleResult
     {
         $lines = $this->merge($lines);
+
+        if ($lines === []) {
+            throw new \InvalidArgumentException('A sale needs at least one line.');
+        }
 
         if ($posReference !== null && ($existing = $this->findByReference($posReference)) !== null) {
             return $this->replay($existing, $lines);
