@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * api.md "Sale". Expects menuItem and the `deductions` relation, which
+ * api.md "Sale". Expects `lines.menuItem` and the `deductions` relation, which
  * SaleService::withDeductions() sets for the whole page at once, so a list of
  * sales costs the same number of queries whether it holds one sale or a hundred.
  *
@@ -28,8 +28,12 @@ class SaleResource extends JsonResource
         return [
             'id' => $this->ulid,
             'number' => $this->number,
-            'menu_item' => ['id' => $this->menuItem->ulid, 'name' => $this->menuItem->name],
-            'quantity' => $this->quantity,
+            'lines' => $this->lines->map(fn ($line) => [
+                'menu_item' => ['id' => $line->menuItem->ulid, 'name' => $line->menuItem->name],
+                'quantity' => $line->quantity,
+            ])->all(),
+            'item_count' => $this->lines->count(),
+            'units' => $this->lines->sum('quantity'),
             'pos_reference' => $this->pos_reference,
             'sold_at' => $this->sold_at->toIso8601ZuluString(),
             'replayed' => $this->replayed,
