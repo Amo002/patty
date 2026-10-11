@@ -4,7 +4,7 @@ namespace App\Http\Requests\V1\Concerns;
 
 /**
  * Stored ULIDs are lowercase but the `ulid` rule accepts uppercase, so lowercase `lines.*.menu_item_id`
- * first (G4). Shared by the sale (E25) and the refund (E27) requests.
+ * first (G4). Shared by the sale (E25) and the refund (E33) requests.
  */
 trait LowercasesMenuItemIds
 {

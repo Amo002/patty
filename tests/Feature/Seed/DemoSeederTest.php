@@ -143,6 +143,13 @@ it('seeds one refund that was made (no stock moves) and one that was voided (sto
         ->and($movementsOf($voided)->sum('quantity_delta'))->toBe((int) (-$sold->sum('quantity_delta') / $line->quantity));
 });
 
+it('keeps sale and refund movement ids in clock order', function () {
+    $byClock = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('occurred_at')->orderBy('id')->pluck('id')->all();
+    $byId = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('id')->pluck('id')->all();
+
+    expect($byClock)->toBe($byId);
+});
+
 it('seeds tickets of one to three different items, with some multi-item tickets', function () {
     $sizes = SaleLine::query()->get()->groupBy('sale_id')->map->count();
 
