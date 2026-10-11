@@ -72,7 +72,7 @@ E20 send, E21 close and E22 delete take no body. The status rules give 409 `inva
 | lines | required, array (G5), `min:1`, `max:50` |
 | lines.*.menu_item_id | required, string, ULID (G4, lowercased first), exists on `menu_items` |
 | lines.*.quantity | required, `integer:strict` (G3), `min:1`, `max:1000` |
-| pos_reference | `nullable`, `string`, `max:64`, `regex:/^[A-Za-z0-9._:-]+$/` |
+| pos_reference | `nullable`, `string`, `max:64`, `regex:/^[A-Za-z0-9._:-]+\z/` |
 | sold_at | `nullable`, `date`, no more than 5 minutes in the future (clock skew between POS and server) |
 | X-POS-Key | middleware: when `POS_API_KEY` is set, it must match (`hash_equals`), else 401 |
 | duplicates | **merged**, not rejected: the same menu item on two lines becomes one line with the quantities added, before anything else. After merging, a line above 1,000 is a 422 on that line. |
