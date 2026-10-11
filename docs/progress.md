@@ -166,4 +166,5 @@ PTY-13 Postman, then PTY-14: the full README, a check from a fresh clone, the re
 ## Post-release extensions (2026-10-11)
 
 - **PTY-29 multi-item sales (merged, PR #34).** The POS sends a ticket of one or more lines; each movement points at its sale line (D-048). Built by three Sonnet builders in parallel (backend, UI, docs), reviewed by Opus: no High findings, two Medium UI fixes. Mohamad lifted the post-submission freeze for this ticket and PTY-30 only.
-- **PTY-30 refunds (in review).** A refund is a new document; ingredients go back to stock only when the food was not made (D-049). Same three-builder setup, Opus review with mutation checks: one Medium UI fix (reuse the refund reference on retry).
+- **PTY-30 refunds (merged, PR #35).** A refund is a new document; ingredients go back to stock only when the food was not made (D-049). Same three-builder setup, Opus review with mutation checks: one Medium UI fix (reuse the refund reference on retry).
+- **PTY-31 SQLite IMMEDIATE transactions (in review).** Racing writers now wait instead of getting a 500 (D-050). Found in the PTY-30 review.

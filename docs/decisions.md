@@ -480,3 +480,15 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Ticket:** PTY-30. Builds on D-048.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-11
+
+## D-050 SQLite transactions are IMMEDIATE, with a 5 second busy timeout
+- **Chosen:** `config/database.php` sets `transaction_mode` to `IMMEDIATE` and `busy_timeout` to 5000 ms for SQLite. A transaction takes the write lock when it begins; a second writer waits for it, then reads the first one's rows.
+- **Why:** every write service (receiving, sales, refunds, order transitions, ingredient edits) reads, checks, then writes inside one transaction, and `lockForUpdate()` compiles to nothing on SQLite. With Laravel's default DEFERRED, two such transactions could both read, then the second one's first write failed at once with SQLITE_BUSY: a 500 instead of a clean 422 (for example `over_refund` for the last unit, or a POS retry that should have been a replay). Stock was never double-counted, but the client got an error it could not act on. First noted as Info in the PTY-9 review, raised to Medium in the PTY-30 review.
+- **Rejected:**
+  - keeping DEFERRED and catching SQLITE_BUSY in each service: a try/catch per service for a database setting;
+  - making the first statement of each transaction a dummy write: works, but hides the reason in every service;
+  - doing nothing because one branch has little concurrency: two tills, or a till retrying while a manager receives, is enough.
+- **Cost:** writers queue instead of overlapping. At one branch that is microseconds per request. Reads outside transactions are not affected. MySQL and Postgres keep their real row locks.
+- **Ticket:** PTY-31. Related: D-024 (defence in depth), D-029 (retries).
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-11

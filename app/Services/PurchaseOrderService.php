@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Log;
  * Receiving a delivery (sent to received, and the automatic close) is PTY-8.
  * Every method runs in one transaction and re-reads the order with
  * lockForUpdate before checking its status. lockForUpdate is a no-op on
- * SQLite: there the database's single-writer lock serialises writers, so a
- * racing writer fails (database is locked) instead of double-transitioning.
+ * SQLite: there transactions are IMMEDIATE (D-050), so a racing writer waits
+ * for this one and then sees the new status instead of double-transitioning.
  * On MySQL and Postgres the row lock does the work, so the status checked is
  * the status changed (same approach as DocumentNumber). Each writes its
  * audit event inside the same transaction, so the trail cannot disagree with
@@ -183,9 +183,8 @@ class PurchaseOrderService
 
     /**
      * Re-read the order with lockForUpdate so the status checked is the status
-     * changed. A no-op on SQLite, whose single-writer lock already serialises
-     * writes (a racing writer fails rather than double-transitioning); the row
-     * lock matters on MySQL and Postgres.
+     * changed. A no-op on SQLite, where IMMEDIATE transactions already
+     * serialise writers (D-050); the row lock matters on MySQL and Postgres.
      */
     private function lock(PurchaseOrder $order): PurchaseOrder
     {

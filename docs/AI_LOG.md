@@ -327,3 +327,13 @@ After the fixes, the app seeded and served, data survived a restart, and 420 tes
 - **The UI threw away the server's idempotency:** a new reference on every press, so a retry after a lost response could refund twice (Medium). Also focus handling, an honest "estimated" hint on the preview, a seeded refund timed after the next sale, stale E27 comments, docs drift, an untested error-precedence rule.
 - **The orchestrator's own unit typo** in the manual QA (oil and ketchup in g instead of ml).
 - **Not done:** a browser click-through (the Chrome extension was not connected). The flows were checked through the live API on a seeded database.
+
+## 2026-10-11: PTY-31, SQLite transactions
+
+**Prompt (Mohamad):** "just fix the issue you saw and lets make sure everything is okay and push to main".
+
+**What happened:** the PTY-30 code-review pass found that on SQLite two writers could both pass their checks and the second got a 500. The orchestrator wrote a test that holds a read-only transaction open on a file database and tries a second writer from another connection. It failed on the old settings, proving the bug, then passed after switching to IMMEDIATE transactions with a 5 s busy timeout (D-050). Five docblocks that described the old behaviour ("a racing writer fails") were corrected.
+
+**What had to be fixed:** the orchestrator's scripted docblock edit wrote Windows line endings; Pint caught it and they were converted back.
+
+**Earlier signal missed:** the PTY-9 review had already recorded this as Info. It was right; it only became visible as a user-facing 500 once refunds made "the last unit" a common race.
