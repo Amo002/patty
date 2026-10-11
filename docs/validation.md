@@ -85,10 +85,13 @@ Errors are keyed `lines`, `lines.N.menu_item_id` and `lines.N.quantity` (N is 0-
 | Rule | Message |
 |---|---|
 | lines required, empty | Add at least one menu item to the sale. |
-| lines max | A sale can hold at most 50 different items. |
-| menu_item_id missing or malformed | Line N: choose the menu item that was sold. |
+| lines max | A sale can hold at most 50 lines. |
+| menu_item_id missing | Line N: choose the menu item that was sold. |
+| menu_item_id not a string | Line N: the menu item must be an id. |
+| menu_item_id not a valid ULID | Line N: the menu item is not a valid id. |
 | menu_item_id unknown | Line N: that menu item does not exist. |
 | quantity missing, not a whole number, below 1 or above 1,000 | Line N: the quantity must be a whole number from 1 to 1,000. |
+| merged duplicates above 1,000 | Line N: {item name} appears more than once and adds up to more than 1,000. |
 
 ### Queries
 | Endpoint | Param | Rules |

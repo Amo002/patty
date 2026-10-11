@@ -123,7 +123,7 @@ A sale is a ticket (D-048). What was sold is in `sale_lines`.
 | quantity | unsigned int, > 0 | |
 | | unique(sale_id, menu_item_id) | Duplicate items on a ticket are merged before saving. |
 
-Migration PTY-29 copied every existing sale into one sale line, then dropped `sales.menu_item_id` and `sales.quantity`.
+Migration PTY-29 reads the existing sales into memory, drops the foreign key and the `menu_item_id` and `quantity` columns of `sales`, creates `sale_lines`, then inserts one line per old sale. The order matters: on SQLite, dropping a foreign-key column rebuilds the `sales` table (drop, create, copy), which fails once `sale_lines` rows reference `sales`. The rollback (`down`) is lossy and not supported after real multi-line tickets exist.
 
 ### stock_movements (append-only)
 | Column | Type | Notes |
@@ -164,7 +164,7 @@ incoming(ingredient)    = SUM(outstanding(po_line)) over lines of that ingredien
 1. The only code that inserts into `stock_movements` is `StockLedger`. Nothing updates or deletes a movement.
 2. Each delivery line produces exactly one movement of `+quantity_received`.
 3. A sale has at least one line, and a menu item appears once per sale (unique `sale_id`, `menu_item_id`).
-   Each sale line produces exactly one movement per recipe line, of `-(recipe quantity x line quantity)`, referencing the `SaleLine`. Every sale movement references a sale line, and for each line and ingredient the movements sum to `-(recipe quantity x line quantity)` as it was at sale time (D-048).
+   Each sale line produces exactly one movement per recipe line, of `-(recipe quantity x line quantity)`, referencing the `SaleLine`. Every sale movement recorded since D-048 (PTY-29) references a sale line; older movements reference the sale itself (append-only, never rewritten). For each line and ingredient the movements sum to `-(recipe quantity x line quantity)` as it was at sale time (D-048).
 4. `received(line) <= max_receivable(line)` always. Beyond it a delivery is rejected (D-035).
 5. `purchase_orders.status` changes only through `PurchaseOrderStatus::transitionTo()` rules.
 6. A delivery or sale and its movements are written in one transaction, or not at all.
