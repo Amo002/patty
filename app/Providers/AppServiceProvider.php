@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\RecipeLine;
 use App\Models\Sale;
+use App\Models\SaleLine;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Support\Audit;
@@ -49,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
             'delivery' => Delivery::class,
             'delivery_line' => DeliveryLine::class,
             'sale' => Sale::class,
+            'sale_line' => SaleLine::class,
             'stock_movement' => StockMovement::class,
         ]);
 

@@ -75,8 +75,7 @@ function dayReceive(string $order, string $line, int $quantity, string $at): Tes
 function daySell(MenuItem $burger, int $quantity, string $reference, string $at): TestResponse
 {
     return dayCall('POST', '/api/v1/sales', [
-        'menu_item_id' => $burger->ulid,
-        'quantity' => $quantity,
+        'lines' => [['menu_item_id' => $burger->ulid, 'quantity' => $quantity]],
         'pos_reference' => $reference,
         'sold_at' => "2026-10-02T{$at}:00Z",
     ]);

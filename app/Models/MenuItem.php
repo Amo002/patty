@@ -33,8 +33,8 @@ class MenuItem extends Model
         return $this->hasMany(RecipeLine::class);
     }
 
-    public function sales(): HasMany
+    public function saleLines(): HasMany
     {
-        return $this->hasMany(Sale::class);
+        return $this->hasMany(SaleLine::class);
     }
 }

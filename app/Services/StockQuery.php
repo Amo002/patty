@@ -7,6 +7,7 @@ use App\Models\DeliveryLine;
 use App\Models\Ingredient;
 use App\Models\PurchaseOrderLine;
 use App\Models\Sale;
+use App\Models\SaleLine;
 use App\Models\StockMovement;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -158,7 +159,9 @@ class StockQuery
             ->where('ingredient_id', $ingredient->getKey())
             ->with(['reference' => fn (MorphTo $reference) => $reference->morphWith([
                 DeliveryLine::class => ['delivery.purchaseOrder'],
-                Sale::class => ['menuItem'],
+                // D-048: a sale movement points at its SaleLine; the ticket's other lines are needed for the label.
+                SaleLine::class => ['sale.lines.menuItem'],
+                Sale::class => ['lines.menuItem'],
             ])])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
@@ -193,12 +196,16 @@ class StockQuery
             ];
         }
 
-        if ($reference instanceof Sale) {
+        // D-048: new sale movements reference a SaleLine; older ones reference the Sale itself.
+        // Both describe the ticket.
+        if ($reference instanceof SaleLine || $reference instanceof Sale) {
+            $sale = $reference instanceof SaleLine ? $reference->sale : $reference;
+
             return [
                 'type' => 'sale',
-                'number' => $reference->number,
-                'label' => "{$reference->number} {$reference->menuItem->name} x{$reference->quantity}",
-                'sale_id' => $reference->ulid,
+                'number' => $sale->number,
+                'label' => "{$sale->number} {$sale->summary()}",
+                'sale_id' => $sale->ulid,
             ];
         }
 
