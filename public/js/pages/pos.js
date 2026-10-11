@@ -15,6 +15,14 @@ document.addEventListener('alpine:init', function () {
     return 'sim-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
   }
 
+  /** Same idea for refunds: sim-ret-<timestamp>-<random>. A new attempt gets a new reference; the panel has no resend. */
+  function newReturnReference() {
+    return 'sim-ret-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  }
+
+  // The reasons the manager can pick. The API takes free text up to 200 characters; a fixed list keeps the report groupable.
+  var REFUND_REASONS = ['Customer complaint', 'Wrong order', 'Cancelled before cooking', 'Long wait'];
+
   Alpine.data('posSimulator', function () {
     return {
       items: [],
@@ -34,6 +42,15 @@ document.addEventListener('alpine:init', function () {
       last: null,
       result: null, // the Sale shown on screen
       notice: null, // { tone, title, text } for 401, 429, a 409 conflict and ticket-level 422s
+
+      // The refund panel (E27), one sale at a time. It has its own busy flag, notice and rows so a refund can never
+      // touch the ticket, the Result card or `last` (the sale being retried). `sale` is a copy of the Recent sales row:
+      // it stays on screen even if the poll drops that row from the loaded pages.
+      //   lines: [{ menu_item_id, name, sold, refunded, left, quantity, error }]  one per sale line, in sale order
+      //   sent:  the lines actually posted (quantity > 0), because the server names a line by its position there
+      //   done:  { title, text } after a 201, announced through a small status element
+      refund: { sale: null, lines: [], sent: [], restock: false, reason: REFUND_REASONS[0], busy: false, notice: null, done: null },
+      reasons: REFUND_REASONS,
 
       recent: [],
       recentPage: 0,
@@ -302,6 +319,196 @@ document.addEventListener('alpine:init', function () {
         }
       },
 
+      /* ---------- refunds (E27, D-049) ---------- */
+
+      canRefund: function (sale) {
+        return sale.lines.some(function (l) { return l.quantity - (l.refunded || 0) > 0; });
+      },
+
+      // "Fries x1 refunded" for each line with something refunded, shown under the Items text.
+      refundedPills: function (sale) {
+        return sale.lines.filter(function (l) { return (l.refunded || 0) > 0; }).map(function (l) {
+          return { id: l.menu_item.id, text: l.menu_item.name + ' x' + l.refunded + ' refunded' };
+        });
+      },
+
+      openRefund: function (sale) {
+        var rf = this.refund;
+        rf.sale = JSON.parse(JSON.stringify(sale));
+        rf.lines = rf.sale.lines.map(function (l) {
+          var refunded = l.refunded || 0;
+          return { menu_item_id: l.menu_item.id, name: l.menu_item.name, sold: l.quantity, refunded: refunded, left: l.quantity - refunded, quantity: 0, error: '' };
+        });
+        // Preselect one on the first line that still has something left, so the common case is a single press.
+        var first = rf.lines.find(function (l) { return l.left > 0; });
+        if (first) first.quantity = 1;
+        rf.sent = [];
+        rf.restock = false; // "Yes, it was made": the safe default, stock does not change
+        rf.reason = REFUND_REASONS[0];
+        rf.busy = false;
+        rf.notice = null;
+        rf.done = null;
+        this.$refs.refundDialog.showModal();
+      },
+
+      closeRefund: function () {
+        if (this.refund.busy) return;
+        this.$refs.refundDialog.close();
+      },
+
+      refundStep: function (line, delta) {
+        this.clearRefundFeedback();
+        line.quantity = Math.min(line.left, Math.max(0, line.quantity + delta));
+      },
+
+      // Typed value clamped to 0..left; not a number falls back to 0, so the panel never builds a request the API refuses.
+      refundSet: function (line, raw) {
+        this.clearRefundFeedback();
+        var n = Math.floor(Number(raw));
+        line.quantity = Number.isFinite(n) ? Math.min(line.left, Math.max(0, n)) : 0;
+      },
+
+      clearRefundFeedback: function () {
+        this.refund.notice = null;
+        this.refund.done = null;
+        this.refund.lines.forEach(function (l) { l.error = ''; });
+      },
+
+      refundUnits: function () {
+        return this.refund.lines.reduce(function (sum, l) { return sum + l.quantity; }, 0);
+      },
+
+      // What a restock gives back, summed per ingredient: recipe x refunded quantity. A prediction for the preview only;
+      // the server restocks from the sale's own movements, so a recipe edited since the sale does not change the real number.
+      refundPreview: function () {
+        var self = this;
+        var byId = {};
+        var order = [];
+        this.refund.lines.forEach(function (line) {
+          var item = self.itemFor(line.menu_item_id);
+          if (line.quantity < 1 || !item || !item.recipe) return;
+          item.recipe.forEach(function (r) {
+            var id = r.ingredient.id;
+            if (!byId[id]) { byId[id] = { id: id, ingredient: r.ingredient, total: 0 }; order.push(id); }
+            byId[id].total += r.quantity * line.quantity;
+          });
+        });
+        return order.map(function (id) {
+          var row = byId[id];
+          var stock = self.ingredients.find(function (i) { return i.id === id; });
+          row.after = stock ? stock.on_hand + row.total : null; // null when stock is unknown
+          return row;
+        });
+      },
+
+      // "200 g potatoes, 25 ml frying oil" for the not-restocked explanation.
+      refundUsedText: function () {
+        return this.refundPreview().map(function (row) {
+          return P.qty(row.total, row.ingredient.unit) + ' ' + row.ingredient.name.toLowerCase();
+        }).join(', ');
+      },
+
+      refundLabel: function () {
+        return this.refund.restock ? 'Refund and restock' : 'Refund';
+      },
+
+      refundSale: function () {
+        var rf = this.refund;
+        if (rf.busy || !rf.sale || this.refundUnits() === 0) return;
+        var self = this;
+        // Only quantities above zero, in sale-line order. `sent` remembers which panel row each posted line came from.
+        rf.sent = rf.lines.filter(function (l) { return l.quantity > 0; });
+        var payload = {
+          lines: rf.sent.map(function (l) { return { menu_item_id: l.menu_item_id, quantity: l.quantity }; }),
+          restock: rf.restock,
+          reason: rf.reason,
+          pos_reference: newReturnReference(),
+        };
+        var restock = rf.restock;
+        rf.busy = true;
+        rf.notice = null;
+        rf.done = null;
+        rf.lines.forEach(function (l) { l.error = ''; });
+
+        return Patty.api.post('/sales/' + rf.sale.id + '/returns', payload, { channel: 'pos', silent: true }).then(function (response) {
+          rf.busy = false;
+          // The server counted these units as refunded. Update the panel now (no wait for the list), then refresh the list.
+          rf.sent.forEach(function (l) {
+            l.refunded += l.quantity;
+            l.left -= l.quantity;
+            l.quantity = 0;
+          });
+          rf.sent = [];
+          rf.done = {
+            title: response.data.number + ' recorded',
+            text: restock ? 'The ingredients are back in stock.' : 'Stock did not change.',
+          };
+          self.refreshRecent();
+          self.loadIngredients();
+        }).catch(function (e) {
+          rf.busy = false;
+          self.failRefund(e);
+        });
+      },
+
+      failRefund: function (e) {
+        var rf = this.refund;
+        if (e.status === 401) {
+          rf.notice = { tone: 'danger', title: 'This server requires a POS key', text: 'POS_API_KEY is set on this server, so a refund needs the X-POS-Key header. The simulator does not send one. Unset POS_API_KEY in .env to use it.', requestId: e.requestId };
+        } else if (e.status === 429) {
+          rf.notice = { tone: 'warn', title: 'Too many requests too quickly', text: 'The till is rate limited. Wait a few seconds and refund again.', requestId: e.requestId };
+        } else if (e.status === 409 && e.code === 'idempotency_conflict') {
+          rf.notice = { tone: 'warn', title: 'Refused: reference already used', text: 'That reference belongs to a different refund. Nothing moved in stock. Press Refund again to send a fresh one.', detail: e.message, requestId: e.requestId };
+        } else if (e.status === 422) {
+          this.failRefundValidation(e);
+          // Someone else refunded these units first (another till, another tab): reload so "left" tells the truth.
+          if (e.code === 'over_refund' || e.code === 'item_not_on_sale') this.refreshRecent();
+        } else {
+          Patty.notify({ tone: 'error', message: e.message, requestId: e.requestId });
+        }
+      },
+
+      // Keys are lines.N.quantity / lines.N.menu_item_id with N the 0-based position in the array we SENT, which skips the
+      // rows left at 0, so it is looked up in `sent`, not in `lines`. Everything else (restock, reason, lines) goes in a notice.
+      failRefundValidation: function (e) {
+        var rf = this.refund;
+        var errors = e.errors || {};
+        var placed = false;
+        var other = [];
+        Object.keys(errors).forEach(function (key) {
+          var message = Array.isArray(errors[key]) ? errors[key][0] : errors[key];
+          var match = /^lines\.(\d+)\./.exec(key);
+          var row = match ? rf.sent[Number(match[1])] : null;
+          if (row) {
+            row.error = row.error ? row.error + ' ' + message : message;
+            placed = true;
+          } else {
+            other.push(message);
+          }
+        });
+        if (other.length > 0) {
+          rf.notice = { tone: 'danger', title: 'The refund was not recorded', text: other.join(' '), requestId: e.requestId };
+        } else if (!placed) {
+          rf.notice = { tone: 'danger', title: 'The refund was not recorded', text: e.message, requestId: e.requestId };
+        }
+      },
+
+      // After the list reloads, the open panel takes the server's refunded counts for its sale (another till may have
+      // refunded too) and pulls any typed quantity back under the new "left". A request in flight is left alone.
+      syncRefund: function () {
+        var rf = this.refund;
+        if (!rf.sale || rf.busy) return;
+        var fresh = this.recent.find(function (s) { return s.id === rf.sale.id; });
+        if (!fresh) return;
+        rf.lines.forEach(function (line) {
+          var match = fresh.lines.find(function (l) { return l.menu_item.id === line.menu_item_id; });
+          if (!match) return;
+          line.refunded = match.refunded || 0;
+          line.left = match.quantity - line.refunded;
+          line.quantity = Math.min(line.quantity, line.left);
+        });
+      },
+
       /* ---------- recent sales (E26) ---------- */
 
       loadRecent: function () {
@@ -313,6 +520,7 @@ document.addEventListener('alpine:init', function () {
           self.recentPage = 1;
           self.recentHasMore = Boolean(response.meta.pagination && response.meta.pagination.has_more);
           self.recentLoading = false;
+          self.syncRefund();
           Patty.markFresh();
           self.recheckSentinel();
         }).catch(function (e) {
@@ -385,6 +593,7 @@ document.addEventListener('alpine:init', function () {
 
         return next(1).then(function () {
           self.recent = fresh;
+          self.syncRefund();
           self.recentHasMore = Boolean(last.meta.pagination && last.meta.pagination.has_more);
           self.recheckSentinel();
           done();
