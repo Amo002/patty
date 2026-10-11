@@ -88,7 +88,7 @@ class StoreSaleRequest extends FormRequest
             'lines.array' => 'Add at least one menu item to the sale.',
             'lines.list' => 'Add at least one menu item to the sale.',
             'lines.min' => 'Add at least one menu item to the sale.',
-            'lines.max' => 'A sale can hold at most 50 different items.',
+            'lines.max' => 'A sale can hold at most 50 lines.',
             'lines.*.menu_item_id.required' => 'Line :position: choose the menu item that was sold.',
             'lines.*.menu_item_id.string' => 'Line :position: the menu item must be an id.',
             'lines.*.menu_item_id.ulid' => 'Line :position: the menu item is not a valid id.',
@@ -127,14 +127,16 @@ class StoreSaleRequest extends FormRequest
                 $totals[$id] = ($totals[$id] ?? 0) + $line['quantity'];
             }
 
-            foreach ($totals as $id => $total) {
-                if ($total > self::MAX_QUANTITY) {
-                    // Keyed on the first row of that item, with the same wording as any bad quantity.
-                    $validator->errors()->add(
-                        "lines.{$firstIndex[$id]}.quantity",
-                        'Line '.($firstIndex[$id] + 1).': the quantity must be a whole number from 1 to 1,000.',
-                    );
-                }
+            $over = array_filter($totals, fn (int $total) => $total > self::MAX_QUANTITY);
+            $names = MenuItem::query()->whereIn('ulid', array_keys($over))->pluck('name', 'ulid');
+
+            foreach (array_keys($over) as $id) {
+                // Keyed on the first row of that item. A dedicated message, because the row itself
+                // may look fine (600): the problem is the repeat.
+                $validator->errors()->add(
+                    "lines.{$firstIndex[$id]}.quantity",
+                    'Line '.($firstIndex[$id] + 1).": {$names[$id]} appears more than once and adds up to more than 1,000.",
+                );
             }
         }];
     }

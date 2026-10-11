@@ -56,6 +56,11 @@ return new class extends Migration
      * Lossy for a ticket with several lines: a sale can hold one item again, so it keeps its
      * first line (lowest id) and the others are discarded with the table. Rolling back past
      * real multi-item sales is a data loss the operator has to accept.
+     *
+     * Rolling back after real multi-line tickets is not supported. Movements with reference_type
+     * `sale_line` would point at a table and morph alias the old code lacks; the movements of the
+     * dropped later lines remain with no sale line; and the restored columns are nullable / default 0.
+     * The append-only triggers on stock_movements forbid repairing the ledger afterwards.
      */
     public function down(): void
     {

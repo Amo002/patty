@@ -486,7 +486,7 @@ it('keys each ticket validation error on the field and numbers lines from 1 in t
     'missing lines' => [[], 'lines', 'Add at least one menu item to the sale.'],
     'empty lines' => [['lines' => []], 'lines', 'Add at least one menu item to the sale.'],
     'the old single-item body' => [['old' => true], 'lines', 'Add at least one menu item to the sale.'],
-    '51 lines' => [['spec' => array_fill(0, 51, ['burger', 1])], 'lines', 'A sale can hold at most 50 different items.'],
+    '51 lines' => [['spec' => array_fill(0, 51, ['burger', 1])], 'lines', 'A sale can hold at most 50 lines.'],
     'bad quantity on the second line' => [
         ['spec' => [['burger', 1], ['fries', 0]]],
         'lines.1.quantity', 'Line 2: the quantity must be a whole number from 1 to 1,000.',
@@ -501,9 +501,35 @@ it('keys each ticket validation error on the field and numbers lines from 1 in t
     ],
     'duplicates that together pass 1000' => [
         ['spec' => [['burger', 600], ['fries', 1], ['burger', 600]]],
-        'lines.0.quantity', 'Line 1: the quantity must be a whole number from 1 to 1,000.',
+        'lines.0.quantity', 'Line 1: Classic Burger appears more than once and adds up to more than 1,000.',
     ],
 ]);
+
+it('refuses an empty ticket at the service and writes nothing', function () {
+    expect(fn () => app(SaleService::class)->record([], 'till-1:0001'))
+        ->toThrow(InvalidArgumentException::class, 'A sale needs at least one line.');
+
+    expect(Sale::count())->toBe(0)
+        ->and(DocumentSequence::where('type', 'SALE')->value('last_value'))->toBeNull();
+});
+
+it('merges a repeated item at the service itself, sorted by menu item id', function () {
+    $i = saleSetup(10000, 100, 1000);
+
+    // Fries first, Classic twice: the service must add the Classics and order by item id.
+    $result = app(SaleService::class)->record([
+        serviceLine($i['fries'], 1), serviceLine($i['burger'], 1), serviceLine($i['burger'], 1),
+    ]);
+
+    $lines = SaleLine::orderBy('id')->get();
+    expect($lines)->toHaveCount(2)
+        ->and($lines->map(fn ($l) => [$l->menu_item_id, $l->quantity])->all())
+        ->toBe([[$i['burger']->id, 2], [$i['fries']->id, 1]])
+        ->and($result->sale->lines->pluck('quantity')->all())->toBe([2, 1])
+        ->and(saleMovements())->toBe([
+            ['Beef', -300], ['Bun', -2], ['Cheese', -40], ['Potatoes', -200], ['Burger sauce', -10],
+        ]);
+});
 
 it('accepts a merged quantity of exactly 1000 and exactly 50 lines', function () {
     $i = saleSetup(1000000, 1000000, 1000000);
