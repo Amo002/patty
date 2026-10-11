@@ -22,7 +22,7 @@ use Monolog\Handler\TestHandler;
 use Spatie\Activitylog\Models\Activity;
 
 /*
-| E27 (PTY-30, D-049). Fries = potatoes 200 g, oil 25 ml, ketchup 20 ml. Classic Burger = beef 150 g, bun 1,
+| E33 (PTY-30, D-049). Fries = potatoes 200 g, oil 25 ml, ketchup 20 ml. Classic Burger = beef 150 g, bun 1,
 | cheese 20 g. Double Patty = beef 300 g, bun 1, cheese 40 g. Menu items are created in that order, so
 | sorting by menu item id puts Classic first, then Double, then Fries.
 */
@@ -281,6 +281,19 @@ it('counts earlier refunds when checking what is left', function () {
     postRefund($sale, refundBody([[$i['fries'], 1]]))->assertCreated();
 });
 
+it('reports only item_not_on_sale when the request also over-refunds another line, and writes nothing', function () {
+    $i = returnSetup();
+    $sale = recordedSale([[$i['burger'], 1]]);
+
+    postRefund($sale, refundBody([[$i['burger'], 5], [$i['fries'], 1]], true))->assertStatus(422)
+        ->assertJsonPath('code', 'item_not_on_sale')
+        ->assertJsonPath('errors', ['lines.1.menu_item_id' => ["Line 2: Fries is not on {$sale->number}."]]);
+
+    expect(SaleReturn::count())->toBe(0)
+        ->and(StockMovement::where('reason', 'sale_return')->count())->toBe(0)
+        ->and(DocumentSequence::where('type', 'RET')->exists())->toBeFalse();
+});
+
 it('refuses an item that is not on the sale with item_not_on_sale and writes nothing', function () {
     $i = returnSetup();
     $sale = recordedSale([[$i['burger'], 1]]);
@@ -434,7 +447,7 @@ it('rejects invalid input with 422 and the documented message', function (array 
     'no menu item' => [['lines' => [['quantity' => 1]]], 'lines.0.menu_item_id', 'Line 1: choose the menu item to refund.'],
 ]);
 
-it('accepts restock only as a real boolean and keeps the sale itself untouched', function () {
+it('leaves the sale and its line untouched after made and voided refunds', function () {
     $i = returnSetup();
     $sale = recordedSale([[$i['fries'], 2]]);
     $line = SaleLine::firstOrFail();

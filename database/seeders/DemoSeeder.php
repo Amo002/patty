@@ -263,7 +263,9 @@ class DemoSeeder extends Seeder
             // Fixed positions, not random draws, so the seed stays deterministic and the other draws do not shift.
             if (isset(self::REFUNDS[$index])) {
                 [$restock, $reason] = self::REFUNDS[$index];
-                Carbon::setTestNow($time->copy()->addMinutes(10)->min($now));
+                // Before the next sale (so movement ids still follow the clock), never before this sale, never in the future.
+                $refundAt = $time->copy()->addMinutes(2)->min($planned[$index + 1][0]->copy()->subSecond())->min($now);
+                Carbon::setTestNow($refundAt->max($time));
                 $returns->record($sale, [['item' => $lines[0]['item'], 'quantity' => 1]], $restock, $reason, sprintf('seed-till-1:ret-%05d', $index + 1));
             }
 

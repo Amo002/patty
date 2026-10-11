@@ -8,7 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * E27: a refund against one sale (validation.md, Sale refunds).
+ * E33: a refund against one sale (validation.md, Sale refunds).
  *
  * Whether the item is on the sale and whether enough is left are not shape questions: they depend on
  * the sale's current refunds, so SaleReturnService checks them under the sale's lock (D-049).
