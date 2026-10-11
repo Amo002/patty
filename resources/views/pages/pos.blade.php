@@ -10,12 +10,12 @@
 @section('content')
 <div class="stack" x-data="posSimulator">
 
-    <p class="muted">Plays the till. Each sale is sent to the API as the POS would send it (channel "pos") and takes its ingredients out of stock.</p>
+    <p class="muted">Plays the till. Build a ticket of one or more items; it is sent to the API as the POS would send it (channel "pos") and takes its ingredients out of stock.</p>
 
     <div class="grid-2">
         {{-- The till --}}
         <section class="card">
-            <div class="card-header"><h2>Sell</h2></div>
+            <div class="card-header"><h2>Ticket</h2></div>
             <div class="card-body stack">
                 <div class="error-banner" role="alert" x-show="loadError" x-cloak>
                     <x-icon name="alert" />
@@ -38,54 +38,95 @@
                     </x-empty-state>
                 </div>
 
-                <form class="stack" novalidate x-show="! loading && ! loadError && items.length > 0" x-cloak @submit.prevent="sell()">
-                    <div class="field" x-id="['item']">
-                        <label :for="$id('item')">Menu item</label>
-                        <select class="select" :id="$id('item')" x-model="menuItemId" @change="quantityError = ''">
-                            <template x-for="item in items" :key="item.id">
-                                <option :value="item.id" :disabled="! item.is_sellable"
-                                        x-text="item.is_sellable ? item.name : item.name + ' (No recipe yet)'"></option>
-                            </template>
-                        </select>
+                <div class="stack" x-show="! loading && ! loadError && items.length > 0" x-cloak>
+                    {{-- Tiles: one tap adds one of that item to the ticket. --}}
+                    <div class="pos-tiles">
+                        <template x-for="item in items" :key="item.id">
+                            <button type="button" class="pos-tile" :disabled="! item.is_sellable" @click="add(item)"
+                                    :aria-label="item.is_sellable ? 'Add ' + item.name + ' to the ticket' : item.name + ', no recipe yet'">
+                                <x-icon name="menu" />
+                                <strong x-text="item.name"></strong>
+                                <span class="text-sm muted" x-text="item.is_sellable ? plural(item.recipe.length, 'ingredient') : 'No recipe yet'"></span>
+                                <span class="pos-tile-badge" x-show="quantityOnTicket(item.id) > 0" x-text="quantityOnTicket(item.id)" aria-hidden="true"></span>
+                            </button>
+                        </template>
                     </div>
 
-                    <div class="field" x-id="['qty']">
-                        <label :for="$id('qty')">Quantity</label>
-                        <input class="input pos-qty" type="number" min="1" max="1000" step="1" inputmode="numeric"
-                               :id="$id('qty')" x-model.number="quantity" :aria-invalid="quantityError !== ''"
-                               :aria-describedby="$id('qty') + '-msg'">
-                        <div :id="$id('qty') + '-msg'">
-                            <p class="inline-error" role="alert" x-show="quantityError"><x-icon name="alert" /> <span x-text="quantityError"></span></p>
+                    <form class="pos-ticket" novalidate @submit.prevent="sell()" aria-label="Current ticket">
+                        <div class="pos-ticket-head">
+                            <strong>Current ticket</strong>
+                            <span class="text-sm muted" aria-live="polite" x-text="plural(itemCount(), 'item') + ' · ' + plural(unitCount(), 'unit')"></span>
                         </div>
-                    </div>
+
+                        <p class="pos-ticket-empty muted" x-show="ticket.length === 0">Tap a menu item to start the ticket.</p>
+
+                        <div aria-live="polite">
+                            <template x-for="(line, index) in ticket" :key="line.menu_item_id">
+                                <div class="pos-line" :data-invalid="line.error !== ''" x-id="['qty']" role="group" :aria-label="itemName(line)">
+                                    <div class="stack stack-sm">
+                                        <strong x-text="itemName(line)"></strong>
+                                        <span class="text-sm muted" x-text="recipeHint(line)"></span>
+                                    </div>
+                                    <div class="pos-stepper">
+                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One less ' + itemName(line)" @click="step(index, -1)">&minus;</button>
+                                        <label class="visually-hidden" :for="$id('qty')" x-text="'Quantity of ' + itemName(line)"></label>
+                                        <input class="input pos-qty" type="number" min="1" max="1000" step="1" inputmode="numeric"
+                                               :id="$id('qty')" :value="line.quantity" :aria-invalid="line.error !== ''"
+                                               :aria-describedby="$id('qty') + '-msg'" @change="setQuantity(index, $event.target.value); $event.target.value = line.quantity">
+                                        <button type="button" class="btn btn-secondary btn-icon" :aria-label="'One more ' + itemName(line)" :disabled="line.quantity >= 1000" @click="step(index, 1)">
+                                            <x-icon name="plus" class="icon-sm" />
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn btn-ghost btn-icon" :aria-label="'Remove ' + itemName(line)" @click="remove(index)">
+                                        <x-icon name="trash" class="icon-sm" />
+                                    </button>
+                                    <div class="pos-line-error" :id="$id('qty') + '-msg'">
+                                        <p class="inline-error" role="alert" x-show="line.error"><x-icon name="alert" /> <span x-text="line.error"></span></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="pos-ticket-foot">
+                            <button type="button" class="btn btn-ghost" :disabled="busy || ticket.length === 0" @click="clearTicket()">Clear ticket</button>
+                            <button type="submit" class="btn btn-primary" :disabled="busy || ticket.length === 0" :aria-busy="busy">
+                                <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
+                                Sell ticket
+                            </button>
+                        </div>
+                    </form>
 
                     <div class="pos-preview" x-show="preview().length > 0" x-cloak>
-                        <span class="text-sm muted">This sale takes out</span>
+                        <span class="text-sm muted">This ticket takes out</span>
                         <ul>
-                            <template x-for="line in preview()" :key="line">
-                                <li class="text-sm" x-text="line"></li>
+                            <template x-for="row in preview()" :key="row.id">
+                                <li class="text-sm">
+                                    <span>
+                                        <span x-text="row.ingredient.name"></span>
+                                        <span class="text-xs muted" x-show="row.sourceText" x-text="row.sourceText"></span>
+                                    </span>
+                                    <span class="num" :title="qtyExact(row.total, row.ingredient.unit)" x-text="'-' + qty(row.total, row.ingredient.unit)"></span>
+                                    <span class="num" x-show="row.after !== null">
+                                        <span :class="row.after < 0 ? 'text-danger' : 'muted'"
+                                              :title="qtyExact(row.after, row.ingredient.unit)"
+                                              x-text="row.after < 0 ? 'goes to -' + qty(-row.after, row.ingredient.unit) : 'leaves ' + qty(row.after, row.ingredient.unit)"></span>
+                                    </span>
+                                </li>
                             </template>
                         </ul>
-                    </div>
-
-                    <div class="row">
-                        <button type="submit" class="btn btn-primary" :disabled="busy" :aria-busy="busy">
-                            <span class="stack-spinner" aria-hidden="true"><i></i><i></i><i></i></span>
-                            Sell
-                        </button>
                     </div>
 
                     <div class="stack stack-sm pos-retry" x-show="last" x-cloak>
                         <span class="text-sm muted">Retry protection. The till sent reference <span class="mono" x-text="last && last.pos_reference"></span>.</span>
                         <div class="row">
-                            <button type="button" class="btn btn-secondary" :disabled="busy" :aria-busy="busy" @click="resend()">Resend last sale</button>
+                            <button type="button" class="btn btn-secondary" :disabled="busy" :aria-busy="busy" @click="resend()">Resend last ticket</button>
                             <button type="button" class="btn btn-secondary" :disabled="busy || ! canResendChanged()" :aria-busy="busy" @click="resendChanged()">
-                                Resend with quantity +1
+                                Resend with one more of the first item
                             </button>
                         </div>
                         <p class="hint">An exact resend is a replay: stock does not move again. A changed resend under the same reference is refused.</p>
                     </div>
-                </form>
+                </div>
             </div>
         </section>
 
@@ -110,9 +151,14 @@
                         <div class="stack">
                             <div class="row">
                                 <strong x-text="result.number"></strong>
-                                <span class="text-sm muted" x-text="result.menu_item.name + ' x ' + result.quantity"></span>
+                                <span class="text-sm muted" x-text="plural(result.item_count, 'item')"></span>
                                 <span class="pill" data-tone="info" x-show="result.replayed">Replayed, stock not moved again</span>
                                 <span class="pill" data-tone="ok" x-show="! result.replayed">Recorded</span>
+                            </div>
+                            <div class="row">
+                                <template x-for="line in result.lines" :key="line.menu_item.id">
+                                    <span class="pill" x-text="line.menu_item.name + ' x' + line.quantity"></span>
+                                </template>
                             </div>
                             <div class="table-wrap">
                                 <table class="table">
@@ -161,20 +207,20 @@
         </div>
 
         <div x-show="! recentLoading && ! recentError && recent.length === 0" x-cloak>
-            <x-empty-state title="No sales yet" text="Press Sell above and the sale shows up here." icon="pos" />
+            <x-empty-state title="No sales yet" text="Press Sell ticket above and the sale shows up here." icon="pos" />
         </div>
 
         <div class="table-wrap" x-show="! recentLoading && recent.length > 0" x-cloak>
             <table class="table">
                 <thead>
-                    <tr><th>Sale</th><th>Item</th><th class="num">Quantity</th><th>Reference</th><th>Sold</th></tr>
+                    <tr><th>Sale</th><th>Items</th><th class="num">Units</th><th>Reference</th><th>Sold</th></tr>
                 </thead>
                 <tbody>
                     <template x-for="sale in recent" :key="sale.id">
                         <tr>
                             <td class="po-number" x-text="sale.number"></td>
-                            <td x-text="sale.menu_item.name"></td>
-                            <td class="num" x-text="sale.quantity"></td>
+                            <td x-text="sale.lines.map(function (l) { return l.menu_item.name + ' x' + l.quantity; }).join(', ')"></td>
+                            <td class="num" x-text="sale.units"></td>
                             <td class="mono" x-text="sale.pos_reference"></td>
                             <td class="text-sm muted" :title="when(sale.sold_at)" x-text="ago(sale.sold_at)"></td>
                         </tr>
