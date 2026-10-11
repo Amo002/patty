@@ -40,6 +40,7 @@ The tests that matter most:
 | Every invalid status move is refused, and so is receiving against a draft | `tests/Feature/Purchasing`, `tests/Unit/PurchaseOrderStatusTest.php` |
 | Over-delivery tolerances: over %, under %, absolute cap | `tests/Unit/ToleranceTest.php`, `ReceivingTest.php` |
 | A sale below zero is recorded and flagged | `tests/Feature/Sales` |
+| A refund of food that was made moves no stock; a voided one puts back exactly what the sale took; a line cannot be refunded twice over | `tests/Feature/Sales` |
 | A full day of interleaved deliveries and sales ends on exactly the right stock | `tests/Feature/Visibility/DayAtPattyTest.php` |
 | The database itself refuses to change or delete stock history | `tests/Feature/Schema/ConstraintsTest.php` |
 
@@ -64,6 +65,7 @@ The SQLite file lives on the named volume `patty-data`, so data survives restart
 - over-delivery refused by percentage and by cap;
 - the order closing itself;
 - a POS sale and its replay;
+- a refund of food that was made (no stock moves) and one refused for being too large;
 - the final stock.
 
 It also runs from the command line:
@@ -80,16 +82,18 @@ The full contract is [docs/api.md](docs/api.md).
 suppliers ──< purchase_orders ──< purchase_order_lines >── ingredients ──< recipe_lines >── menu_items
                     │                      │                    │                                │
                     └──< deliveries ──< delivery_lines          │                           sale_lines >── sales
-                                           │                    │                                │
-                                           └────────────> stock_movements <──────────────────────┘
+                                           │                    │                                │   │
+                                           └────────────> stock_movements <──────────────────────┘   │
+                                                                ▲                                     │
+                                                    sale_return_lines >── sale_returns ──────────────┘
 ```
 
-- **`stock_movements` is the heart of it.** It is an append-only list of signed changes: `+960` for a delivery line, `-300` for a sale. Each row records the delivery line or sale line that caused it. **On hand is never stored**: it is the sum of an ingredient's movements.
+- **`stock_movements` is the heart of it.** It is an append-only list of signed changes: `+960` for a delivery line, `-300` for a sale. Each row records the delivery line, sale line or refund line that caused it. **On hand is never stored**: it is the sum of an ingredient's movements.
 - **Outstanding is never stored either.** For each order line it is what was ordered minus what has arrived. **Incoming** (shown next to on hand) is the sum of outstanding over open orders.
 - **Quantities are whole numbers** in the ingredient's unit: grams, millilitres or pieces. No floats anywhere, so no rounding drift. The UI shows and accepts kg and L, and converts with exact arithmetic.
 - **Ids:**
   - public ids are ULIDs, and integer ids never leave the server;
-  - documents get readable numbers (`PO-2026-0002`, `GRN-2026-0003`, `SALE-2026-000124`).
+  - documents get readable numbers (`PO-2026-0002`, `GRN-2026-0003`, `SALE-2026-000124`, `RET-2026-000001`).
 
 Full table by table: [docs/data.md](docs/data.md).
 
@@ -136,6 +140,14 @@ Real purchasing often buys in a different unit than it consumes (a 20 L drum, us
 
 A till sends tickets: 2 Classic Burgers plus 1 Fries under one reference. `POST /sales` takes `{ "lines": [ { "menu_item_id": ..., "quantity": 2 }, ... ], "pos_reference": ... }`, 1 to 50 lines, and records it in one transaction. If any item has no recipe the whole ticket is refused. Each sale line writes its own movements, so a later refund can put back exactly what that line took, even after a recipe change. Duplicate items on a ticket are merged.
 
+### A refund is a new document, and stock comes back only if the food was not made (D-049)
+
+A sale is never edited or deleted. A refund (`POST /sales/{sale}/returns`) is a new row against it, and the manager answers one question: was the food already made?
+- **Made:** the ingredients really left, so **no stock moves**. The refund exists for the sales report and the audit trail.
+- **Voided before cooking:** the ingredients never left the fridge, so they go back as new positive movements. Each amount comes from the sale line's own movements (`-(movement) / line quantity x refunded quantity`), an exact whole number, so it stays right even if the recipe changed after the sale.
+
+Restocking every refund would make stock wrong for cooked food, and never restocking would show a voided order's ingredients as missing. So the API requires `restock` (no default); the UI preselects "made". A line can never be refunded beyond what is left, checked for every line before anything is written, and a refund never fails because stock is negative (D-010). Retries are safe by `pos_reference`, as for sales.
+
 ### Duplicate POS calls (D-014, D-029)
 
 A till that loses its connection resends the ticket. An optional `pos_reference` makes the endpoint idempotent:
@@ -148,7 +160,7 @@ Retries are the most likely real-world way for stock to go wrong, and arithmetic
 
 - **Drafts:** an order's lines and supplier can change only while it is a draft, and only drafts can be deleted.
 - **Recipes:** can change at any time, and affect future sales only.
-- **History:** deliveries, sales and movements are never edited or deleted.
+- **History:** deliveries, sales, refunds and movements are never edited or deleted. A mistake is corrected by a new document.
 
 ### Freshness (D-006, D-020)
 

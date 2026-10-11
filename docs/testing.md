@@ -45,6 +45,15 @@ Log lines are not tested, since asserting log text would be filler. The single e
 | T24 | Demo clear, seed and reset are 404 outside local. Clear empties every table; seed refuses a non-empty system (409); reset is repeatable with identical counts. | D-037, S13 | PTY-22 |
 | T25 | No integer id in any response (`assertNoIntegerIds()` in every feature test); a numeric id in a URL gives 404; document numbers are sequential per type and year | D-031, S9 | PTY-3, PTY-16, all |
 | T26 | Tolerance snapshot: changing an ingredient after the PO is sent leaves the line's limits unchanged; in draft, a line replace picks up the new values | D-035 | PTY-7, PTY-8 |
+| T27 | The worked refund (Fries x2): a "made" refund writes no movement; a "voided" refund writes potatoes +200, oil +25, ketchup +20 (reason `sale_return`, reference `sale_return_line`); a third is 422 `over_refund`. Exact on hand via `StockLedger::onHand`. | D-049 | PTY-30 |
+| T28 | Multi-line sale: refunding one line restocks only that line's ingredients | D-049 | PTY-30 |
+| T29 | A recipe change after the sale does not change the restocked amounts (they come from the sale line's own movements) | D-049, D-048 | PTY-30 |
+| T30 | Legacy sale (movements on the sale, one line): restock uses the sale's movements | D-049 | PTY-30 |
+| T31 | Two lines over the limit in one request: both errors reported, nothing written, no RET number used. Item not on the sale: 422 `item_not_on_sale`, nothing written. | D-049 | PTY-30 |
+| T32 | Refund idempotency: same reference, reordered lines = 200 and nothing new; changed `restock` = 409; changed quantity = 409; nothing written on 409 | D-029, D-049 | PTY-30 |
+| T33 | Refund validation: missing or non-boolean `restock` ("true", 1), missing or long reason, empty lines, bad quantity (exact messages in validation.md) | G3, D-049 | PTY-30 |
+| T34 | `GET /sales` shows `refunded` and `refunded_units` with a constant query count; the movement history labels a restock `RET-... for SALE-...: Fries x1`; audit `sale.returned` sits on the sale | D-049 | PTY-30 |
+| T35 | Sales and refunds interleaved: on hand equals the plain sum of movements and the hand-computed number | D-004, D-049 | PTY-30 |
 
 ## Manual QA checklist (owner runs per ticket)
 
@@ -81,6 +90,16 @@ Start from `php artisan migrate:fresh --seed` and `php artisan serve`.
 - [ ] Build a ticket of Classic Burger x2 plus Fries x1 and sell it. The result lists one row per ingredient, Ingredients shows the new on hand, and the ticket clears.
 - [ ] "Resend last ticket" is a replay (nothing moves). "Resend with one more of the first item" is a 409 (nothing moves).
 - [ ] Add a menu item with no recipe to a ticket. The whole ticket is refused and no stock moves.
+
+### QA-5a Refunds (PTY-30)
+Start from `php artisan migrate:fresh --seed`. Note Potatoes, Oil and Ketchup on hand (Ingredients).
+- [ ] In `/pos`, sell Fries x2. Recent sales shows the sale with a Refund button.
+- [ ] Refund made: click Refund, set Fries to 1, leave "Yes, it was made" selected, pick a reason, confirm. The preview says stock does not change. Recent sales shows "Fries x1 refunded". Ingredients is unchanged.
+- [ ] Refund voided: refund the other Fries and choose "No, it was voided before cooking". The preview lists potatoes 200 g, oil 25 ml, ketchup 20 ml. After confirming, Ingredients shows each of the three up by exactly that, which is one Fries' worth down from before the sale.
+- [ ] The sale row now reads "Refunded" and its button is disabled.
+- [ ] Third refund refused: the panel cannot be used any more, so send E33 from Postman with Fries x1 for that sale. The answer is 422 `over_refund`, "only 0 Fries left to refund", and nothing moves.
+- [ ] Open the Potatoes history. The restock line reads `RET-2026-... for SALE-2026-...: Fries x1`.
+- [ ] Resend the same E33 request with the same `pos_reference`: 200, "Refund already recorded. No stock moved." With `restock` changed: 409.
 
 ### QA-6 Visibility
 - [ ] Keep the dashboard open in one tab and record a sale in another. The dashboard updates within about 10 s without a reload, and the "updated" stamp resets.

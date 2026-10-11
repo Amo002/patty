@@ -28,6 +28,14 @@ class Sale extends Model
     }
 
     /**
+     * D-049: refunds against this sale. They never change the sale itself.
+     */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(SaleReturn::class);
+    }
+
+    /**
      * "Classic Burger x2" for a one-line ticket, "3 items" otherwise. One rule for the audit
      * description and the movement history label. Needs `lines.menuItem` loaded.
      */

@@ -6,6 +6,7 @@ use App\Models\MenuItem;
 use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\SaleLine;
+use App\Models\SaleReturn;
 use App\Models\StockMovement;
 use App\Services\IngredientService;
 use App\Support\DemoTools;
@@ -117,6 +118,36 @@ it('records exactly 120 sales with sequential till references and one replay', f
     $perSale = StockMovement::query()->where('reason', 'sale')->where('reference_type', 'sale_line')
         ->selectRaw('reference_id, ingredient_id, COUNT(*) as n')->groupBy('reference_id', 'ingredient_id')->pluck('n');
     expect($perSale->max())->toBe(1);
+});
+
+it('seeds one refund that was made (no stock moves) and one that was voided (stock comes back) (D-049)', function () {
+    $returns = SaleReturn::query()->with('lines.saleLine')->orderBy('id')->get();
+
+    expect($returns)->toHaveCount(2)
+        ->and($returns->pluck('restock')->all())->toBe([false, true])
+        ->and($returns->pluck('reason')->all())->toBe(['Customer complaint', 'Cancelled before cooking'])
+        ->and($returns->pluck('number')->all())->toBe($returns->map(fn ($r) => 'RET-'.$r->returned_at->copy()->utc()->year)->zip(['-000001', '-000002'])->map(fn ($p) => $p[0].$p[1])->all())
+        ->and(Activity::query()->where('event', 'sale.returned')->count())->toBe(2);
+
+    [$made, $voided] = $returns->all();
+    $movementsOf = fn (SaleReturn $return) => StockMovement::query()
+        ->where('reference_type', 'sale_return_line')->whereIn('reference_id', $return->lines->pluck('id'))->get();
+
+    // Made: the ingredients really left, so nothing is put back.
+    expect($movementsOf($made))->toHaveCount(0);
+
+    // Voided: exactly the share of the sale line's own movements that one unit represents, all positive.
+    $line = $voided->lines->first()->saleLine;
+    $sold = StockMovement::query()->where('reference_type', 'sale_line')->where('reference_id', $line->id)->get();
+    expect($movementsOf($voided))->toHaveCount($sold->count())
+        ->and($movementsOf($voided)->sum('quantity_delta'))->toBe((int) (-$sold->sum('quantity_delta') / $line->quantity));
+});
+
+it('keeps sale and refund movement ids in clock order', function () {
+    $byClock = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('occurred_at')->orderBy('id')->pluck('id')->all();
+    $byId = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('id')->pluck('id')->all();
+
+    expect($byClock)->toBe($byId);
 });
 
 it('seeds tickets of one to three different items, with some multi-item tickets', function () {

@@ -72,6 +72,18 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - AC9. If `pos_reference` was already used with different lines (compared as merged (menu item, quantity) pairs, in any order), the sale is rejected (409 `idempotency_conflict`) and nothing is recorded (D-029).
 - AC10. If `POS_API_KEY` is configured, a sale without a matching `X-POS-Key` is rejected (401). With no key configured the endpoint is open (D-028).
 
+### FR-5a Refunds (PTY-30, D-049)
+
+- AC1. `POST /api/v1/sales/{sale}/returns` accepts `{ lines: [{ menu_item_id, quantity }], restock, reason, pos_reference? }`. `restock` is required (true or false), `reason` is required (1 to 200 characters).
+- AC2. A refund is a new document. The sale, its lines and its movements are never changed.
+- AC3. With `restock: false` (the food was made) no stock movement is written. The refund exists for the sales report and the audit trail.
+- AC4. With `restock: true` (voided before cooking) each refunded line puts back `-(movement delta) / line quantity x refunded quantity` for each of the sale line's own movements, as new positive `sale_return` movements. The amounts do not change if the recipe changes after the sale. Example: refunding 1 of 2 Fries puts back potatoes 200, oil 25 and ketchup 20.
+- AC5. Refunds of a line never add up to more than the line's quantity. A refund above what is left is 422 `over_refund`, naming every line in breach, and nothing is written. An item that is not on the sale is 422 `item_not_on_sale`.
+- AC6. If `pos_reference` was already used with the same sale, the same lines (any order) and the same `restock`, the original refund is returned with 200 and nothing is written. Anything else with that reference is 409 `idempotency_conflict`.
+- AC7. A refund never fails because of stock, and a restock never checks stock (D-010).
+- AC8. Sales and recent sales show how much of each line was refunded (`refunded`, `refunded_units`).
+- AC9. A manager can refund from the POS Simulator without touching the API: choose the items, answer "was the food made?" (made is preselected), pick a reason, and see what happens to stock before confirming.
+
 ### FR-6 Visibility
 
 - AC1. A stock view lists every ingredient with on-hand = sum of its stock movements, shown in its unit.
@@ -118,7 +130,7 @@ Open questions are referenced as Q-NNN (see [questions/](questions/)). Until a q
 - NFR-4 Runnable. A clean clone runs with `composer setup && php artisan serve`. Tests run with `php artisan test`.
 - NFR-5 UI. Every feature above is reachable from the web UI without touching the API. It is usable with the keyboard, and motion respects `prefers-reduced-motion`.
 - NFR-6 API. Versioned under `/api/v1`, JSON only, documented by the Postman collection.
-- NFR-7 Identifiers. No integer database id appears in any URL, request or response. Records are addressed by ULID. Purchase orders, deliveries and sales carry human document numbers (`PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`) for display (D-031).
+- NFR-7 Identifiers. No integer database id appears in any URL, request or response. Records are addressed by ULID. Purchase orders, deliveries and sales carry human document numbers (`PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`, `RET-2026-000001`) for display (D-031).
 - NFR-8 Versioning. The API is versioned in the path (`/api/v1`), with a written policy for additive and breaking changes, and an `X-API-Version` header (D-031).
 - NFR-9 Pagination. Every collection endpoint is paginated with `meta.pagination`. The UI shows skeletons while loading and lazy-loads further pages (D-032).
 - NFR-10 Time. Stored in UTC. Shown in the viewer's machine timezone (D-030).
