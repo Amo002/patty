@@ -11,7 +11,7 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | Envelope | Success: `{ "success": true, "message": "...", "data": ..., "meta": {...} }`. Failure: `{ "success": false, "message": "...", "code": "...", "errors": {...} }` (D-019). |
 | Identifiers | Every addressable record is identified by a **ULID** string (`"01JA8ZK3W5Y7Q2M4N6P8R0T2V4"`). Integer database ids never appear in a URL, a request or a response (D-031). Rows that are not addressable on their own (movements, activity entries) carry no id. |
 | References in requests | `*_id` fields hold the ULID of the referenced record (`"supplier_id": "01JA..."`). |
-| Document numbers | Human-readable and display-only: `PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`. Per type, per year, sequential. Never used for lookup. |
+| Document numbers | Human-readable and display-only: `PO-2026-0001`, `GRN-2026-0001`, `SALE-2026-000001`, `RET-2026-000001`. Per type, per year, sequential. Never used for lookup. |
 | Quantities | Integers in the ingredient's unit (`g`, `ml`, `piece`). Never decimals. |
 | Time | UTC, ISO-8601 with `Z` (`"2026-10-02T11:30:00Z"`). The UI converts to the viewer's local timezone. |
 | Pagination | Every collection takes `?page=` (default 1) and `?per_page=` (default 25, max 100, more gives 422). `meta.pagination = { page, per_page, total, last_page, has_more }`. |
@@ -39,6 +39,8 @@ The single reference for every endpoint. Builders implement exactly this. Postma
 | 422 | `validation_failed` | Input is malformed; `errors` holds `{ field: [messages] }` |
 | 422 | `over_delivery` | The quantity would take the line above `max_receivable` (over % or absolute cap, D-035); `errors` names the line |
 | 422 | `menu_item_not_sellable` | The menu item has no recipe |
+| 422 | `item_not_on_sale` | A refund names a menu item that is not on that sale (D-049); `errors` names the line |
+| 422 | `over_refund` | A refund quantity is above what is left to refund on that sale line (D-049); `errors` names every line in breach |
 | 429 | `too_many_requests` | Rate limit on sales exceeded |
 | 500 | `server_error` | Unexpected. Generic message, never details. |
 
@@ -82,13 +84,16 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 | E23 | POST | `/purchase-orders/{purchaseOrder}/deliveries` | Record a delivery | 201 | 404, 409 `cannot_receive`, 422 `over_delivery`, 422 | PTY-8 |
 | E24 | GET | `/purchase-orders/{purchaseOrder}/deliveries` | Deliveries of a PO | 200 | 404, 422 | PTY-8 |
 | E25 | POST | `/sales` | POS sale ticket (one or more menu items, D-048) | 201 (new), 200 (replay) | 401, 409 `idempotency_conflict`, 422 `menu_item_not_sellable` (any item, refuses the whole ticket), 422 keyed `lines.N.*`, 429 | PTY-9, PTY-29 |
-| E26 | GET | `/sales` | Recent sales (each with its lines) | 200 | 422 | PTY-9, PTY-29 |
+| E26 | GET | `/sales` | Recent sales (each with its lines and what was refunded) | 200 | 422 | PTY-9, PTY-29, PTY-30 |
 | E27 | GET | `/stock` | Stock per ingredient: on hand, incoming, negative | 200 | 422 | PTY-10 |
 | E28 | GET | `/dashboard` | KPI counts | 200 | | PTY-10 |
 | E29 | GET | `/activity` | Audit trail, `?subject_type=&subject_id=` | 200 | 422 | PTY-10 |
 | E30 | POST | `/demo/reset` | Clear, then seed. **Local only.** | 200 `{ counts }` | 404 outside local | PTY-22 |
 | E31 | POST | `/demo/clear` | Empty the system completely (`migrate:fresh`, D-037). **Local only.** | 200 | 404 outside local | PTY-22 |
 | E32 | POST | `/demo/seed` | Load realistic demo data into an empty system. **Local only.** | 200 `{ counts }` | 404 outside local, 409 `demo_not_empty` | PTY-22 |
+| E33 | POST | `/sales/{sale}/returns` | Refund items of a sale; put the ingredients back only if the food was not made (D-049) | 201 (new), 200 (replay) | 401, 404, 409 `idempotency_conflict`, 422 `item_not_on_sale`, 422 `over_refund`, 422 keyed `lines.N.*`, 429 | PTY-30 |
+
+E33 is numbered after E32 so that E1 to E32 keep the numbers every other document and the Postman collection already use.
 
 ---
 
@@ -182,10 +187,10 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 {
   "id": "01JA...", "number": "SALE-2026-000124",
   "lines": [
-    { "menu_item": { "id": "01JA...", "name": "Classic Burger" }, "quantity": 2 },
-    { "menu_item": { "id": "01JB...", "name": "Fries" }, "quantity": 1 }
+    { "menu_item": { "id": "01JA...", "name": "Classic Burger" }, "quantity": 2, "refunded": 0 },
+    { "menu_item": { "id": "01JB...", "name": "Fries" }, "quantity": 1, "refunded": 1 }
   ],
-  "item_count": 2, "units": 3,
+  "item_count": 2, "units": 3, "refunded_units": 1,
   "pos_reference": "till-1:000873", "sold_at": "...",
   "replayed": false,
   "deductions": [
@@ -195,6 +200,27 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 }
 ```
 `item_count` is the number of lines, `units` the sum of their quantities. `deductions` is grouped per ingredient across all lines: `quantity` is the sum taken, `on_hand_after` the balance after that ingredient's last movement in this sale, ordered by the ingredient's first movement in the sale (D-048). The same shape is each item of E26.
+
+PTY-30 adds two fields, to E25 and E26 alike (additive, so still v1): each line's `refunded` is the sum of that line's refund quantities, and the sale's `refunded_units` is the sum over its lines. What is left to refund on a line is `quantity - refunded`. E26 reads them with a constant number of queries.
+
+### Sale return (E33)
+```json
+{
+  "id": "01JR...",
+  "number": "RET-2026-000001",
+  "sale": { "id": "01JS...", "number": "SALE-2026-000125" },
+  "restock": true,
+  "reason": "Cancelled before cooking",
+  "pos_reference": "till-1:ret-000031",
+  "returned_at": "2026-10-11T14:02:00Z",
+  "replayed": false,
+  "lines": [ { "menu_item": { "id": "01JA...", "name": "Fries" }, "quantity": 1 } ],
+  "restocked": [
+    { "ingredient": { "id": "...", "name": "Potatoes", "unit": "g" }, "quantity": 200, "on_hand_after": 2600 }
+  ]
+}
+```
+`restocked` is grouped per ingredient and ordered by the ingredient's first movement in this refund. `quantity` is the sum put back and `on_hand_after` the balance after that ingredient's last movement in this refund. It is an empty array when `restock` is `false`: nothing moved. `replayed` is `true` on the 200 replay.
 
 ### Stock row (E27)
 ```json
@@ -210,7 +236,7 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
   "occurred_at": "..."
 }
 ```
-`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A sale movement's label is `"<number> <item> x<qty>"` for a one-line sale and `"<number> 3 items"` otherwise (item count = lines). A movement reason with no document yet has `number` and `label` null.
+`reference` carries the ULID of the document a manager can open: `purchase_order_id` for a delivery, `sale_id` for a sale (`{ "type": "sale", "number": "SALE-2026-000003", "label": "SALE-2026-000003 Classic Burger x3", "sale_id": "01JA..." }`). A sale movement's label is `"<number> <item> x<qty>"` for a one-line sale and `"<number> 3 items"` otherwise (item count = lines). A restock from a refund (D-049) is `reason: "sale_return"`, `reason_label: "Sale return"`, and `reference` is `{ "type": "sale_return", "number": "RET-2026-000001", "label": "RET-2026-000001 for SALE-2026-000125: Fries x1", "sale_id": "01JS..." }`. The label names the refund, its sale and the refunded line. A movement reason with no document yet has `number` and `label` null.
 `balance_after` is a running sum computed in SQL with a window function (`SUM(...) OVER (ORDER BY occurred_at, id)`), so it is correct on every page.
 
 ### Dashboard (E28)
@@ -246,6 +272,17 @@ Any write guarded by a unique index can return 409 `conflict` if a concurrent re
 | E20, E21, E22 | no body |
 | E23 POST deliveries | `{ "lines": [ { "purchase_order_line_id": "01JA...", "quantity": 600 } ], "received_at"?: "...", "note"?: "..." }` |
 | E25 POST sales | `{ "lines": [ { "menu_item_id": "01JA...", "quantity": 2 }, { "menu_item_id": "01JB...", "quantity": 1 } ], "pos_reference"?: "till-1:000873", "sold_at"?: "..." }` |
+| E33 POST sales/{sale}/returns | `{ "lines": [ { "menu_item_id": "01JA...", "quantity": 1 } ], "restock": false, "reason": "Customer complaint", "pos_reference"?: "till-1:ret-000031" }` |
+
+E33 notes (D-049):
+- `{sale}` is the sale ULID. The route has the same protection as E25: the POS key (when configured) and the `pos` rate limit.
+- `lines` holds 1 to 50 items; duplicate menu items are merged, as for sales. Each item must be on the sale.
+- `restock` is required and has no default on the API. `true` puts the ingredients back, `false` moves no stock. The UI preselects `false` ("it was made").
+- `reason` is required, 1 to 200 characters.
+- A quantity above what is left on the line (line quantity minus earlier refunds) is 422 `over_refund`. Every line is checked before anything is written, so one request reports all breaches and writes nothing.
+- A menu item that is not on the sale is 422 `item_not_on_sale`.
+- Replay (200, "Refund already recorded. No stock moved.") needs the same `pos_reference`, the same sale, the same merged lines in any order and the same `restock`. Anything else with that reference is 409 `idempotency_conflict`.
+- 201 message: "Refund recorded." A refund never fails because of stock (D-010).
 
 E25 notes (D-048):
 - `lines` holds 1 to 50 items. Duplicate menu items are merged (quantities added) before anything else.
@@ -271,3 +308,22 @@ X-Request-Id: 9f1c0b7e-...
   "errors": { "lines.0.quantity": ["Beef: 1,100 g is above the 1,050 g limit."] }
 }
 ```
+
+## Example: a refund that is too large
+```http
+POST /api/v1/sales/01JS.../returns
+X-Patty-Channel: pos
+
+{ "lines": [ { "menu_item_id": "01JA...", "quantity": 2 } ], "restock": true, "reason": "Wrong order" }
+```
+Fries x2 were sold on SALE-2026-000125 and one is already refunded, so one is left.
+```json
+HTTP/1.1 422
+{
+  "success": false,
+  "message": "Only 1 Fries left to refund on SALE-2026-000125.",
+  "code": "over_refund",
+  "errors": { "lines.0.quantity": ["Line 1: only 1 Fries left to refund on SALE-2026-000125."] }
+}
+```
+The `message` is the first breach without its "Line N: " prefix. `errors` holds one key per line in breach (N is 0-based in the key, 1-based in the text).
