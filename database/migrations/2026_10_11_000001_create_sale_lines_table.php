@@ -8,11 +8,27 @@ use Illuminate\Support\Facades\Schema;
 /**
  * PTY-29 (D-048): a sale becomes a ticket of lines. The menu item and quantity move
  * from `sales` to `sale_lines`, and stock movements reference the line.
+ *
+ * SQLite cannot drop or add a foreign-key column in place: Laravel rebuilds the whole `sales` table
+ * (drop, create, copy). That rebuild fails while `sale_lines` rows still reference `sales`, so in
+ * both directions the data is held in memory while `sales` is reshaped and written afterwards.
+ * Everything runs in the migration's transaction, so a failure leaves the old shape untouched.
  */
 return new class extends Migration
 {
     public function up(): void
     {
+        // Read first: after the columns are gone this data would be unrecoverable.
+        $sales = DB::table('sales')->orderBy('id')->get(['id', 'menu_item_id', 'quantity', 'created_at', 'updated_at']);
+
+        // The foreign key goes before the column it covers.
+        Schema::table('sales', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('menu_item_id');
+        });
+        Schema::table('sales', function (Blueprint $table) {
+            $table->dropColumn('quantity');
+        });
+
         Schema::create('sale_lines', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sale_id')->constrained()->restrictOnDelete();
@@ -23,20 +39,17 @@ return new class extends Migration
             $table->unique(['sale_id', 'menu_item_id']);
         });
 
-        // Copy first, drop second: every existing sale keeps its item and quantity as its one line.
-        // Same timestamps, so the line looks as old as the sale.
-        DB::table('sale_lines')->insertUsing(
-            ['sale_id', 'menu_item_id', 'quantity', 'created_at', 'updated_at'],
-            DB::table('sales')->select('id', 'menu_item_id', 'quantity', 'created_at', 'updated_at')->orderBy('id'),
-        );
-
-        // The foreign key goes before the column it covers.
-        Schema::table('sales', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('menu_item_id');
-        });
-        Schema::table('sales', function (Blueprint $table) {
-            $table->dropColumn('quantity');
-        });
+        // Every existing sale keeps its item and quantity as its one line, with the sale's own
+        // timestamps so the line looks as old as the sale. Chunked to stay under SQLite's variable limit.
+        foreach ($sales->chunk(100) as $chunk) {
+            DB::table('sale_lines')->insert($chunk->map(fn ($sale) => [
+                'sale_id' => $sale->id,
+                'menu_item_id' => $sale->menu_item_id,
+                'quantity' => $sale->quantity,
+                'created_at' => $sale->created_at,
+                'updated_at' => $sale->updated_at,
+            ])->all());
+        }
     }
 
     /**
@@ -46,23 +59,21 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $first = DB::table('sale_lines')->orderBy('id')->get()->unique('sale_id');
+
+        Schema::drop('sale_lines');
+
         Schema::table('sales', function (Blueprint $table) {
-            // Nullable/defaulted only so the column can be added to a table that already has rows.
+            // Nullable/defaulted only so the columns can be added to a table that already has rows.
             $table->foreignId('menu_item_id')->nullable()->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity')->default(0);
         });
 
-        foreach (DB::table('sales')->pluck('id') as $saleId) {
-            $first = DB::table('sale_lines')->where('sale_id', $saleId)->orderBy('id')->first();
-
-            if ($first !== null) {
-                DB::table('sales')->where('id', $saleId)->update([
-                    'menu_item_id' => $first->menu_item_id,
-                    'quantity' => $first->quantity,
-                ]);
-            }
+        foreach ($first as $line) {
+            DB::table('sales')->where('id', $line->sale_id)->update([
+                'menu_item_id' => $line->menu_item_id,
+                'quantity' => $line->quantity,
+            ]);
         }
-
-        Schema::dropIfExists('sale_lines');
     }
 };

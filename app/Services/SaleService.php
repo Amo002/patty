@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\MovementReason;
 use App\Exceptions\Domain\IdempotencyConflict;
 use App\Exceptions\Domain\MenuItemNotSellable;
+use App\Models\MenuItem;
 use App\Models\RecipeLine;
 use App\Models\Sale;
 use App\Models\SaleLine;
@@ -46,7 +47,7 @@ class SaleService
      * D-048: duplicates of one menu item are merged and lines are sorted by menu item id, so
      * the same ticket always produces the same lines and movements whatever order it arrived in.
      *
-     * @param  list<array{item: \App\Models\MenuItem, quantity: int}>  $lines
+     * @param  list<array{item: MenuItem, quantity: int}>  $lines
      *
      * @throws IdempotencyConflict when the reference was used for a different sale
      * @throws MenuItemNotSellable when any item has no recipe lines (the whole ticket is refused)
@@ -189,8 +190,8 @@ class SaleService
      * listed the items in. The request merges too (it must validate the merged total); doing it
      * here keeps the service correct for any caller, and merging twice changes nothing.
      *
-     * @param  list<array{item: \App\Models\MenuItem, quantity: int}>  $lines
-     * @return list<array{item: \App\Models\MenuItem, quantity: int}>
+     * @param  list<array{item: MenuItem, quantity: int}>  $lines
+     * @return list<array{item: MenuItem, quantity: int}>
      */
     private function merge(array $lines): array
     {
@@ -209,7 +210,7 @@ class SaleService
     /**
      * Everything that must commit together: number, sale, lines, movements, audit.
      *
-     * @param  list<array{item: \App\Models\MenuItem, quantity: int}>  $lines  merged and sorted
+     * @param  list<array{item: MenuItem, quantity: int}>  $lines  merged and sorted
      */
     private function createSale(array $lines, ?string $posReference, ?CarbonInterface $soldAt): Sale
     {
@@ -266,7 +267,7 @@ class SaleService
     /**
      * Answer a retry: the same lines return the original untouched, different ones are a conflict (D-029).
      *
-     * @param  list<array{item: \App\Models\MenuItem, quantity: int}>  $lines  merged and sorted
+     * @param  list<array{item: MenuItem, quantity: int}>  $lines  merged and sorted
      */
     private function replay(Sale $existing, array $lines): SaleResult
     {
@@ -297,7 +298,7 @@ class SaleService
     }
 
     /**
-     * @param  list<array{item: \App\Models\MenuItem, quantity: int}>  $lines
+     * @param  list<array{item: MenuItem, quantity: int}>  $lines
      * @return list<array{menu_item: string, quantity: int}>
      */
     private function logLines(array $lines): array
