@@ -10,9 +10,9 @@ namespace App\Exceptions\Domain;
  */
 class IdempotencyConflict extends DomainException
 {
-    public function __construct(string $posReference)
+    public function __construct(string $posReference, string $what = 'sale (other items or quantities)')
     {
-        parent::__construct("POS reference {$posReference} was already used for a different sale (other items or quantities).");
+        parent::__construct("POS reference {$posReference} was already used for a different {$what}.");
     }
 
     public function status(): int

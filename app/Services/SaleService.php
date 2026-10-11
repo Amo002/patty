@@ -9,13 +9,11 @@ use App\Models\MenuItem;
 use App\Models\RecipeLine;
 use App\Models\Sale;
 use App\Models\SaleLine;
-use App\Models\StockMovement;
 use App\Support\Audit;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -127,7 +125,8 @@ class SaleService
         // would repeat every query per sale. `stockMovements` on the sale itself is only for sales
         // recorded before D-048, whose movements point at the sale and cannot be rewritten.
         $sales = (new Collection($sales))->load([
-            'lines' => fn ($q) => $q->orderBy('id'),
+            // D-049: refunded units per line in the same query (withSum), so the list stays constant-query.
+            'lines' => fn ($q) => $q->orderBy('id')->withSum('returnLines as refunded_sum', 'quantity'),
             'lines.menuItem',
             'lines.stockMovements' => fn ($q) => $q->orderBy('id'),
             'lines.stockMovements.ingredient',
@@ -138,7 +137,7 @@ class SaleService
         $perSale = $sales->mapWithKeys(fn (Sale $sale) => [
             $sale->id => $sale->lines->flatMap->stockMovements->concat($sale->stockMovements)->sortBy('id')->values(),
         ]);
-        $balances = $this->balancesAt($perSale->flatten()->pluck('id')->all());
+        $balances = $this->ledger->balancesAfter($perSale->flatten()->pluck('id')->all());
 
         foreach ($sales as $sale) {
             // groupBy keeps the order each ingredient first appeared in the sale; the movements are
@@ -157,35 +156,6 @@ class SaleService
         }
 
         return $sales;
-    }
-
-    /**
-     * The ingredient's balance right after each given movement, keyed by movement id, in ONE query.
-     *
-     * Same arithmetic as StockLedger::onHand() (SUM of quantity_delta), limited to movements with
-     * an id up to the one asked about. Ids grow in insertion order, so "up to this id" is "as of
-     * this movement". A correlated subquery keeps it to one round trip for any number of movements.
-     *
-     * @param  array<int, int>  $movementIds
-     * @return SupportCollection<int, int>
-     */
-    private function balancesAt(array $movementIds): SupportCollection
-    {
-        if ($movementIds === []) {
-            return collect();
-        }
-
-        $upToThisMovement = StockMovement::query()
-            ->from('stock_movements as earlier')
-            ->selectRaw('SUM(earlier.quantity_delta)')
-            ->whereColumn('earlier.ingredient_id', 'stock_movements.ingredient_id')
-            ->whereColumn('earlier.id', '<=', 'stock_movements.id');
-
-        return StockMovement::query()
-            ->whereIn('id', $movementIds)
-            ->select('id')
-            ->selectSub($upToThisMovement, 'balance')
-            ->pluck('balance', 'id');
     }
 
     /**

@@ -121,4 +121,34 @@ class StockLedger
             ->pluck('on_hand', 'ingredient_id')
             ->map(fn ($sum) => (int) $sum);
     }
+
+    /**
+     * The ingredient's balance right after each given movement, keyed by movement id, in ONE query.
+     *
+     * Same arithmetic as onHand() (SUM of quantity_delta), limited to movements with
+     * an id up to the one asked about. Ids grow in insertion order, so "up to this id" is "as of
+     * this movement". A correlated subquery keeps it to one round trip for any number of movements.
+     * Shared by the sale and the sale return responses (`on_hand_after`).
+     *
+     * @param  array<int, int>  $movementIds
+     * @return Collection<int, int>
+     */
+    public function balancesAfter(array $movementIds): Collection
+    {
+        if ($movementIds === []) {
+            return collect();
+        }
+
+        $upToThisMovement = StockMovement::query()
+            ->from('stock_movements as earlier')
+            ->selectRaw('SUM(earlier.quantity_delta)')
+            ->whereColumn('earlier.ingredient_id', 'stock_movements.ingredient_id')
+            ->whereColumn('earlier.id', '<=', 'stock_movements.id');
+
+        return StockMovement::query()
+            ->whereIn('id', $movementIds)
+            ->select('id')
+            ->selectSub($upToThisMovement, 'balance')
+            ->pluck('balance', 'id');
+    }
 }
