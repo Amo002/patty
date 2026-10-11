@@ -19,6 +19,8 @@ class DocumentNumber
 
     public const SALE = 'SALE';
 
+    public const SALE_RETURN = 'RET';
+
     /**
      * Zero-padding width per type; sales run far more often than orders.
      *
@@ -28,6 +30,7 @@ class DocumentNumber
         self::PURCHASE_ORDER => 4,
         self::DELIVERY => 4,
         self::SALE => 6,
+        self::SALE_RETURN => 6,
     ];
 
     /**

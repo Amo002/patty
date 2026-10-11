@@ -31,9 +31,12 @@ class SaleResource extends JsonResource
             'lines' => $this->lines->map(fn ($line) => [
                 'menu_item' => ['id' => $line->menuItem->ulid, 'name' => $line->menuItem->name],
                 'quantity' => $line->quantity,
+                // D-049: loaded by withSum in SaleService::withDeductions; null means no refund yet.
+                'refunded' => (int) ($line->refunded_sum ?? 0),
             ])->all(),
             'item_count' => $this->lines->count(),
             'units' => $this->lines->sum('quantity'),
+            'refunded_units' => (int) $this->lines->sum(fn ($line) => $line->refunded_sum ?? 0),
             'pos_reference' => $this->pos_reference,
             'sold_at' => $this->sold_at->toIso8601ZuluString(),
             'replayed' => $this->replayed,

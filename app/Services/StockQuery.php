@@ -8,6 +8,7 @@ use App\Models\Ingredient;
 use App\Models\PurchaseOrderLine;
 use App\Models\Sale;
 use App\Models\SaleLine;
+use App\Models\SaleReturnLine;
 use App\Models\StockMovement;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -162,6 +163,8 @@ class StockQuery
                 // D-048: a sale movement points at its SaleLine; the ticket's other lines are needed for the label.
                 SaleLine::class => ['sale.lines.menuItem'],
                 Sale::class => ['lines.menuItem'],
+                // D-049: a restock movement points at its SaleReturnLine; the label names the refunded item.
+                SaleReturnLine::class => ['saleReturn.sale', 'saleLine.menuItem'],
             ])])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
@@ -205,6 +208,18 @@ class StockQuery
                 'type' => 'sale',
                 'number' => $sale->number,
                 'label' => "{$sale->number} {$sale->summary()}",
+                'sale_id' => $sale->ulid,
+            ];
+        }
+
+        if ($reference instanceof SaleReturnLine) {
+            $return = $reference->saleReturn;
+            $sale = $return->sale;
+
+            return [
+                'type' => 'sale_return',
+                'number' => $return->number,
+                'label' => "{$return->number} for {$sale->number}: {$reference->saleLine->menuItem->name} x{$reference->quantity}",
                 'sale_id' => $sale->ulid,
             ];
         }
