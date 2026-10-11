@@ -184,6 +184,13 @@ Opus 5.5, manual review plus 12 mutation checks: 11 killed; the 12th (removing `
 | R14 | Info | requests | Refunds merge in the service, sales in the request. | Justified and tested. |
 | R15 | Info | StockLedger::balancesAfter | Refactor checked: no behaviour change for sales. | No action. |
 | R16 | Info | ticket, AI_LOG | Builder notes and AI log missing. | Written by the orchestrator. |
+| R17 | Medium | app/Services/SaleReturnService.php:161 | (code-review pass) SQLite runs DEFERRED transactions and `lockForUpdate` is a no-op: two refunds racing for the last unit both pass the check and the second fails with SQLITE_BUSY, a 500 instead of a 422. Same pattern in receiving and sales, so it predates this branch. | Split into PTY-31 (IMMEDIATE transactions for SQLite). The lock docblock now says so. |
+| R18 | Low | public/js/pages/pos.js:458 | A replay after a poll had already synced the refund counted it twice; a clamp kept a reference whose payload had changed. | Fixed (c9cf33e). |
+| R19 | Low | DemoSeederTest.php:129 | RET numbers assumed the current year; fails on 1-2 January. | Fixed (4153c81). Year from each return's returned_at. A refund pair straddling New Year is left as an accepted edge. |
+| R20 | Low | SaleReturnController.php:196 | Two service calls in the controller. | Fixed (4153c81). One call; the result comes back loaded. |
+| R21 | Low | SaleReturnService.php:281 | One movements query per refunded line inside the lock; an unused eager load. | Fixed (4153c81). |
+| R22 | Low | SaleReturnService.php:112 | Re-queried the sale already attached. | Fixed (4153c81). loadMissing. |
+| R23 | Low | pos.js:362 | A comment above the wrong method. | Fixed (c9cf33e). |
 
 ## Mohamad review
 
