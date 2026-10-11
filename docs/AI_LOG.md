@@ -312,3 +312,18 @@ After the fixes, the app seeded and served, data survived a restart, and 420 tes
 - **The Opus reviewer found two UI bugs the builder could not see without a backend:** a replay cleared the ticket being built, and resend errors landed on unrelated rows. Also seven Low items (docs drift, a missing service guard, an untested merge path, two misleading messages, a colour token, an over-broad `aria-live`).
 - **The orchestrator's live smoke test** found a 409 message still worded for a single item.
 - **Process slips by the orchestrator:** the first merge commits were not in `PTY-N:` form, and one exposed a worktree name. History was not rewritten. The browser pass could not run because the Chrome extension was not connected, so the UI was checked through the API and by Mohamad by hand.
+
+## 2026-10-11: PTY-30, sale refunds
+
+**Prompt (Mohamad):** "where can i do the refund", then "start it please i merged".
+
+**What worked:**
+- The business rule came out of his own question while planning PTY-29: a refund puts stock back only when the food was not made. It shaped PTY-29's data model (one movement per sale line) before a line of PTY-30 existed, so the restock is a plain `-(delta) / n x k` from the sale's own movements.
+- The same three-builder setup as PTY-29, with a contract in the ticket. The docs builder caught that the contract's endpoint number E27 was already taken and used E33.
+- The Opus reviewer ran 12 mutation checks in a temporary worktree. Every stock rule has a test that fails when the rule is removed.
+
+**What had to be fixed:**
+- **The orchestrator's contract reused E27.** Caught by the docs builder.
+- **The UI threw away the server's idempotency:** a new reference on every press, so a retry after a lost response could refund twice (Medium). Also focus handling, an honest "estimated" hint on the preview, a seeded refund timed after the next sale, stale E27 comments, docs drift, an untested error-precedence rule.
+- **The orchestrator's own unit typo** in the manual QA (oil and ketchup in g instead of ml).
+- **Not done:** a browser click-through (the Chrome extension was not connected). The flows were checked through the live API on a seeded database.

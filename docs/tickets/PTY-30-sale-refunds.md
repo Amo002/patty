@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | Post-release extension |
-| Status | In progress |
+| Status | In review |
 | Weight | L |
 | Builder | Sonnet 5.5 (three builders: backend, UI, docs) |
 | Reviewer | Opus 5.5 |
@@ -151,10 +151,39 @@ On hand after both: potatoes, oil and ketchup are each down by exactly one Fries
 
 ## Builder notes
 
+Built by three Sonnet builders in parallel (backend, refund UI, docs) against the contract above, merged by the orchestrator: 503 tests green before review fixes.
+
+- **Restock arithmetic.** `SaleReturnService::restock` writes, for each movement of the refunded sale line, `intdiv(-delta x k, line quantity)` through `StockLedger::record`, reason `sale_return`, referencing the `SaleReturnLine`. Multiply first, then divide; a remainder or a non-positive result throws `LogicException` and rolls back. That cannot happen for real data (every sale movement is `-(recipe qty x line qty)`), and a 500 beats silent rounding.
+- **Legacy sales.** A line with no movements of its own, on a sale with exactly one line, uses the sale's movements (sales from before PTY-29). Any other line without movements restocks nothing.
+- **"Left" under the lock.** Inside the transaction the sale row is re-read with `lockForUpdate()`, then its lines with `withSum('returnLines as refunded_sum')`. The idempotency lookup runs right after the lock. Every breach is collected and sorted back into request-row order before the RET number is taken or anything is written. `item_not_on_sale` wins over `over_refund` when both occur.
+- **Merging.** Unlike sales, the request returns the rows as sent and the service merges them, remembering each item's first row so errors key on `lines.{first row}.*`. No "adds up to more than 1,000" rule is needed: `over_refund` catches any merged total above what is left.
+- **Replay.** Same sale, same merged lines and same `restock` = replay (only a `sale.return_replayed` audit row). `reason` is not compared, like `sold_at` for sales; the original reason is returned.
+- **Shared helper.** `SaleService::balancesAt` moved unchanged to `StockLedger::balancesAfter` so refunds can report `on_hand_after` the same way sales do.
+- **UI.** The refund panel is the app's native `<dialog>` (same pattern as Receive delivery). Its state is separate from the ticket and the Result card. `lines.N` errors map to the N-th line actually sent. The preview is estimated from today's recipe and says so; the success notice shows the real restocked amounts from the response.
+- **Endpoint number.** The contract said E27, which was already `GET /stock`. The docs builder numbered it E33 so nothing else shifted.
+
 ## Reviewer findings
+
+Opus 5.5, manual review plus 12 mutation checks: 11 killed; the 12th (removing `lockForUpdate`) survives because SQLite has a single writer, the same as receiving. Verdict: approve after fixes. Worked example confirmed: 10000 / 10000 / 10000, then 9600 / 9950 / 9960 after Fries x2, then 9800 / 9975 / 9980 after the made and voided refunds, third refused with the RET sequence still at 2.
 
 | # | Severity | File:line | Finding | Resolution |
 |---|---|---|---|---|
+| R1 | Medium | public/js/pages/pos.js refundSale | A new `pos_reference` on every press: a retry after a lost response would record a second refund. | |
+| R2 | Low | pos.js openRefund | Focus not placed like the receive dialog; focus lost when the opener becomes "Refunded". | |
+| R3 | Low | docs/ui.md, pos.js preview | The preview uses today's recipe while ui.md said the sale's own amounts; recommended a one-line hint. | |
+| R4 | Low | docs/api.md | Example message capitalised; the code says "only ...". | |
+| R5 | Low | docs/flows.md, docs/architecture.md | Idempotency lookup shown before the lock; log context wrong. | |
+| R6 | Low | docs/validation.md | Two messages missing; regex written with `$` not `\z`. | |
+| R7 | Low | docs/ui.md | Success and replay wording did not match the UI. | |
+| R8 | Low | several comments | Comments still said E27. | |
+| R9 | Low | DemoSeeder refund block | A seeded refund could be timed after the next sale with a smaller movement id. | |
+| R10 | Low | SaleReturnService::check | `item_not_on_sale` hiding `over_refund` was undocumented and untested. | |
+| R11 | Low | SaleReturnsTest.php:437 | Test name did not match what it checks. | |
+| R12 | Info | SaleReturnService.php:310 | Replay ignores `reason`. | Kept, as recommended; documented. |
+| R13 | Info | SaleReturnService.php:290 | `LogicException` only reachable with corrupt data. | Kept. |
+| R14 | Info | requests | Refunds merge in the service, sales in the request. | Justified and tested. |
+| R15 | Info | StockLedger::balancesAfter | Refactor checked: no behaviour change for sales. | No action. |
+| R16 | Info | ticket, AI_LOG | Builder notes and AI log missing. | Written by the orchestrator. |
 
 ## Mohamad review
 
