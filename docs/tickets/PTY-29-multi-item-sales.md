@@ -4,7 +4,7 @@
 |---|---|
 | Type | Story |
 | Phase | Post-release extension |
-| Status | In progress |
+| Status | In review |
 | Weight | L |
 | Builder | Sonnet 5.5 (three builders: backend, UI, docs) |
 | Reviewer | Opus 5.5 |
@@ -162,23 +162,23 @@ Opus 5.5, `/code-review high` plus a manual pass. Verdict: approve after fixes. 
 
 | # | Severity | File:line | Finding | Resolution |
 |---|---|---|---|---|
-| R1 | Medium | public/js/pages/pos.js:243 | Every 2xx cleared the ticket, whichever request it answered: a "Resend last ticket" replay wiped a ticket being built, and items tapped during an in-flight sale were cleared unsold. | |
-| R2 | Medium | public/js/pages/pos.js:275 | `lines.N` errors from a resend (payload from `last`) were mapped onto unrelated ticket rows. | |
-| R3 | Low | docs/data.md | Invariant 3 claimed every sale movement references a sale line; pre-PTY-29 movements reference the sale. | |
-| R4 | Low | docs/validation.md | Two extra messages in the code (non-string and bad-ULID menu item ids) were not documented. | |
-| R5 | Low | docs/data.md | The migration note stated the contract's order, not the real one and its reason. | |
-| R6 | Low | migration 2026_10_11_000001 | `down()` is lossier than its docblock said. | |
-| R7 | Low | app/Services/SaleService.php:215 | The service would create a sale with zero lines if called with none; only the FormRequest prevented it. | |
-| R8 | Low | tests/Feature/Sales/SalesTest.php:249 | Deleting the service-level merge was caught by no test. | |
-| R9 | Low | app/Http/Requests/V1/StoreSaleRequest.php | Merged duplicates over 1,000 got the generic quantity message on a row whose own value was valid; the 50 limit counts rows but the message said "different items". | |
-| R10 | Low | public/css/pages/purchasing.css:98 | Tile badge text used `--surface` instead of `--on-accent`. | |
-| R11 | Low | resources/views/pages/pos.blade.php:457 | `aria-live` wrapped the whole ticket, re-announcing rows on every stepper change. | |
+| R1 | Medium | public/js/pages/pos.js:243 | Every 2xx cleared the ticket, whichever request it answered: a "Resend last ticket" replay wiped a ticket being built, and items tapped during an in-flight sale were cleared unsold. || Fixed (87db2e8). Only Sell clears the ticket, and only if it still equals the snapshot that was sent; controls are disabled while a sale is in flight. |
+| R2 | Medium | public/js/pages/pos.js:275 | `lines.N` errors from a resend (payload from `last`) were mapped onto unrelated ticket rows. || Fixed (87db2e8). Row errors are mapped only for Sell; resend errors go to the notice. |
+| R3 | Low | docs/data.md | Invariant 3 claimed every sale movement references a sale line; pre-PTY-29 movements reference the sale. || Fixed (be3b577). |
+| R4 | Low | docs/validation.md | Two extra messages in the code (non-string and bad-ULID menu item ids) were not documented. || Fixed (be3b577). Both messages documented. |
+| R5 | Low | docs/data.md | The migration note stated the contract's order, not the real one and its reason. || Fixed (be3b577). Real order and the SQLite reason documented. |
+| R6 | Low | migration 2026_10_11_000001 | `down()` is lossier than its docblock said. || Fixed (6f17178). Docblock states rollback after real tickets is unsupported, and why. |
+| R7 | Low | app/Services/SaleService.php:215 | The service would create a sale with zero lines if called with none; only the FormRequest prevented it. || Fixed (6f17178). InvalidArgumentException before any write, with a test. |
+| R8 | Low | tests/Feature/Sales/SalesTest.php:249 | Deleting the service-level merge was caught by no test. || Fixed (6f17178). Service-level merge test with exact movements. |
+| R9 | Low | app/Http/Requests/V1/StoreSaleRequest.php | Merged duplicates over 1,000 got the generic quantity message on a row whose own value was valid; the 50 limit counts rows but the message said "different items". || Fixed (6f17178). "Line N: {item} appears more than once and adds up to more than 1,000." and "A sale can hold at most 50 lines." |
+| R10 | Low | public/css/pages/purchasing.css:98 | Tile badge text used `--surface` instead of `--on-accent`. || Fixed (87db2e8). |
+| R11 | Low | resources/views/pages/pos.blade.php:457 | `aria-live` wrapped the whole ticket, re-announcing rows on every stepper change. || Fixed (87db2e8). aria-live only on the count line. |
 | R12 | Low | process | Builder notes empty, no AI_LOG entry, merge commits not in `PTY-N:` form. | Notes and AI_LOG written by the orchestrator. Later merges use `PTY-29: Merge ...`. History not rewritten. |
 | R13 | Info | StoreSaleRequest.php:373 | `exists` runs one query per line (up to 50) before `lines()` loads the items again. | Accepted at 50 lines. |
 | R14 | Info | SaleService.php:124 | Two redundant eager loads; the query count is still constant. | Accepted; the legacy load is needed for migrated rows. |
 | R15 | Info | StockLedger.php:78 | Up to 250 `onHand()` sums in one transaction for a 50-line ticket; a doubly-negative ingredient logs the warning twice. | Accepted at this scale. |
 | R16 | Info | DemoSeederTest.php:192 | The flaky test the builder reported could not be reproduced (9 runs); nothing in PTY-29 makes it worse. | Pre-existing, no change. |
-| O1 | Low | (orchestrator smoke test) | The sales 409 message still said "(other item or quantity)". | |
+| O1 | Low | (orchestrator smoke test) | The sales 409 message still said "(other item or quantity)". || Fixed (6f17178). Now "(other items or quantities)". |
 
 ## Mohamad review
 
