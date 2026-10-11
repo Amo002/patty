@@ -12,6 +12,7 @@ use App\Services\IngredientService;
 use App\Services\MenuService;
 use App\Services\PurchaseOrderService;
 use App\Services\ReceivingService;
+use App\Services\SaleReturnService;
 use App\Services\SaleService;
 use App\Services\SupplierService;
 use App\Support\Audit;
@@ -35,6 +36,12 @@ class DemoSeeder extends Seeder
 
     public const SALES = 120;
 
+    /** Sale position (0-based, in time order) => [restock, reason]. */
+    private const REFUNDS = [
+        20 => [false, 'Customer complaint'],
+        40 => [true, 'Cancelled before cooking'],
+    ];
+
     /** @var array<string, Ingredient> keyed by slug */
     private array $ingredients = [];
 
@@ -51,6 +58,7 @@ class DemoSeeder extends Seeder
         PurchaseOrderService $orders,
         ReceivingService $receiving,
         SaleService $sales,
+        SaleReturnService $returns,
     ): void {
         mt_srand(self::RANDOM_SEED);
         $today = Carbon::today();
@@ -69,7 +77,7 @@ class DemoSeeder extends Seeder
             $this->catalogue($ingredientService, $supplierService, $menuService);
 
             $this->purchasing($orders, $receiving, $today);
-            $this->sales($sales, $today);
+            $this->sales($sales, $returns, $today);
         } finally {
             Carbon::setTestNow();
             // Back to the application's own hook (AppServiceProvider), so nothing after the seed is marked.
@@ -199,7 +207,7 @@ class DemoSeeder extends Seeder
      * Sales over the last three days with lunch and dinner peaks and one replay, recorded in time
      * order so movement ids follow the clock.
      */
-    private function sales(SaleService $sales, Carbon $today): void
+    private function sales(SaleService $sales, SaleReturnService $returns, Carbon $today): void
     {
         // Weighted picks: mostly Classic and Fries.
         $items = array_merge(
@@ -226,20 +234,45 @@ class DemoSeeder extends Seeder
                 $time->subDay();
             }
 
-            $planned[] = [$time, $items[mt_rand(0, count($items) - 1)], $quantities[mt_rand(0, count($quantities) - 1)]];
+            // A ticket of 1 to 3 different items: mostly one, sometimes a combo.
+            $size = mt_rand(1, 100) <= 70 ? 1 : (mt_rand(1, 100) <= 75 ? 2 : 3);
+            $ticket = [];
+            while (count($ticket) < $size) {
+                $slug = $items[mt_rand(0, count($items) - 1)];
+                // A repeat keeps its first quantity and the loop draws again, so the items stay distinct.
+                // A combo is one of each; only a single-item ticket can be a bigger order.
+                $ticket[$slug] ??= $size === 1 ? $quantities[mt_rand(0, count($quantities) - 1)] : 1;
+            }
+
+            $planned[] = [$time, $ticket];
         }
 
         usort($planned, fn (array $a, array $b) => $a[0] <=> $b[0]);
 
-        foreach ($planned as $index => [$time, $slug, $quantity]) {
+        foreach ($planned as $index => [$time, $ticket]) {
             Carbon::setTestNow($time);
             $reference = sprintf('seed-till-1:%05d', $index + 1);
-            $sales->record($this->menu[$slug], $quantity, $reference, $time);
+            $lines = [];
+            foreach ($ticket as $slug => $quantity) {
+                $lines[] = ['item' => $this->menu[$slug], 'quantity' => $quantity];
+            }
+            $sale = $sales->record($lines, $reference, $time)->sale;
+
+            // D-049: two refunds on earlier sales, the first line's first unit each. The 21st was made and
+            // thrown away (no stock moves); the 41st was voided before cooking (the ingredients come back).
+            // Fixed positions, not random draws, so the seed stays deterministic and the other draws do not shift.
+            if (isset(self::REFUNDS[$index])) {
+                [$restock, $reason] = self::REFUNDS[$index];
+                // Before the next sale (so movement ids still follow the clock), never before this sale, never in the future.
+                $refundAt = $time->copy()->addMinutes(2)->min($planned[$index + 1][0]->copy()->subSecond())->min($now);
+                Carbon::setTestNow($refundAt->max($time));
+                $returns->record($sale, [['item' => $lines[0]['item'], 'quantity' => 1]], $restock, $reason, sprintf('seed-till-1:ret-%05d', $index + 1));
+            }
 
             // The till's link hiccups once and it sends the same sale again (D-029): the replay moves no stock.
             if ($index === 59) {
                 Carbon::setTestNow($time->copy()->addSeconds(20));
-                $sales->record($this->menu[$slug], $quantity, $reference, $time);
+                $sales->record($lines, $reference, $time);
             }
         }
     }

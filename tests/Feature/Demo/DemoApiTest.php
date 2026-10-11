@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 /** Every table a manager's data lands in (activity_log and document_sequences included). */
 const DEMO_TABLES = [
     'ingredients', 'suppliers', 'menu_items', 'recipe_lines', 'purchase_orders', 'purchase_order_lines',
-    'deliveries', 'delivery_lines', 'sales', 'stock_movements', 'activity_log', 'document_sequences',
+    'deliveries', 'delivery_lines', 'sales', 'sale_returns', 'sale_return_lines', 'stock_movements', 'activity_log', 'document_sequences',
 ];
 
 /*

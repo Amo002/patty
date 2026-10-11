@@ -120,27 +120,28 @@ Template for each flow:
 
 ### F13 POS sale
 - **Actor:** the POS system (or the POS Simulator page, channel `pos`)
-- **Request:** E25 `{ "menu_item_id": classic, "quantity": 6, "pos_reference": "till-1:000101" }`, plus `X-POS-Key` if configured
+- **Request:** E25 a ticket of one or more lines, `{ "lines": [ { "menu_item_id": classic, "quantity": 2 }, { "menu_item_id": double, "quantity": 1 } ], "pos_reference": "till-1:000101" }`, plus `X-POS-Key` if configured (D-048)
 - **Steps:**
   1. Middleware checks the POS key (if set) and the rate limit.
   2. If `pos_reference` exists, go to F15 or F16.
   3. Begin the transaction.
-  4. Load the recipe; if empty, `MenuItemNotSellable`.
+  4. Merge duplicate menu items (quantities added) and load every recipe in one query; if any item has no recipe, `MenuItemNotSellable` and the whole ticket is refused.
   5. Take the next SALE number.
-  6. Create the sale.
-  7. For each recipe line: `StockLedger::record(-(qty x sale qty), sale)`.
+  6. Create the sale and its sale lines.
+  7. For each sale line, in line order, and each of its recipe lines: `StockLedger::record(-(qty x line qty), saleLine)`. Nothing is summed in the ledger.
   8. Audit `sale.recorded`.
   9. Commit.
   10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F15 or F16.
-- **Rows written:** sales +1, stock_movements +3 (beef -900, bun -6, cheese -120), activity_log +1, document_sequences updated
-- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, menu_item, quantity, pos_reference), written after commit; `stock` info per movement
-- **Response:** 201 Sale with `deductions` and `on_hand_after`
-- **UI next (Simulator):** the deductions animate in; the dashboard updates on its next refresh
+- **Rows written:** sales +1, sale_lines +2, stock_movements +7 (Classic x2: beef -300, bun -2, cheese -40; Double Patty x1: beef -300, bun -1, cheese -40, burger sauce -20), activity_log +1, document_sequences updated
+- **Log:** `pos` info "Sale recorded" with context (sale ulid, number, lines, pos_reference), written after commit; `stock` info per movement
+- **Response:** 201 Sale with `lines`, `item_count`, `units` and `deductions` grouped per ingredient (beef 600, bun 3, cheese 80, burger sauce 20), each with `on_hand_after`
+- **UI next (Simulator):** the ticket clears and the per-ingredient deductions animate in; the dashboard updates on its next refresh
 - **Error paths:**
   - bad or missing key: 401
-  - no recipe: 422 `menu_item_not_sellable`
-  - quantity 0 or above 1,000: 422
+  - any item has no recipe: 422 `menu_item_not_sellable` (no sale, no lines, no movements, no SALE number used)
+  - no lines, more than 50, quantity 0 or above 1,000: 422 keyed `lines.N.*`
   - unknown item: 422
+  - old body `{menu_item_id, quantity}`: 422 on `lines`
   - too many requests: 429
 
 ### F14 POS sale driving stock negative
@@ -149,15 +150,15 @@ Template for each flow:
 - **Response:** 201; the cheese deduction has `is_negative: true`. **UI next:** the Simulator highlights the negative line; the dashboard shows Cheese in danger colour with "Negative", and the negative KPI goes up.
 
 ### F15 POS replay (same reference, same payload)
-- **Steps:** find the existing sale by `pos_reference`; `menu_item_id` and `quantity` match.
+- **Steps:** find the existing sale by `pos_reference`; the merged lines match as (menu item, quantity) pairs, in any order.
 - **Rows written:** none except activity_log +1 (`sale.replayed`)
 - **Log:** `pos` notice "Sale replayed" with context (sale ulid, pos_reference)
 - **Response:** **200** with the original sale, `replayed: true`. Stock is unchanged.
 
 ### F16 POS idempotency conflict (same reference, different payload)
-- **Steps:** an existing sale is found, but the item or quantity differs. Throw `IdempotencyConflict`.
+- **Steps:** an existing sale is found, but the lines differ (a changed quantity, an added or removed item). Throw `IdempotencyConflict`.
 - **Rows written:** none
-- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted menu item and quantity
+- **Log:** `pos` **warning** "POS reference reused with a different payload", with context holding the reference, the original sale, and the original and attempted lines
 - **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it.
 
 ## Visibility
@@ -197,6 +198,52 @@ Template for each flow:
 - **Seed (E32):** refuses with 409 `demo_not_empty` if any ingredient, supplier, menu item, PO or sale exists. Otherwise it runs `DemoSeeder` through the real services and returns the counts.
 - **UI next:** after clear, the dashboard shows its empty states, with "Load demo data" as the main action; after seed, a toast and a reload.
 - **Outside local:** both 404.
+
+## Refunds (PTY-30, D-049)
+
+A sale is never edited. A refund is a new document against it, and the manager answers one question: was the food already made?
+
+### F23 Refund a sale
+- **Actor:** the manager in the POS Simulator (channel `pos`), or the till
+- **Request:** E33 `POST /sales/{sale}/returns` with `{ "lines": [ { "menu_item_id": fries, "quantity": 1 } ], "restock": false, "reason": "Customer complaint", "pos_reference": "till-1:ret-000031" }`, plus `X-POS-Key` if configured
+- **Steps:**
+  1. Middleware checks the POS key (if set) and the rate limit. The sale is found by its ULID (404 if unknown).
+  2. Begin the transaction and lock the sale row.
+  3. If `pos_reference` exists, go to F25 or F26. The lookup is inside the transaction, after the lock, so two identical retries cannot both pass it.
+  4. Merge duplicate menu items. Every item must be a line of this sale, else `ItemNotOnSale` (422).
+  5. For every line, left = line quantity - earlier refunds of that line. If any requested quantity is above its left, `OverRefund` (422) lists every breach. Nothing has been written yet.
+  6. Take the next RET number. Create the sale return and its lines.
+  7. If `restock` is true: for each refunded line and each movement of that sale line, `StockLedger::record(-(movement delta) / line quantity x refunded quantity, saleReturnLine)`, reason `sale_return`. A legacy line with no movements of its own, on a one-line sale, uses the sale's movements. If `restock` is false, no movement is written.
+  8. Audit `sale.returned` on the sale.
+  9. Commit.
+  10. If the insert hits the unique `pos_reference` index (a concurrent duplicate), catch it and treat it as F25 or F26.
+- **Log:** `pos` info "Sale refunded" with context (`sale` ULID, `return` number, `lines`, `restock`, `pos_reference`), written after commit; `stock` info per movement
+- **Response:** 201 Sale return with `lines` and `restocked` grouped per ingredient (empty when `restock` is false)
+- **No stock check (D-010):** a restock never fails because of stock, and a refund never fails because stock is negative.
+
+### F24 The worked example: made, voided, then too many
+SALE-2026-000125 is Fries x2 (potatoes 200, oil 25, ketchup 20 each). Its line movements are potatoes -400, oil -50, ketchup -40.
+
+| Refund | restock | Movements written | Left on the line |
+|---|---|---|---|
+| RET-2026-000001: Fries x1 ("it was made") | false | none | 1 |
+| RET-2026-000002: Fries x1 ("voided before cooking") | true | potatoes +200, oil +25, ketchup +20 (`-(-400) / 2 x 1`, `-(-50) / 2 x 1`, `-(-40) / 2 x 1`) | 0 |
+| a third: Fries x1 | either | none: 422 `over_refund`, "Line 1: only 0 Fries left to refund on SALE-2026-000125." | 0 |
+
+After both refunds, potatoes, oil and ketchup are each down by exactly one Fries' worth from before the sale: the first refund moved nothing, the second put one portion back. The amounts come from the sale's own movements, so they stay right even if the Fries recipe changes in between.
+- **Rows written (the second refund):** sale_returns +1, sale_return_lines +1, stock_movements +3, activity_log +1, document_sequences updated
+- **Rows written (the third):** none, and no RET number is used.
+- **UI next:** Recent sales shows "Fries x1 refunded" pills, and the Refund button turns into a disabled "Refunded" once nothing is left.
+
+### F25 Refund replay (same reference, same payload)
+- **Steps:** find the existing return by `pos_reference`. It matches when it is for the same sale, with the same merged lines (any order) and the same `restock`.
+- **Rows written:** none except activity_log +1 (`sale.return_replayed`)
+- **Response:** **200** "Refund already recorded. No stock moved." with the original refund, `replayed: true`.
+
+### F26 Refund idempotency conflict (same reference, different payload)
+- **Steps:** a return with that reference exists, but for another sale, other lines, other quantities or another `restock`. Throw `IdempotencyConflict`.
+- **Rows written:** none
+- **Response:** 409 `idempotency_conflict`. The POS has a bug, and we surface it instead of hiding it (D-029).
 
 ---
 

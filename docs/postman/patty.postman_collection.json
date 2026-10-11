@@ -7,7 +7,7 @@
     "item": [
         {
             "name": "Scenario",
-            "description": "The brief end to end: ingredients, a recipe, a purchase order, refused moves, a partial delivery within the under-tolerance, over-delivery by percent and by cap, the closing delivery, a POS sale and its replay, then stock and history. Creates its own records with a unique suffix, so it can run on a seeded database.",
+            "description": "The brief end to end: ingredients, a recipe, a purchase order, refused moves, a partial delivery within the under-tolerance, over-delivery by percent and by cap, the closing delivery, a POS sale and its replay, a refund of food that was made and one refused for being too large, then stock and history. Creates its own records with a unique suffix, so it can run on a seeded database.",
             "item": [
                 {
                     "name": "0. Health check and start a run",
@@ -653,7 +653,7 @@
                         "url": "{{base_url}}/sales",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -669,6 +669,8 @@
                                 "exec": [
                                     "pm.test('status is 201', () => pm.response.to.have.status(201));",
                                     "const d = pm.response.json().data;",
+                                    "pm.collectionVariables.set('sale_id', d.id);",
+                                    "pm.test('the two Classic Burger lines are merged into one line of 2', () => { pm.expect(d.lines.length).to.eql(1); pm.expect(d.lines[0].quantity).to.eql(2); pm.expect(d.item_count).to.eql(1); pm.expect(d.units).to.eql(2); });",
                                     "const by = id => d.deductions.find(x => x.ingredient.id === id);",
                                     "pm.test('beef: 300 g out, 660 g left', () => { const x = by(pm.collectionVariables.get('beef_id')); pm.expect(x.quantity).to.eql(300); pm.expect(x.on_hand_after).to.eql(660); });",
                                     "pm.test('bun: 2 out, 8 left', () => { const x = by(pm.collectionVariables.get('bun_id')); pm.expect(x.quantity).to.eql(2); pm.expect(x.on_hand_after).to.eql(8); });",
@@ -704,10 +706,10 @@
                             }
                         ],
                         "url": "{{base_url}}/sales",
-                        "description": "Same pos_reference, same item and quantity: 200 with the original sale, no new movements (D-014, D-029).",
+                        "description": "Same pos_reference, same merged lines (in any order): 200 with the original sale, no new movements (D-014, D-029, D-048).",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 2,\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"postman-{{run}}-1\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -723,6 +725,110 @@
                                 "exec": [
                                     "pm.test('status is 200', () => pm.response.to.have.status(200));",
                                     "pm.test('marked as a replay', () => pm.expect(pm.response.json().data.replayed).to.eql(true));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "14a. Refund one burger that was made: no stock moves",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales/{{sale_id}}/returns",
+                        "description": "The food was already cooked, so restock is false: the refund is recorded but writes no stock movement (D-049). Stock and the beef history in the next steps are unchanged.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"restock\": false,\n    \"reason\": \"Customer complaint\",\n    \"pos_reference\": \"postman-{{run}}-ret-1\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data;",
+                                    "pm.test('a refund of 1 burger, not restocked', () => { pm.expect(d.restock).to.eql(false); pm.expect(d.lines.length).to.eql(1); pm.expect(d.lines[0].quantity).to.eql(1); pm.expect(d.number).to.match(/^RET-/); });",
+                                    "pm.test('nothing was put back', () => pm.expect(d.restocked).to.eql([]));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "14b. Refund two more burgers: only 1 left (422 over_refund)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales/{{sale_id}}/returns",
+                        "description": "2 were sold and 1 is already refunded, so 1 is left. Asking for 2 is refused before anything is written, even with restock true (D-049). Stock does not change.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 2 }\n    ],\n    \"restock\": true,\n    \"reason\": \"Wrong order\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                                    "const b = pm.response.json();",
+                                    "pm.test('code over_refund', () => pm.expect(b.code).to.eql('over_refund'));",
+                                    "pm.test('the error names the line and what is left', () => pm.expect(b.errors['lines.0.quantity'][0]).to.include('only 1 '));"
                                 ]
                             }
                         }
@@ -1700,10 +1806,10 @@
                             }
                         ],
                         "url": "{{base_url}}/sales",
-                        "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                        "description": "As if the till were calling. A sale is a ticket of one or more lines (D-048); this one sends the same menu item on two lines, which the server merges into one line of 2. Stock falls by the recipe of every line. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). If any item has no recipe the whole ticket is refused (422 menu_item_not_sellable). Resending the same pos_reference with the same lines (any order) is a replay (200), with different lines it is 409 idempotency_conflict. Rate limited to 120 a minute.",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1738,10 +1844,10 @@
                                     }
                                 ],
                                 "url": "{{base_url}}/sales",
-                                "description": "As if the till were calling. Stock falls by the recipe. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). Resending the same pos_reference is a replay (200), with a different item or quantity it is 409 idempotency_conflict. Rate limited to 120 a minute.",
+                                "description": "As if the till were calling. A sale is a ticket of one or more lines (D-048); this one sends the same menu item on two lines, which the server merges into one line of 2. Stock falls by the recipe of every line. A sale is accepted even when it takes stock below zero: it already happened in the restaurant, and negative stock is flagged, not hidden (D-010). If any item has no recipe the whole ticket is refused (422 menu_item_not_sellable). Resending the same pos_reference with the same lines (any order) is a replay (200), with different lines it is 409 idempotency_conflict. Rate limited to 120 a minute.",
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n    \"menu_item_id\": \"{{burger_id}}\",\n    \"quantity\": 1,\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
+                                    "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 },\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"pos_reference\": \"till-1:{{$timestamp}}\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -1779,6 +1885,93 @@
                         ],
                         "url": "{{base_url}}/sales"
                     }
+                },
+                {
+                    "name": "Refund items of a sale (E33)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Patty-Channel",
+                                "value": "pos",
+                                "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                            },
+                            {
+                                "key": "X-POS-Key",
+                                "value": "{{pos_key}}",
+                                "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                            }
+                        ],
+                        "url": "{{base_url}}/sales/{{sale_id}}/returns",
+                        "description": "Refund items of a sale (D-049). A sale is never edited: a refund is a new document. Uses sale_id, which the Scenario saves from step 13, or paste a sale ULID. restock is required: false means the food was made and no stock moves; true means it was voided before cooking and the ingredients go back as positive sale_return movements, computed from the sale line's own movements. A line can never be refunded beyond what is left (422 over_refund); a menu item not on the sale is 422 item_not_on_sale. Resending the same pos_reference with the same sale, lines and restock is a replay (200), anything else with it is 409 idempotency_conflict.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"restock\": true,\n    \"reason\": \"Cancelled before cooking\",\n    \"pos_reference\": \"till-1:ret-{{$timestamp}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "422 over_refund",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "X-Patty-Channel",
+                                        "value": "pos",
+                                        "description": "Where the action came from, recorded in the audit trail (ui, pos or api)."
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "description": "Required on every write, even with no body (S6). Without it the API answers 415."
+                                    },
+                                    {
+                                        "key": "X-POS-Key",
+                                        "value": "{{pos_key}}",
+                                        "description": "Only checked when POS_API_KEY is set on the server (D-028). Leave pos_key empty otherwise."
+                                    }
+                                ],
+                                "url": "{{base_url}}/sales/{{sale_id}}/returns",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"lines\": [\n        { \"menu_item_id\": \"{{burger_id}}\", \"quantity\": 1 }\n    ],\n    \"restock\": true,\n    \"reason\": \"Cancelled before cooking\",\n    \"pos_reference\": \"till-1:ret-{{$timestamp}}\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "_postman_previewlanguage": "json",
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"Only 1 Classic Burger left to refund on SALE-2026-000125.\",\n    \"code\": \"over_refund\",\n    \"errors\": {\n        \"lines.0.quantity\": [\n            \"Line 1: only 1 Classic Burger left to refund on SALE-2026-000125.\"\n        ]\n    }\n}"
+                        }
+                    ]
                 }
             ]
         },
@@ -1962,6 +2155,10 @@
         },
         {
             "key": "burger_id",
+            "value": ""
+        },
+        {
+            "key": "sale_id",
             "value": ""
         },
         {

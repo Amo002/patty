@@ -27,8 +27,7 @@ class SaleController extends ApiController
     public function store(StoreSaleRequest $request): JsonResponse
     {
         $result = $this->sales->record(
-            $request->menuItem(),
-            (int) $request->validated('quantity'),
+            $request->lines(),
             $request->validated('pos_reference'),
             $request->soldAt(),
         );

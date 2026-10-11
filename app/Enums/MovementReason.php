@@ -10,12 +10,14 @@ enum MovementReason: string
 {
     case Delivery = 'delivery';
     case Sale = 'sale';
+    case SaleReturn = 'sale_return';
 
     public function label(): string
     {
         return match ($this) {
             self::Delivery => 'Delivery',
             self::Sale => 'Sale',
+            self::SaleReturn => 'Sale return',
         };
     }
 }

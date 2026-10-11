@@ -5,6 +5,8 @@ use App\Models\Ingredient;
 use App\Models\MenuItem;
 use App\Models\PurchaseOrder;
 use App\Models\Sale;
+use App\Models\SaleLine;
+use App\Models\SaleReturn;
 use App\Models\StockMovement;
 use App\Services\IngredientService;
 use App\Support\DemoTools;
@@ -113,9 +115,49 @@ it('records exactly 120 sales with sequential till references and one replay', f
         ->and(Activity::query()->where('event', 'sale.replayed')->count())->toBe(1);
 
     // A replay moves no stock: one set of sale movements per sale, so no sale has two.
-    $perSale = StockMovement::query()->where('reason', 'sale')->where('reference_type', 'sale')
+    $perSale = StockMovement::query()->where('reason', 'sale')->where('reference_type', 'sale_line')
         ->selectRaw('reference_id, ingredient_id, COUNT(*) as n')->groupBy('reference_id', 'ingredient_id')->pluck('n');
     expect($perSale->max())->toBe(1);
+});
+
+it('seeds one refund that was made (no stock moves) and one that was voided (stock comes back) (D-049)', function () {
+    $returns = SaleReturn::query()->with('lines.saleLine')->orderBy('id')->get();
+
+    expect($returns)->toHaveCount(2)
+        ->and($returns->pluck('restock')->all())->toBe([false, true])
+        ->and($returns->pluck('reason')->all())->toBe(['Customer complaint', 'Cancelled before cooking'])
+        ->and($returns->pluck('number')->all())->toBe($returns->map(fn ($r) => 'RET-'.$r->returned_at->copy()->utc()->year)->zip(['-000001', '-000002'])->map(fn ($p) => $p[0].$p[1])->all())
+        ->and(Activity::query()->where('event', 'sale.returned')->count())->toBe(2);
+
+    [$made, $voided] = $returns->all();
+    $movementsOf = fn (SaleReturn $return) => StockMovement::query()
+        ->where('reference_type', 'sale_return_line')->whereIn('reference_id', $return->lines->pluck('id'))->get();
+
+    // Made: the ingredients really left, so nothing is put back.
+    expect($movementsOf($made))->toHaveCount(0);
+
+    // Voided: exactly the share of the sale line's own movements that one unit represents, all positive.
+    $line = $voided->lines->first()->saleLine;
+    $sold = StockMovement::query()->where('reference_type', 'sale_line')->where('reference_id', $line->id)->get();
+    expect($movementsOf($voided))->toHaveCount($sold->count())
+        ->and($movementsOf($voided)->sum('quantity_delta'))->toBe((int) (-$sold->sum('quantity_delta') / $line->quantity));
+});
+
+it('keeps sale and refund movement ids in clock order', function () {
+    $byClock = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('occurred_at')->orderBy('id')->pluck('id')->all();
+    $byId = StockMovement::query()->whereIn('reason', ['sale', 'sale_return'])->orderBy('id')->pluck('id')->all();
+
+    expect($byClock)->toBe($byId);
+});
+
+it('seeds tickets of one to three different items, with some multi-item tickets', function () {
+    $sizes = SaleLine::query()->get()->groupBy('sale_id')->map->count();
+
+    // The unique (sale_id, menu_item_id) index already keeps the items distinct.
+    expect($sizes)->toHaveCount(DemoSeeder::SALES)
+        ->and($sizes->min())->toBe(1)
+        ->and($sizes->max())->toBe(3)
+        ->and($sizes->filter(fn (int $n) => $n > 1)->count())->toBeGreaterThan(10);
 });
 
 it('puts the sales in the last three days, in the lunch and dinner peaks, never in the future', function () {
@@ -130,7 +172,7 @@ it('puts the sales in the last three days, in the lunch and dinner peaks, never 
     }
 
     // Mostly Classic and Fries.
-    $top = $sales->groupBy('menu_item_id')->map->count()->sortDesc()->keys()->take(2)->all();
+    $top = SaleLine::query()->get()->groupBy('menu_item_id')->map->count()->sortDesc()->keys()->take(2)->all();
     $names = MenuItem::query()->whereIn('id', $top)->pluck('name')->all();
     expect($names)->toContain('Classic Burger', 'Fries');
 });
@@ -183,7 +225,7 @@ it('gives the same counts and the same final stock on every run', function () {
         'counts' => DemoTools::counts(),
         'stock' => stockByName(),
         'po' => PurchaseOrder::query()->orderBy('id')->get()->map(fn ($po) => [$po->status->value, $po->short_closed])->all(),
-        'units_sold' => (int) Sale::query()->sum('quantity'),
+        'units_sold' => (int) SaleLine::query()->sum('quantity'),
     ];
 
     $first = $snapshot();

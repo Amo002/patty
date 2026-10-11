@@ -298,3 +298,42 @@ After the fixes, the app seeded and served, data survived a restart, and 420 tes
 - PR bodies with double quotes were mangled by PowerShell 5.1 argument passing. They are now written from a file.
 
 **Owner decisions:** icons only, no photos (D-046); test Docker on a real machine rather than ship it untested.
+## 2026-10-11: PTY-29, multi-item sales (after submission)
+
+**Prompt (Mohamad):** "what we have now in the pos semultation is we only chose one menue item lets find a way and plan how we can do it with mutlible menue item and that will also reflect on the ingrediant and the stock we have." Then, before approving the plan: "make me an artifact to see how it will work", and "whats about the refuund if for example i wanna refund 1 frise".
+
+**What worked:**
+- Planning before code, with a clickable HTML mockup of the new POS (tiles, ticket, per-ingredient preview, the request and the database rows) that Mohamad tried before approving.
+- His refund question **changed the design**. The first plan wrote one movement per ingredient per sale (beef -600 as one row). A refund of one Fries could then not tell which line took what. The approved design writes one movement per sale line and recipe line, so a refund puts back exactly `line delta / n x k` (D-048). Refunds became their own ticket, PTY-30.
+- An exact API contract in the ticket let three Sonnet builders (backend, UI, docs) work in parallel on separate files, then merge without conflicts.
+
+**What had to be fixed:**
+- **The contract's migration order was wrong for SQLite.** "Copy into sale_lines, then drop the columns" fails, because dropping a foreign-key column rebuilds `sales` and the new rows block the drop. The backend builder's own migration test caught it, and it reordered the steps. The orchestrator then ran the migration on a copy of a real 121-sale database to confirm nothing was lost.
+- **The Opus reviewer found two UI bugs the builder could not see without a backend:** a replay cleared the ticket being built, and resend errors landed on unrelated rows. Also seven Low items (docs drift, a missing service guard, an untested merge path, two misleading messages, a colour token, an over-broad `aria-live`).
+- **The orchestrator's live smoke test** found a 409 message still worded for a single item.
+- **Process slips by the orchestrator:** the first merge commits were not in `PTY-N:` form, and one exposed a worktree name. History was not rewritten. The browser pass could not run because the Chrome extension was not connected, so the UI was checked through the API and by Mohamad by hand.
+
+## 2026-10-11: PTY-30, sale refunds
+
+**Prompt (Mohamad):** "where can i do the refund", then "start it please i merged".
+
+**What worked:**
+- The business rule came out of his own question while planning PTY-29: a refund puts stock back only when the food was not made. It shaped PTY-29's data model (one movement per sale line) before a line of PTY-30 existed, so the restock is a plain `-(delta) / n x k` from the sale's own movements.
+- The same three-builder setup as PTY-29, with a contract in the ticket. The docs builder caught that the contract's endpoint number E27 was already taken and used E33.
+- The Opus reviewer ran 12 mutation checks in a temporary worktree. Every stock rule has a test that fails when the rule is removed.
+
+**What had to be fixed:**
+- **The orchestrator's contract reused E27.** Caught by the docs builder.
+- **The UI threw away the server's idempotency:** a new reference on every press, so a retry after a lost response could refund twice (Medium). Also focus handling, an honest "estimated" hint on the preview, a seeded refund timed after the next sale, stale E27 comments, docs drift, an untested error-precedence rule.
+- **The orchestrator's own unit typo** in the manual QA (oil and ketchup in g instead of ml).
+- **Not done:** a browser click-through (the Chrome extension was not connected). The flows were checked through the live API on a seeded database.
+
+## 2026-10-11: PTY-31, SQLite transactions
+
+**Prompt (Mohamad):** "just fix the issue you saw and lets make sure everything is okay and push to main".
+
+**What happened:** the PTY-30 code-review pass found that on SQLite two writers could both pass their checks and the second got a 500. The orchestrator wrote a test that holds a read-only transaction open on a file database and tries a second writer from another connection. It failed on the old settings, proving the bug, then passed after switching to IMMEDIATE transactions with a 5 s busy timeout (D-050). Five docblocks that described the old behaviour ("a racing writer fails") were corrected.
+
+**What had to be fixed:** the orchestrator's scripted docblock edit wrote Windows line endings; Pint caught it and they were converted back.
+
+**Earlier signal missed:** the PTY-9 review had already recorded this as Info. It was right; it only became visible as a user-facing 500 once refunds made "the last unit" a common race.

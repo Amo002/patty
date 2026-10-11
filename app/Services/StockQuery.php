@@ -7,6 +7,8 @@ use App\Models\DeliveryLine;
 use App\Models\Ingredient;
 use App\Models\PurchaseOrderLine;
 use App\Models\Sale;
+use App\Models\SaleLine;
+use App\Models\SaleReturnLine;
 use App\Models\StockMovement;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -158,7 +160,11 @@ class StockQuery
             ->where('ingredient_id', $ingredient->getKey())
             ->with(['reference' => fn (MorphTo $reference) => $reference->morphWith([
                 DeliveryLine::class => ['delivery.purchaseOrder'],
-                Sale::class => ['menuItem'],
+                // D-048: a sale movement points at its SaleLine; the ticket's other lines are needed for the label.
+                SaleLine::class => ['sale.lines.menuItem'],
+                Sale::class => ['lines.menuItem'],
+                // D-049: a restock movement points at its SaleReturnLine; the label names the refunded item.
+                SaleReturnLine::class => ['saleReturn.sale', 'saleLine.menuItem'],
             ])])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
@@ -193,12 +199,28 @@ class StockQuery
             ];
         }
 
-        if ($reference instanceof Sale) {
+        // D-048: new sale movements reference a SaleLine; older ones reference the Sale itself.
+        // Both describe the ticket.
+        if ($reference instanceof SaleLine || $reference instanceof Sale) {
+            $sale = $reference instanceof SaleLine ? $reference->sale : $reference;
+
             return [
                 'type' => 'sale',
-                'number' => $reference->number,
-                'label' => "{$reference->number} {$reference->menuItem->name} x{$reference->quantity}",
-                'sale_id' => $reference->ulid,
+                'number' => $sale->number,
+                'label' => "{$sale->number} {$sale->summary()}",
+                'sale_id' => $sale->ulid,
+            ];
+        }
+
+        if ($reference instanceof SaleReturnLine) {
+            $return = $reference->saleReturn;
+            $sale = $return->sale;
+
+            return [
+                'type' => 'sale_return',
+                'number' => $return->number,
+                'label' => "{$return->number} for {$sale->number}: {$reference->saleLine->menuItem->name} x{$reference->quantity}",
+                'sale_id' => $sale->ulid,
             ];
         }
 

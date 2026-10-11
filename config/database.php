@@ -38,10 +38,14 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
+            // D-050 (PTY-31): services read, check, then write inside one transaction, and lockForUpdate
+            // compiles to nothing on SQLite. IMMEDIATE takes the write lock at BEGIN, so a second writer
+            // waits (up to busy_timeout ms) and then sees the first one's rows, instead of both reading and
+            // the second failing with SQLITE_BUSY, a 500. Reads outside transactions are unaffected.
+            'busy_timeout' => 5000,
             'journal_mode' => null,
             'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            'transaction_mode' => 'IMMEDIATE',
         ],
 
         'mysql' => [

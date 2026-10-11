@@ -442,3 +442,53 @@ Append-only. Each entry records what was chosen, what was rejected, and why, so 
 - **Cost:** one fewer independent pair of eyes on security. It is stated in the README and the PTY-21 ticket rather than hidden.
 - **Decided by:** Mohamad.
 - **Date:** 2026-10-02
+
+## D-048 A sale is a ticket of lines; each movement points at its sale line
+- **Chosen:** a sale holds one or more lines in a new `sale_lines` table (`sale_id`, `menu_item_id`, `quantity`, unique per sale and menu item). The POS sends `lines[]` to `POST /sales`. The sale is recorded in one transaction and writes **one stock movement per (sale line, recipe line)**, each referencing the `SaleLine` (morph alias `sale_line`). The response groups `deductions` per ingredient across the whole ticket. Duplicate menu items in one ticket are merged before anything else.
+- **Why:**
+  - a real till sends tickets (2 Classic Burger + 1 Fries under one reference), not one item at a time;
+  - one transaction makes a ticket all or nothing: if any item has no recipe the whole ticket is refused and no SALE number is used;
+  - per-line movements let a refund (PTY-30) of k of n units put back exactly what that line took: `line delta / n x k` is an exact integer, and it stays correct after the recipe changes, because the movement holds what was taken then, not what the recipe says now;
+  - it mirrors `DeliveryLine`, which already gives each delivered line its own movement.
+- **Rejected:**
+  - several single-item POSTs per ticket: not atomic, and one POS reference per item instead of per ticket;
+  - one movement per ingredient per sale (fewer rows): a refund could not tell which line took what.
+- **Still holds:** D-010 (no stock check before a sale; a ticket may take stock below zero and the deduction is flagged) and D-029 (idempotency by `pos_reference`; same lines replay with 200, different lines are a 409). Sameness now compares the merged lines as (menu item, quantity) pairs, regardless of order.
+- **Breaking change:** the old body `{menu_item_id, quantity}` is rejected (422 on `lines`). `sales` no longer has `menu_item_id` or `quantity`; the migration moves each existing sale into one sale line.
+- **Ticket:** PTY-29. Prepares PTY-30 (refunds).
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-11
+
+## D-049 A refund is a new document; stock comes back only when the food was not made
+- **Chosen:** a refund is a new `sale_returns` row with its `sale_return_lines`, against a sale. The sale is never edited or deleted. `POST /sales/{sale}/returns` takes the lines to refund, a required `restock` flag and a required `reason`.
+  - **`restock` is required on the API, with no default.** The UI preselects "Yes, it was made" (`restock: false`), the common case.
+  - **`restock: false`** writes no stock movement at all. The refund exists for the sales report and the audit trail.
+  - **`restock: true`** writes positive `sale_return` movements, each referencing the `SaleReturnLine`. For each refunded line and each movement of that sale line, the amount is `-(movement delta) / line quantity x refunded quantity`. It is always an exact integer, because the sale movement is `-(recipe quantity x line quantity)`. It is computed from the sale line's own movements, never from today's recipe, so a recipe change after the sale does not change the refund.
+  - **Legacy sales** (recorded before D-048) have movements on the sale, not on the line, and exactly one line. For a line with no movements of its own whose sale has exactly one line, the sale's movements are used. A line with no movements at all restocks nothing.
+  - **Never more than is left, per line:** left = line quantity - earlier refunds of that line. Every line is checked, inside the transaction with the sale row locked, before anything is written. All breaches are reported together (422 `over_refund`). An item that is not on the sale is 422 `item_not_on_sale`.
+  - **Idempotency as D-029:** an optional `pos_reference`, unique on `sale_returns`. The same reference with the same sale, the same merged lines (any order) and the same `restock` is a 200 replay and writes nothing but an audit row. Anything different is 409 `idempotency_conflict`.
+- **Why:**
+  - cooked food cannot go back on the shelf. Restocking every refund would make stock wrong, and stock numbers that are always right is the first thing this system is judged on;
+  - an order voided before cooking never left the fridge, so its ingredients must come back or stock would show food missing that is still there;
+  - the sale stays the historical truth, and the refund is a correction document, as in the ledger: postings are the truth, balances are a view of them.
+- **Rejected:**
+  - deleting or editing the sale: it destroys history, and the ledger is append-only;
+  - always restocking: wrong for food that was made;
+  - never restocking: a voided order would show stock missing that is still on the shelf;
+  - restocking from today's recipe: wrong after a recipe change, because the sale took what the recipe said then.
+- **Still holds:** D-010 (no stock check: a restock never fails because of stock, and a refund never fails because stock is negative) and D-048 (per-line movements are what make an exact refund possible).
+- **Ticket:** PTY-30. Builds on D-048.
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-11
+
+## D-050 SQLite transactions are IMMEDIATE, with a 5 second busy timeout
+- **Chosen:** `config/database.php` sets `transaction_mode` to `IMMEDIATE` and `busy_timeout` to 5000 ms for SQLite. A transaction takes the write lock when it begins; a second writer waits for it, then reads the first one's rows.
+- **Why:** every write service (receiving, sales, refunds, order transitions, ingredient edits) reads, checks, then writes inside one transaction, and `lockForUpdate()` compiles to nothing on SQLite. With Laravel's default DEFERRED, two such transactions could both read, then the second one's first write failed at once with SQLITE_BUSY: a 500 instead of a clean 422 (for example `over_refund` for the last unit, or a POS retry that should have been a replay). Stock was never double-counted, but the client got an error it could not act on. First noted as Info in the PTY-9 review, raised to Medium in the PTY-30 review.
+- **Rejected:**
+  - keeping DEFERRED and catching SQLITE_BUSY in each service: a try/catch per service for a database setting;
+  - making the first statement of each transaction a dummy write: works, but hides the reason in every service;
+  - doing nothing because one branch has little concurrency: two tills, or a till retrying while a manager receives, is enough.
+- **Cost:** writers queue instead of overlapping. At one branch that is microseconds per request. Reads outside transactions are not affected. MySQL and Postgres keep their real row locks.
+- **Ticket:** PTY-31. Related: D-024 (defence in depth), D-029 (retries).
+- **Decided by:** Mohamad.
+- **Date:** 2026-10-11

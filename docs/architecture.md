@@ -11,7 +11,7 @@ A one-branch burger restaurant wants to *"stop running out of ingredients and st
 | Guessing what's in the storeroom | Stock is derived from every delivery and sale. It is never stored, so it cannot drift from its history. | Solved |
 | "At any moment" | No caching anywhere, `no-store` headers, auto-refresh, a visible "updated N s ago" | Solved |
 | Deliveries don't match the order | Partial deliveries, 5% over-delivery tolerance, short-close | Solved |
-| Every sale uses a recipe | Each sale explodes into one movement per recipe ingredient. POS retries are idempotent. | Solved |
+| Every sale uses a recipe | Each sale is a ticket of lines; each line explodes into one movement per recipe ingredient. POS retries are idempotent. | Solved |
 | Which orders are still open | Open orders with ordered / received / outstanding per line | Solved |
 | Orders can't reach a bad state | One transition map, guarded operations, every invalid move tested | Solved |
 | Stop running out | On hand **plus Incoming** (outstanding on open orders) per ingredient, so the manager sees what is already on the way | Solved for "what's coming". Reorder levels are the next step. |
@@ -82,18 +82,38 @@ UI  POST /purchase-orders/{id}/deliveries  { lines: [{ purchase_order_line_id, q
 
 ### POS sale (PTY-9)
 ```
-POS POST /sales  { menu_item_id, quantity, pos_reference }
+POS POST /sales  { lines: [{ menu_item_id, quantity }], pos_reference }
   SaleService::record
     pos_reference seen before?  ->  200, original sale, replayed: true, no stock moves
     BEGIN TRANSACTION
-      menu item has a recipe                                else 422 menu_item_not_sellable
-      insert sale
-      per recipe line: StockLedger::record(-(line.qty x sale.qty), sale)
+      merge duplicate items; load all recipes in one query
+      every item has a recipe                               else 422 menu_item_not_sellable (whole ticket)
+      insert sale, insert sale lines
+      per sale line, per recipe line: StockLedger::record(-(recipe.qty x line.qty), saleLine)
       any ingredient now negative -> Log::channel('stock')->warning
       activity('sale.recorded')
     COMMIT
-  201 { success: true, data: sale, deductions, negatives }
+  201 { success: true, data: sale (lines, deductions grouped per ingredient) }
 ```
+
+### Sale refund (PTY-30)
+```
+POS POST /sales/{sale}/returns  { lines: [{ menu_item_id, quantity }], restock, reason, pos_reference }
+  SaleReturnService::record
+    BEGIN TRANSACTION
+      lock the sale row
+      pos_reference seen before?  ->  200 replay if same sale, lines and restock; else 409
+      every item is on the sale                              else 422 item_not_on_sale
+      per line: quantity <= line quantity - earlier refunds  else 422 over_refund (all breaches, nothing written)
+      insert sale return, insert its lines
+      if restock: per refunded line, per movement of that sale line:
+        StockLedger::record(-(movement delta) / line qty x refunded qty, saleReturnLine)
+      if not restock: no movement at all (the food was made)
+      activity('sale.returned') on the sale
+    COMMIT
+  201 { success: true, data: sale return (lines, restocked grouped per ingredient) }
+```
+The sale and its movements are never touched. A refund is a new document, and a restock is a new positive movement (D-049).
 
 ### Purchase order states (PTY-7)
 ```
@@ -109,6 +129,7 @@ POS POST /sales  { menu_item_id, quantity, pos_reference }
 |---|---|
 | `stock_movements` | on hand = sum of deltas per ingredient |
 | `delivery_lines` | received, outstanding, over-received per PO line |
+| `sale_return_lines` | refunded and left-to-refund per sale line |
 | `delivery_lines` of open POs | incoming per ingredient |
 | `activity_log` | the history panel |
 
@@ -135,8 +156,8 @@ How "stock numbers that are always right" is protected, layer by layer (D-024):
 
 1. **Input:** FormRequests accept integers only, check `exists`, and bound quantities (max 1,000,000 per line, 50 lines).
 2. **Domain:** services and the single transition map reject what the current state forbids.
-3. **Atomicity:** each use case is one transaction. A delivery or sale lands completely or not at all.
-4. **Concurrency:** the PO row is locked while receiving. A unique `pos_reference` stops double-counted retries.
+3. **Atomicity:** each use case is one transaction. A delivery, sale or refund lands completely or not at all.
+4. **Concurrency:** the PO row is locked while receiving, and the sale row while refunding, so two refunds cannot both take the last unit. A unique `pos_reference` stops double-counted retries.
 5. **Database:** foreign keys, unique indexes, and triggers that make `stock_movements` impossible to update or delete, even from a console or a bug.
 6. **HTTP:** rate limit on the POS endpoint, security headers, `no-store`.
 7. **Process:** tests that fail without the logic, CI on every PR, protected branches, a reviewer agent one tier above the builder, and the owner's line-by-line review.

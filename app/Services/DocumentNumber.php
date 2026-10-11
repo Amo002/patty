@@ -19,6 +19,8 @@ class DocumentNumber
 
     public const SALE = 'SALE';
 
+    public const SALE_RETURN = 'RET';
+
     /**
      * Zero-padding width per type; sales run far more often than orders.
      *
@@ -28,6 +30,7 @@ class DocumentNumber
         self::PURCHASE_ORDER => 4,
         self::DELIVERY => 4,
         self::SALE => 6,
+        self::SALE_RETURN => 6,
     ];
 
     /**
@@ -37,8 +40,8 @@ class DocumentNumber
      * the caller already has one, so it is safe on its own. Callers should
      * still call it inside the transaction of the document it numbers, so a
      * rollback never burns a number. The counter row is read with a lock (a
-     * no-op on SQLite, whose writer lock already serialises; effective on
-     * MySQL/Postgres). A new year starts a new row, so numbering restarts at 1.
+     * no-op on SQLite, where IMMEDIATE transactions already serialise writers,
+     * D-050; effective on MySQL/Postgres). A new year starts a new row, so numbering restarts at 1.
      *
      * @throws InvalidArgumentException for an unknown type
      */
